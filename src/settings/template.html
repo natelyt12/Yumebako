@@ -89,6 +89,12 @@
                 dưới. Riêng tỉ lệ Phóng to là dùng chung cho tất cả các kiểu. Lưu ý: tăng Tốc độ hoặc Độ xoay quá cao có
                 thể gây mỏi mắt hoặc chóng mặt.</span>
             <div id="wavy_motion_sliders" class="flex_col gap_8 w_full"></div>
+
+            <div class="section_divider"></div>
+
+            <!-- Only randomises the style parameters above, so it lives inside
+                 the advanced section and hides together with it. -->
+            <button id="btn_wavy_random" class="secondary w_full" data-i18n="wavy.btn_random">Ngẫu nhiên</button>
         </div>
 
         <div class="section_divider" data-i18n="wavy.shared_section_label">Tùy chỉnh chung</div>
@@ -98,12 +104,9 @@
 
         <div class="section_divider"></div>
 
-        <div class="flex_col gap_8 w_full">
-            <div class="flex_row gap_8 w_full">
-                <button id="btn_wavy_reset" class="secondary flex_1" data-i18n="wavy.btn_default">Mặc định</button>
-                <button id="btn_wavy_random" class="secondary flex_1" data-i18n="wavy.btn_random">Ngẫu nhiên</button>
-            </div>
-            <button id="btn_wavy_save" class="primary" data-i18n="wavy.btn_save">Lưu</button>
+        <div class="flex_row gap_8 w_full">
+            <button id="btn_wavy_reset" class="secondary flex_1" data-i18n="wavy.btn_default">Mặc định</button>
+            <button id="btn_wavy_save" class="primary flex_1" data-i18n="wavy.btn_save">Lưu</button>
         </div>
         <span class="tooltip" data-i18n="wavy.note_tooltip">
             Cài đặt mặc định mang lại hiệu ứng tự nhiên nhất.
