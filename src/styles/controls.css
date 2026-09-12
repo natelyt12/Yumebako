@@ -144,6 +144,20 @@ hr {
     display: none;
 }
 
+/* Wavy motion sliders: each control keeps its tooltip visually attached, while
+   the group separates the individual controls from one another. */
+.wavy_control_group {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.wavy_control_item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
     width: 4px;

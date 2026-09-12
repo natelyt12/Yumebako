@@ -2,7 +2,7 @@ import { initI18n } from "./i18n.js";
 import { getSettings } from "./storageHandler.js";
 import { providerManager } from "../wallpaper/providers/ProviderManager.js";
 import { initWidget } from "../widgets/handler.js";
-import { initializeWavySettings } from "../wallpaper/bgWavy.js";
+import { initializeWavySettings } from "../wallpaper/motion/WavyEditorUI.js";
 import { initializeParticles } from "../wallpaper/particles.js";
 import { initAppUtils } from "../settings/system/apputils.js";
 import { renderIcons } from "./icon.js";

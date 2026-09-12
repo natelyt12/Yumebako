@@ -5,6 +5,11 @@ import { initDate, initClock } from "/src/core/time.js";
 const STORAGE_KEY = "bako_settings";
 const WALLPAPER_KEYS = ["wallpaperConfig", "wallpaperPosition", "wavy", "particles", "onload"];
 
+// Legacy flat wavy params, back when the classic wave generator existed. That
+// generator was removed, so the values are carried over to WAVY_DEFAULT_MOTION.
+const WAVY_LEGACY_MOTION_KEYS = ["amplitudeX", "speedX", "amplitudeY", "speedY", "amplitudeRotate", "speedRotate"];
+const WAVY_DEFAULT_MOTION = "noise";
+
 // Define default data structure
 // NOTE: When adding a new module that requires settings, add its default key here.
 const defaultSettings = {
@@ -26,15 +31,15 @@ const defaultSettings = {
         enabled: false,
         parallaxEnabled: false,
         config: {
-            amplitudeX: 6,
-            speedX: 1,
-            amplitudeY: 6,
-            speedY: 1.2,
-            amplitudeRotate: 0.7,
-            speedRotate: 0.8,
+            motionType: "noise",
+            scale: 1.04,
+            advanced: false,
             parallaxInertia: 0.03,
             parallaxAmplitude: -30,
-            scale: 1.07
+            // Per-motion-type parameter bags, keyed by motion id. Each generator
+            // declares its own defaults in its class (see src/wallpaper/motion),
+            // so only the container lives here — same approach as `particles`.
+            motions: {}
         }
     },
     particles: {
@@ -190,6 +195,34 @@ export function getSettings() {
         if (mergedStored.wallpaperConfig && typeof mergedStored.wallpaperConfig.rotation === "string") {
             const LEGACY_ROTATION_MAP = { never: 0, "15min": 1, "30min": 2, "1hour": 3, "2hour": 4 };
             mergedStored.wallpaperConfig.rotation = LEGACY_ROTATION_MAP[mergedStored.wallpaperConfig.rotation] ?? 0;
+        }
+
+        // The classic wave generator was removed. Carry its parameters (the old
+        // flat keys and/or the legacy `motions.sine` bag) over to the new default
+        // generator so users keep their tuning — existing target values win.
+        const legacyWavyConfig = mergedStored.wavy?.config;
+        if (legacyWavyConfig) {
+            if (!legacyWavyConfig.motions) legacyWavyConfig.motions = {};
+
+            const carried = { ...(legacyWavyConfig.motions.sine || {}) };
+            WAVY_LEGACY_MOTION_KEYS.forEach((key) => {
+                if (legacyWavyConfig[key] !== undefined) {
+                    carried[key] = legacyWavyConfig[key];
+                    delete legacyWavyConfig[key];
+                }
+            });
+            delete legacyWavyConfig.motions.sine;
+
+            if (Object.keys(carried).length > 0) {
+                legacyWavyConfig.motions[WAVY_DEFAULT_MOTION] = {
+                    ...carried,
+                    ...(legacyWavyConfig.motions[WAVY_DEFAULT_MOTION] || {}),
+                };
+            }
+
+            if (legacyWavyConfig.motionType === "sine") {
+                legacyWavyConfig.motionType = WAVY_DEFAULT_MOTION;
+            }
         }
 
         settingsCache = deepMerge(defaultSettings, mergedStored);

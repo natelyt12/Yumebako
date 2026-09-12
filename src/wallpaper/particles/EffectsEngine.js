@@ -1,6 +1,6 @@
 import { ALL_EFFECTS } from "./registry.js";
 import { getSettings } from "/src/core/storageHandler.js";
-import { getWavyParallaxState, getSmoothedMouse } from "/src/wallpaper/bgWavy.js";
+import { getWavyParallaxState, getSmoothedMouse } from "/src/wallpaper/motion/WavyEngine.js";
 
 // ==========================================
 // EFFECTS ENGINE — Multi-canvas, 2-layer
@@ -49,7 +49,7 @@ export class EffectsEngine {
 
         const tick = () => {
             const { amplitude } = getWavyParallaxState();
-            // Use bgWavy's already-smoothed mouse — Single Source of Truth for parallax
+            // Use the wavy engine's already-smoothed mouse — Single Source of Truth for parallax
             const { mouseX, mouseY } = getSmoothedMouse();
 
             const e = layers.get(id);

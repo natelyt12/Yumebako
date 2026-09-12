@@ -113,6 +113,13 @@
     padding: 12px 16px;
 }
 
+/* Submenu sections get the same gap-driven rhythm as `.setting_options` in the
+   main menu, so their children no longer need ad-hoc margins. Sections that
+   bring their own title/options layout are left untouched. */
+.submenu_body .setting_section:not(:has(.setting_title)) {
+    gap: 8px;
+}
+
 .setting_section:hover .setting_title {
     padding: 0px 12px 10px 12px;
     color: rgba(255, 255, 255, 0.9);

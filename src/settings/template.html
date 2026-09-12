@@ -1,6 +1,6 @@
 <!-- Feature Templates -->
 <template id="tpl_wallpaper_editor">
-    <div class="setting_section wallpaper_editor gap_8">
+    <div class="setting_section wallpaper_editor">
         <div id="editor_container" class="editor_container">
             <div id="full_image_view" class="full_image_view">
                 <div id="view_lens" class="view_lens">
@@ -65,9 +65,37 @@
 <template id="tpl_wavy_settings">
     <!-- Section 1: Wavy Animation -->
     <div class="setting_section wavy_settings">
-        <div id="wavy_sliders_container" class="flex_col gap_8 w_full">
-            <!-- Dynamic wavy sliders injected here -->
+        <div class="section_divider" data-i18n="wavy.motion_type_label">Kiểu chuyển động</div>
+        <div class="dropdown_wrapper" id="wavy_motion_wrapper">
+            <button class="dropdown_button" id="wavy_motion_type">
+                <span class="selected_value">--</span>
+                <div class="sbsctsvg"></div>
+            </button>
+            <!-- Items injected from the motion registry -->
+            <div class="dropdown" id="wavy_motion_dropdown"></div>
         </div>
+        <label class="checkbox btn_liked">
+            <span data-i18n="wavy.advanced_settings">Cài đặt nâng cao</span>
+            <input type="checkbox" id="wavy_advanced_toggle" />
+            <div class="ts-track">
+                <div class="ts-thumb"></div>
+            </div>
+        </label>
+
+        <!-- Advanced: parameters of the selected motion type, rebuilt on mode change -->
+        <div id="wavy_advanced_section" class="flex_col gap_8 w_full">
+            <div class="section_divider" data-i18n="wavy.advanced_settings">Cài đặt nâng cao</div>
+            <span class="tooltip" data-i18n="wavy.motion_tooltip">Mỗi kiểu chuyển động có bộ thông số riêng ở bên
+                dưới. Riêng tỉ lệ Phóng to là dùng chung cho tất cả các kiểu. Lưu ý: tăng Tốc độ hoặc Độ xoay quá cao có
+                thể gây mỏi mắt hoặc chóng mặt.</span>
+            <div id="wavy_motion_sliders" class="flex_col gap_8 w_full"></div>
+        </div>
+
+        <div class="section_divider" data-i18n="wavy.shared_section_label">Tùy chỉnh chung</div>
+
+        <!-- Shared by every motion type and always visible -->
+        <div id="wavy_shared_sliders" class="flex_col gap_8 w_full"></div>
+
         <div class="section_divider"></div>
 
         <div class="flex_col gap_8 w_full">
@@ -77,9 +105,8 @@
             </div>
             <button id="btn_wavy_save" class="primary" data-i18n="wavy.btn_save">Lưu</button>
         </div>
-        <span class="tooltip mt_10" data-i18n="wavy.note_tooltip">
-            Tính năng mang lại trải nghiệm tốt nhất khi để ở giá trị mặc định. Việc tăng Tốc độ quá cao có thể gây cảm
-            giác chóng mặt hoặc mỏi mắt.
+        <span class="tooltip" data-i18n="wavy.note_tooltip">
+            Cài đặt mặc định mang lại hiệu ứng tự nhiên nhất.
         </span>
     </div>
 </template>
@@ -96,7 +123,7 @@
             <button id="btn_parallax_reset" class="secondary flex_1" data-i18n="wavy.btn_default">Mặc định</button>
             <button id="btn_parallax_save" class="primary flex_1" data-i18n="wavy.btn_save">Lưu</button>
         </div>
-        <span class="tooltip mt_10" data-i18n="wavy.parallax_tooltip">
+        <span class="tooltip" data-i18n="wavy.parallax_tooltip">
             Biên độ âm di chuyển ngược hướng con trỏ chuột, biên độ dương di chuyển cùng hướng. Độ nặng càng nhỏ thì di
             chuyển càng đầm trễ.
             Lưu ý: Chỉnh biên độ bám chuột quá cao có thể khiến hình nền bị lộ viền, hãy kết hợp tăng nhẹ tỉ lệ Phóng to
@@ -106,7 +133,7 @@
 </template>
 
 <template id="tpl_onload_settings">
-    <div class="setting_section onload_settings gap_12">
+    <div class="setting_section onload_settings">
         <p class="popup_section_title" data-i18n="onload_anim.preset_label">Hiệu ứng có sẵn</p>
         <div class="dropdown_wrapper">
             <button class="dropdown_button" id="onload_preset">
@@ -165,10 +192,10 @@
         </div>
         <span class="tooltip" data-i18n="particles.editor_tooltip">Lưu ý: Hiệu ứng càng nhiều sẽ đòi hỏi hiệu năng GPU
             càng cao.</span>
-        <div style="display: flex; gap: 8px; width: 100%;">
-            <button id="btn_clear_all" class="secondary" style="flex: 1;" data-i18n="particles.btn_clear_all">Xóa tất
+        <div class="flex_row gap_8 w_full">
+            <button id="btn_clear_all" class="secondary flex_1" data-i18n="particles.btn_clear_all">Xóa tất
                 cả</button>
-            <button id="btn_save" class="primary" style="flex: 1;" data-i18n="particles.btn_save">Lưu</button>
+            <button id="btn_save" class="primary flex_1" data-i18n="particles.btn_save">Lưu</button>
         </div>
     </div>
 </template>
