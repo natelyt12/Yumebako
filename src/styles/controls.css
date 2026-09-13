@@ -115,6 +115,7 @@ hr {
     align-items: center;
     gap: 12px;
     width: 100%;
+    margin: 8px 0 4px 0;
     color: var(--text-muted);
     font-size: 0.72em;
     font-weight: 600;

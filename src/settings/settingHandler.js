@@ -122,7 +122,7 @@ export async function initSettingsLauncher() {
         
         syncThumbnailUI();
         
-        const { providerManager } = await import("/src/wallpaper/providers/ProviderManager.js");
+        const { providerManager } = await import("/src/wallpaper/providers/index.js");
         providerManager.bindSettingsUI();
     }
 }

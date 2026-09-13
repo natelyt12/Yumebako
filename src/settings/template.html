@@ -143,19 +143,33 @@
                 <span class="selected_value">--</span>
                 <div class="sbsctsvg"></div>
             </button>
-            <div class="dropdown">
-                <div class="dropdown_item btn_liked" data-value="default" data-i18n="onload_anim.default_preset">Mặc
-                    định</div>
-                <div class="dropdown_item btn_liked" data-value="zoom_in_light"
-                    data-i18n="onload_anim.zoom_in_light_preset">Nhẹ nhàng</div>
-                <div class="dropdown_item btn_liked" data-value="zoom_in_heavy"
-                    data-i18n="onload_anim.zoom_in_heavy_preset">Điện ảnh</div>
-                <div class="dropdown_item btn_liked" data-value="sleepy" data-i18n="onload_anim.wake_up_preset">Mơ ngủ
-                </div>
-                <div class="dropdown_item btn_liked" data-value="nature" data-i18n="onload_anim.nature_preset">Thiên
-                    nhiên</div>
+            <!-- Preset items are built from the registry (see OnloadEditorUI). -->
+            <div class="dropdown" id="onload_preset_dropdown"></div>
+        </div>
 
+        <label class="checkbox btn_liked">
+            <span data-i18n="onload_anim.advanced_settings">Cài đặt nâng cao</span>
+            <input type="checkbox" id="onload_advanced_toggle" />
+            <div class="ts-track">
+                <div class="ts-thumb"></div>
             </div>
+        </label>
+
+        <div id="onload_advanced_section" class="flex_col gap_8 w_full">
+            <div class="section_divider" data-i18n="onload_anim.custom_bg_label">Tùy chỉnh hình nền</div>
+            <div class="custom_onload_animation flex_col gap_12" id="onload_bg_sliders"></div>
+
+            <p class="popup_section_title" data-i18n="onload_anim.bg_easing_label">Easing hình nền</p>
+            <div class="dropdown_wrapper">
+                <button class="dropdown_button" id="onload_bg_easing">
+                    <span class="selected_value">--</span>
+                    <div class="sbsctsvg"></div>
+                </button>
+                <div class="dropdown" id="onload_bg_easing_dropdown"></div>
+            </div>
+
+            <div class="section_divider" data-i18n="onload_anim.custom_overlay_label">Tùy chỉnh lớp phủ</div>
+            <div class="custom_onload_animation flex_col gap_12" id="onload_overlay_sliders"></div>
         </div>
 
         <div class="section_divider" data-i18n="onload_anim.other_settings_label">Cài đặt khác</div>

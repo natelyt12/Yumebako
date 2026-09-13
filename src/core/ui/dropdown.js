@@ -117,15 +117,36 @@ export function initSubToggle() {
                     dropdown.classList.add("opening");
                     btn.classList.add("btn_active");
 
+                    // Flip the panel upwards when it would not fit below. The
+                    // measured height is used (CSS caps it via max-height) and the
+                    // scroll parent is clamped to the viewport — mandatory for the
+                    // submenu drawer, whose scroll container is a flex child that
+                    // can extend past the bottom of the screen.
                     const rect = btn.getBoundingClientRect();
-                    const scrollParent = btn.closest('.popup_content, #settings_content') || document.body;
-                    const parentRect = scrollParent === document.body ? { top: 0, bottom: window.innerHeight } : scrollParent.getBoundingClientRect();
+                    const scrollParent = btn.closest('.popup_content, #settings_content, .submenu_body') || document.body;
+                    const parentRect = scrollParent === document.body
+                        ? { top: 0, bottom: window.innerHeight }
+                        : scrollParent.getBoundingClientRect();
 
-                    if (parentRect.bottom - rect.bottom < 250 && rect.top - parentRect.top > 200) {
-                        dropdown.classList.add("open_upwards");
-                    } else {
-                        dropdown.classList.remove("open_upwards");
-                    }
+                    const bounds = {
+                        top: Math.max(parentRect.top, 0),
+                        bottom: Math.min(parentRect.bottom, window.innerHeight),
+                    };
+
+                    const gap = 6;
+                    dropdown.style.removeProperty("max-height");
+                    const maxCap = parseFloat(getComputedStyle(dropdown).maxHeight) || dropdown.offsetHeight;
+                    const panelHeight = Math.min(dropdown.offsetHeight, maxCap);
+                    const spaceBelow = bounds.bottom - rect.bottom - gap;
+                    const spaceAbove = rect.top - bounds.top - gap;
+                    const openUpwards = spaceBelow < panelHeight && spaceAbove > spaceBelow;
+
+                    dropdown.classList.toggle("open_upwards", openUpwards);
+
+                    // Never let the panel spill past the viewport: clamp it to the
+                    // room actually available on the side it opens towards.
+                    const available = Math.max(120, Math.min(maxCap, openUpwards ? spaceAbove : spaceBelow));
+                    dropdown.style.maxHeight = `${Math.floor(available)}px`;
                 }
             }
             return;

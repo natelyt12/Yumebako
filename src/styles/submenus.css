@@ -163,7 +163,7 @@
     flex-direction: column;
     gap: 4px;
     padding: 6px;
-    max-height: 350px;
+    max-height: min(440px, 65vh);
     overflow-y: auto;
     overflow-x: hidden;
 }
@@ -191,6 +191,8 @@
 
 /* Dropdown items */
 .dropdown_item {
+    flex-shrink: 0;
+    justify-content: flex-start;
     text-align: left;
     border-radius: 2px;
     transition:
@@ -207,31 +209,21 @@
     background-color: var(--button-act) !important;
 }
 
-.dropdown_item {
-    text-align: left;
-}
-
-.dropdown_item {
-    justify-content: flex-start;
-}
-
-/* Dropdown section separator */
-.dropdown_divider {
-    height: 1px;
-    background-color: var(--glass-border-sm);
-    margin: 4px 0;
-    border: none;
-}
-
-/* Dropdown group label */
-.dropdown_label {
-    font-size: 0.72em;
-    color: var(--text-muted);
-    padding: 6px 8px 2px 8px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+/* Dropdown section divider */
+.dropdown .section_divider {
+    flex-shrink: 0;
+    margin: 6px 0 2px 0;
+    padding: 2px 4px;
     pointer-events: none;
-    user-select: none;
+}
+
+.dropdown .section_divider:first-child {
+    margin-top: 2px;
+}
+
+.dropdown .section_divider:empty {
+    padding: 0;
+    margin: 4px 0;
 }
 
 .grid_2col {
@@ -240,7 +232,7 @@
     gap: 6px !important;
 }
 
-.grid_2col>*:not(.dropdown_item):not(.dropdown_item):not(.btn_liked) {
+.grid_2col>*:not(.dropdown_item):not(.btn_liked) {
     grid-column: span 2;
 }
 

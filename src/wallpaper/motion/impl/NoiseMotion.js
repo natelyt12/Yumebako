@@ -6,9 +6,9 @@ import { t } from "/src/core/i18n.js";
 // NOISE MOTION — fractal value noise (fBm)
 // ==========================================
 /**
- * Position = fBm(t) directly. Aperiodic, smooth and multi-scale: the slow
- * octaves read as a calm drift while the fine octaves add the small "texture"
- * that makes the movement feel non-repeating.
+ * Position = fBm(t) directly. Aperiodic and multi-scale: the slow octaves give
+ * a steady drift, while the fine octaves add the wobble that makes the movement
+ * feel alive and clearly non-repeating.
  *
  * MAGNITUDE exists because fBm only reaches ~0.35 of its theoretical [-1, 1]
  * range, while the panel's amplitude sliders are calibrated so that a value
@@ -16,11 +16,12 @@ import { t } from "/src/core/i18n.js";
  * (which reached ~1.0). Rotation is left untouched so its value stays literal
  * degrees.
  *
- * The defaults are deliberately tuned CALM: the drift is slow (low
- * `detailScale`), the finest octave is dropped (`octaves: 3`) and the fine-layer
- * weight is softened (`persistence: 0.45`). A faster, grainier drift reads as
- * jittery and caused mild dizziness, so the amplitude is instead carried by
- * larger translation (8px) with a smaller tilt (0.9°).
+ * The defaults are tuned to SWAY clearly, so this style reads differently from
+ * Natural Drift: a quicker base rhythm (`detailScale: 0.22`), one more detail
+ * layer (`octaves: 4`) and a stronger fine-layer weight (`persistence: 0.52`)
+ * produce a visible wobble. Extra octaves spread the energy over more layers,
+ * so the peak travel does not grow and the larger 8px translation keeps the same
+ * footprint; the tilt stays modest at 0.9° to remain comfortable.
  */
 export class NoiseMotion extends BaseMotion {
     static ID = "noise";
@@ -31,10 +32,10 @@ export class NoiseMotion extends BaseMotion {
         amplitudeY: 8,
         speedY: 1.2,
         amplitudeRotate: 0.9,
-        speedRotate: 0.7,
-        detailScale: 0.17,
-        octaves: 3,
-        persistence: 0.45,
+        speedRotate: 0.8,
+        detailScale: 0.22,
+        octaves: 4,
+        persistence: 0.52,
     };
 
     constructor(config, seed) {

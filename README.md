@@ -19,7 +19,7 @@
 - **Diverse Sources:** Supports wallpapers from Unsplash, Wallhaven, Pic.re (Anime), solid colors, or uploaded from your device (Local Collection).
 - **Diverse Sources:** Supports wallpapers from Unsplash, Wallhaven, Pic.re (Anime), or uploaded from your device (Local Collection).
 - **Auto Rotation:** Option to rotate wallpapers on a set interval (15m, 30m, 1h...) or every time a new tab is opened.
-- **Filters & Colors:** Adjust brightness, contrast, saturation, chromatic aberration (Chroma), and bloom effects.
+- **Filters & Colors:** Adjust brightness, contrast, saturation, and bloom effects.
 
 ### 💫 Dynamic Effects & Animations
 - **Wavy Animation & Parallax:** The wallpaper sways and moves along with your cursor, creating a 3D depth effect.

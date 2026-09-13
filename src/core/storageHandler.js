@@ -1,4 +1,4 @@
-import { recoverCollectionBlobs } from "/src/wallpaper/providers/impl/collection/collectionDb.js";
+import { recoverCollectionBlobs } from "/src/wallpaper/providers/index.js";
 import { getAllFromStore, saveToStore, clearStore } from "/src/core/db.js";
 import { initDate, initClock } from "/src/core/time.js";
 
@@ -22,7 +22,6 @@ const defaultSettings = {
         blur: 0,
         contrast: 1,
         saturate: 1,
-        chroma: 0,
         bloom: 0,
         mode: "cover",
     },
@@ -56,8 +55,11 @@ const defaultSettings = {
         blur: 10,
         speed: 3,
         overlay_speed: 1,
-        bg_easing: "var(--expo_out)",
-        overlay_easing: "var(--sine_in_out)"
+        // The overlay fade is deliberately not configurable — it is hard-wired to
+        // an expo-out. The id follows src/wallpaper/onload/easing.js and is
+        // resolved to a `var(--token)` only at play time.
+        bg_easing: "expo_out",
+        advanced: false,
     },
 
     // ==========================================
@@ -197,6 +199,12 @@ export function getSettings() {
             mergedStored.wallpaperConfig.rotation = LEGACY_ROTATION_MAP[mergedStored.wallpaperConfig.rotation] ?? 0;
         }
 
+        // Drop legacy keys from wallpaperConfig.
+        if (mergedStored.wallpaperConfig) {
+            delete mergedStored.wallpaperConfig.chroma;
+            delete mergedStored.wallpaperConfig.vibrance;
+        }
+
         // The classic wave generator was removed. Carry its parameters (the old
         // flat keys and/or the legacy `motions.sine` bag) over to the new default
         // generator so users keep their tuning — existing target values win.
@@ -223,6 +231,21 @@ export function getSettings() {
             if (legacyWavyConfig.motionType === "sine") {
                 legacyWavyConfig.motionType = WAVY_DEFAULT_MOTION;
             }
+        }
+
+        // The wipe overlay was removed and the fade curve is now fixed, so drop
+        // every legacy key that only ever drove them.
+        if (mergedStored.onload) {
+            [
+                "wipe",
+                "overlay_mode",
+                "overlay_easing",
+                "wipe_easing",
+                "wipe_speed",
+                "wipe_angle",
+                "wipe_target_angle_enabled",
+                "wipe_target_angle",
+            ].forEach((key) => delete mergedStored.onload[key]);
         }
 
         settingsCache = deepMerge(defaultSettings, mergedStored);

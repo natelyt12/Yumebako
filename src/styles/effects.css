@@ -212,9 +212,3 @@
     pointer-events: none;
     user-select: none;
 }
-
-.effects_add_dropdown .dropdown_item {
-    font-size: 0.82em;
-    padding: 5px 8px;
-    border-radius: 4px;
-}

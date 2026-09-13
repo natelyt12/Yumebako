@@ -2,6 +2,35 @@ import { openSidebarSubmenu, closeSidebarSubmenu, setSubmenuDirty, showNotificat
 import { t, translateDOM } from "/src/core/i18n.js";
 import { getSettings, saveSettings } from "/src/core/storageHandler.js";
 
+// Neutral value for every filter slider. Shared by the editor (initial values,
+// reset button) and the on-load applier so there is a single source of truth.
+const FILTER_DEFAULTS = { brightness: 1, contrast: 1, saturate: 1, bloom: 0 };
+
+/**
+ * Renders a filter config onto the wallpaper media and the bloom layer.
+ * Used by both the live preview and the on-load applier.
+ */
+function applyFilterConfig(config) {
+    const brightness = config.brightness ?? FILTER_DEFAULTS.brightness;
+    const contrast = config.contrast ?? FILTER_DEFAULTS.contrast;
+    const saturate = config.saturate ?? FILTER_DEFAULTS.saturate;
+
+    const filterStr = `brightness(${brightness}) contrast(${contrast}) saturate(${saturate})`;
+
+    // The bloom layer is a blurred, screen-blended copy of the same media, so it
+    // only takes the saturation — running the full chain again would double up.
+    document.querySelectorAll(".image, .video").forEach((el) => {
+        el.style.filter = el.parentElement?.classList.contains("bloom_container")
+            ? `saturate(${saturate})`
+            : filterStr;
+    });
+
+    const bloomContainer = document.querySelector(".bloom_container");
+    if (bloomContainer) {
+        bloomContainer.style.opacity = (config.bloom ?? FILTER_DEFAULTS.bloom) / 100;
+    }
+}
+
 
 class FilterSettingsEditor {
     constructor() {
@@ -47,14 +76,14 @@ class FilterSettingsEditor {
         const config = getSettings().wallpaperConfig || {};
 
         const standardSpecs = [
-            { id: "brightness", label: t("sp.wallpaper_customization.brightness"), min: 0.1, max: 2.0, step: 0.05, defaultValue: 1.0, value: config.brightness ?? 1.0, unit: "%" },
-            { id: "contrast", label: t("sp.wallpaper_customization.contrast"), min: 0.1, max: 2.0, step: 0.05, defaultValue: 1.0, value: config.contrast ?? 1.0, unit: "%" },
-            { id: "saturate", label: t("sp.wallpaper_customization.saturate"), min: 0, max: 3.0, step: 0.1, defaultValue: 1.0, value: config.saturate ?? 1.0, unit: "%" },
+            { id: "brightness", label: t("sp.wallpaper_customization.brightness"), min: 0.1, max: 2.0, step: 0.05, unit: "%" },
+            { id: "contrast", label: t("sp.wallpaper_customization.contrast"), min: 0.1, max: 2.0, step: 0.05, unit: "%" },
+            { id: "saturate", label: t("sp.wallpaper_customization.saturate"), min: 0, max: 3.0, step: 0.1, unit: "%" },
         ];
 
+        // Everything under here is expensive to render/composite, hence the divider.
         const heavySpecs = [
-            { id: "chroma", label: t("sp.wallpaper_customization.chroma"), min: 0, max: 20, step: 0.5, defaultValue: 0, value: config.chroma ?? 0, unit: "px" },
-            { id: "bloom", label: t("sp.wallpaper_customization.bloom"), min: 0, max: 100, step: 10, defaultValue: 0, value: config.bloom ?? 0, unit: "%" },
+            { id: "bloom", label: t("sp.wallpaper_customization.bloom"), min: 0, max: 100, step: 10, unit: "%" },
         ];
 
         this.sliders = {};
@@ -67,8 +96,8 @@ class FilterSettingsEditor {
                     min: spec.min,
                     max: spec.max,
                     step: spec.step,
-                    value: spec.value,
-                    defaultValue: spec.defaultValue,
+                    value: config[spec.id] ?? FILTER_DEFAULTS[spec.id],
+                    defaultValue: FILTER_DEFAULTS[spec.id],
                     unit: spec.unit,
                     onChange: () => this.applyPreview()
                 });
@@ -104,71 +133,32 @@ class FilterSettingsEditor {
         }
     }
 
-    applyPreview() {
-        this.isDirty = true;
-        setSubmenuDirty(true);
+    /** Current slider values as a plain config object. */
+    readConfig() {
         const config = {};
         for (const [id, slider] of Object.entries(this.sliders)) {
             config[id] = slider.value;
         }
+        return config;
+    }
 
-        let filterStr = `brightness(${config.brightness}) contrast(${config.contrast}) saturate(${config.saturate})`;
-
-        const chromaVal = config.chroma || 0;
-        const filterEl = document.getElementById("chroma_filter");
-        if (filterEl) {
-            filterEl.children[0].setAttribute("dx", chromaVal);
-            filterEl.children[1].setAttribute("dx", -chromaVal);
-        }
-        if (chromaVal > 0) {
-            filterStr += ` url(#chroma_filter)`;
-        }
-
-        document.querySelectorAll(".image").forEach(img => {
-            if (!img.parentElement.classList.contains("bloom_container")) {
-                img.style.filter = filterStr;
-            } else {
-                img.style.filter = `saturate(${config.saturate})`;
-            }
-        });
-
-        document.querySelectorAll(".video").forEach(v => {
-            if (!v.parentElement.classList.contains("bloom_container")) {
-                v.style.filter = filterStr;
-            } else {
-                v.style.filter = `saturate(${config.saturate})`;
-            }
-        });
-
-        const bloomVal = config.bloom ?? 0;
-        const bloomContainer = document.querySelector(".bloom_container");
-        if (bloomContainer) {
-            bloomContainer.style.opacity = bloomVal / 100;
-        }
+    applyPreview() {
+        this.isDirty = true;
+        setSubmenuDirty(true);
+        applyFilterConfig(this.readConfig());
     }
 
     handleReset() {
-        const defaults = {
-            brightness: 1.0,
-            contrast: 1.0,
-            saturate: 1.0,
-            chroma: 0,
-            bloom: 0
-        };
-
         for (const [id, slider] of Object.entries(this.sliders)) {
-            if (id in defaults) {
-                slider.value = defaults[id];
+            if (id in FILTER_DEFAULTS) {
+                slider.value = FILTER_DEFAULTS[id];
             }
         }
         this.applyPreview();
     }
 
     handleSave() {
-        const config = {};
-        for (const [id, slider] of Object.entries(this.sliders)) {
-            config[id] = slider.value;
-        }
+        const config = this.readConfig();
 
         const currentConf = getSettings().wallpaperConfig || {};
         const newConf = { ...currentConf, ...config };
@@ -189,65 +179,8 @@ export function initializeFilterSettings() {
 }
 
 /**
- * Apply CSS filters (brightness, contrast, saturate, SVG chroma filter, bloom) on page load.
+ * Apply the saved filter config on page load.
  */
 export function applyWallpaperFilters() {
-    const config = getSettings().wallpaperConfig || {};
-    const brightness = config.brightness ?? 1;
-    const contrast = config.contrast ?? 1;
-    const saturate = config.saturate ?? 1;
-    const chroma = config.chroma ?? 0;
-
-    let svg = document.getElementById("chroma_svg_filter");
-    if (!svg) {
-        svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        svg.id = "chroma_svg_filter";
-        svg.style.display = "none";
-        svg.innerHTML = `
-            <filter id="chroma_filter">
-                <feOffset in="SourceGraphic" dx="0" dy="0" result="red-shift"/>
-                <feOffset in="SourceGraphic" dx="0" dy="0" result="blue-shift"/>
-                <feOffset in="SourceGraphic" dx="0" dy="0" result="green-shift"/>
-                <feColorMatrix in="red-shift" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="red-channel"/>
-                <feColorMatrix in="blue-shift" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="blue-channel"/>
-                <feColorMatrix in="green-shift" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="green-channel"/>
-                <feBlend mode="screen" in="red-channel" in2="blue-channel" result="rb"/>
-                <feBlend mode="screen" in="rb" in2="green-channel" result="rgb"/>
-            </filter>
-        `;
-        document.body.appendChild(svg);
-    }
-
-    const filterEl = document.getElementById("chroma_filter");
-    if (filterEl) {
-        filterEl.children[0].setAttribute("dx", chroma);
-        filterEl.children[1].setAttribute("dx", -chroma);
-    }
-
-    let filterStr = `brightness(${brightness}) contrast(${contrast}) saturate(${saturate})`;
-    if (chroma > 0) {
-        filterStr += ` url(#chroma_filter)`;
-    }
-
-    document.querySelectorAll(".image").forEach(img => {
-        if (!img.parentElement.classList.contains("bloom_container")) {
-            img.style.filter = filterStr;
-        } else {
-            img.style.filter = `saturate(${saturate})`;
-        }
-    });
-
-    document.querySelectorAll(".video").forEach(v => {
-        if (!v.parentElement.classList.contains("bloom_container")) {
-            v.style.filter = filterStr;
-        } else {
-            v.style.filter = `saturate(${saturate})`;
-        }
-    });
-
-    const bloom = config.bloom ?? 0;
-    const bloomContainer = document.querySelector(".bloom_container");
-    if (bloomContainer) {
-        bloomContainer.style.opacity = bloom / 100;
-    }
+    applyFilterConfig(getSettings().wallpaperConfig || {});
 }

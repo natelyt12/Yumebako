@@ -1,6 +1,6 @@
 import { ALL_EFFECTS } from "./registry.js";
 import { getSettings } from "/src/core/storageHandler.js";
-import { getWavyParallaxState, getSmoothedMouse } from "/src/wallpaper/motion/WavyEngine.js";
+import { getWavyParallaxState, getSmoothedMouse } from "/src/wallpaper/motion/index.js";
 
 // ==========================================
 // EFFECTS ENGINE — Multi-canvas, 2-layer

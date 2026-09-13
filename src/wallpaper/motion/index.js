@@ -1,7 +1,7 @@
 /**
  * Public entry point for the wavy feature.
  *
- * Mirrors `src/wallpaper/particles.js`: the folder owns the implementation and
+ * Mirrors `src/wallpaper/particles/index.js`: the folder owns the implementation and
  * this barrel is the only thing the rest of the app imports.
  *
  *   motion/

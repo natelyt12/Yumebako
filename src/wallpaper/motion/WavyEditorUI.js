@@ -211,7 +211,15 @@ function openWavyEditor() {
     advancedToggle.onchange = (e) => {
         workingState.advanced = e.target.checked;
         applyAdvancedVisibility();
-        applyLivePreview();
+
+        // Expanding or collapsing the section is a view preference, not a tunable
+        // value: persist it right away so it never marks the panel dirty and is
+        // not reverted when the user leaves without saving.
+        wavyInstance.updateConfig({ advanced: workingState.advanced });
+        const currentWavyData = getSettings().wavy || {};
+        currentWavyData.config = { ...(currentWavyData.config || {}), advanced: workingState.advanced };
+        saveSettings({ wavy: currentWavyData });
+        startSnapshot.advanced = workingState.advanced;
     };
     applyAdvancedVisibility();
 

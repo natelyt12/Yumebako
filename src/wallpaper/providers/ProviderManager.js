@@ -3,7 +3,7 @@ import { getSettings, saveSettings, subscribe } from "/src/core/storageHandler.j
 import { showNotification } from "/src/core/ui.js";
 import { renderIcons } from "/src/core/icon.js";
 import { t } from "/src/core/i18n.js";
-import { applyOnloadAnimation } from "/src/wallpaper/onLoadAnim.js";
+import { applyOnloadAnimation } from "/src/wallpaper/onload/index.js";
 import { toggleBgEditorVisibility, applyWallpaperPosition } from "/src/wallpaper/bgEditor.js";
 import { applyWallpaperFilters } from "/src/wallpaper/filter.js";
 import { addToCollection, getCollection } from "./impl/collection/collectionDb.js";
