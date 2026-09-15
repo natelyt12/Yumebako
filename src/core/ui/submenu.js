@@ -4,10 +4,14 @@ import { translateDOM, t } from "/src/core/i18n.js";
 import { showNotification } from "/src/core/ui/notification.js";
 import { initSubsectionSvg } from "/src/core/ui/dropdown.js";
 
+/** Must stay in sync with `--settings-motion` (styles/settings_wrapper.css). */
+const SUBMENU_TRANSITION_MS = 800;
+
 let activeSubmenuState = {
     isDirty: false,
     canExit: false,
     exitTimer: null,
+    cleanupTimer: null,
     onBeforeClose: null,
     onCancel: null
 };
@@ -54,6 +58,7 @@ export function initToggleSettingBtn() {
 
     if (!settingToggleBtn || !settingWrapper) return;
 
+
     const setOpenState = (isOpen) => {
         if (isOpen) {
             settingWrapper.classList.add("setting_wrapper_opened");
@@ -86,17 +91,17 @@ export function initToggleSettingBtn() {
 }
 
 /**
- * Open a level-2 Submenu inside the Sidebar.
- * Automatically hides the TabBar while the Submenu is active.
- * @param {string} title - Submenu header title.
+ * Open a level-2 Submenu as a floating panel next to the settings nav.
+ * While it is open, the nav swaps its tab list for the back / preview actions.
+ * @param {string} title - Accessible name for the panel (it has no visible header).
  * @param {HTMLElement|string} contentNode - Content node or HTML string.
  * @param {Object} [options] - Options:
- *   - width {string}: Tùy chỉnh độ rộng cho submenu content.
- *   - isFullScreen {boolean}: Hiển thị submenu toàn màn hình.
- *   - canPreview {boolean}: Hiển thị nút mắt giữ xem trước.
- *   - isDirty {boolean|Function}: Trạng thái hoặc hàm kiểm tra thay đổi chưa lưu.
- *   - onCancel {Function}: Callback thực thi khi thoát không lưu.
- *   - onBeforeClose {Function}: Callback kiểm tra tùy chỉnh trước khi đóng.
+ *   - width {string|number}: Custom width for the floating panel.
+ *   - isFullScreen {boolean}: Let the panel fill the viewport (minus margins).
+ *   - canPreview {boolean}: Show the hold-to-preview eye button in the nav.
+ *   - isDirty {boolean|Function}: State or checker for unsaved changes.
+ *   - onCancel {Function}: Callback executed when leaving without saving.
+ *   - onBeforeClose {Function}: Custom guard executed before closing.
  */
 export function openSidebarSubmenu(title, contentNode, options = {}) {
     const {
@@ -111,30 +116,27 @@ export function openSidebarSubmenu(title, contentNode, options = {}) {
     if (activeSubmenuState.exitTimer) {
         clearTimeout(activeSubmenuState.exitTimer);
     }
+    if (activeSubmenuState.cleanupTimer) {
+        clearTimeout(activeSubmenuState.cleanupTimer);
+    }
     activeSubmenuState = {
         isDirty,
         canExit: false,
         exitTimer: null,
+        cleanupTimer: null,
         onBeforeClose,
         onCancel
     };
     updateSubmenuDirtyUI();
 
     const wrapper = document.getElementById("setting_wrapper");
-    const slider = document.querySelector(".settings_slider_container");
-    const settingsContent = document.getElementById("settings_content");
     const submenuView = document.querySelector(".settings_submenu_view");
-    const titleSpan = document.querySelector(".submenu_title");
     const backBtn = document.getElementById("submenu_back_btn");
-    const eyeBtn = document.getElementById("submenu_eye_btn");
 
-    if (!wrapper || !slider || !submenuView) return;
+    if (!wrapper || !submenuView) return;
 
-    if (titleSpan) titleSpan.textContent = title;
-
-    if (eyeBtn) {
-        eyeBtn.style.display = canPreview ? "flex" : "none";
-    }
+    // The panel has no visible header, so the title only feeds its accessible name.
+    submenuView.setAttribute("aria-label", title);
 
     let submenuBody = submenuView.querySelector(".submenu_body");
     if (!submenuBody) {
@@ -163,30 +165,30 @@ export function openSidebarSubmenu(title, contentNode, options = {}) {
         initSubsectionSvg(submenuView);
     }
 
-    // Always hide TabBar when Submenu is open
-    wrapper.classList.add("hide_tabbar");
-
-    // Handle Fullscreen mode
+    // Only declare the width the caller asked for: `--submenu-width` clamps it to
+    // the viewport and drives both the panel and the wrapper that holds it.
+    wrapper.style.removeProperty("--submenu-requested-width");
     if (isFullScreen || width === "100vw" || width === "100%") {
-        wrapper.classList.add("submenu_fullscreen");
-        wrapper.style.setProperty("--submenu-width", "100vw");
+        wrapper.style.setProperty("--submenu-requested-width", "100vw");
     } else if (width) {
-        wrapper.classList.remove("submenu_fullscreen");
         const numericWidth = parseInt(width, 10);
-        if (!isNaN(numericWidth) && numericWidth > 0) {
-            const formattedWidth = typeof width === "number" || !String(width).endsWith("px") ? `${numericWidth}px` : width;
-            wrapper.style.setProperty("--submenu-width", formattedWidth);
+        if (!Number.isNaN(numericWidth) && numericWidth > 0) {
+            wrapper.style.setProperty("--submenu-requested-width", `${numericWidth}px`);
         }
-    } else {
-        wrapper.classList.remove("submenu_fullscreen");
-        wrapper.style.removeProperty("--submenu-width");
     }
+
+    wrapper.classList.toggle("can_preview", canPreview);
+    wrapper.classList.add("submenu_active");
+
+    // Replay the content fade-out / fade-in even when one submenu replaces
+    // another one while the panel is already open.
+    submenuView.classList.remove("show_content");
+    void submenuView.offsetWidth; // Force a reflow so the transition restarts.
+    submenuView.classList.add("show_content");
 
     if (backBtn) {
         backBtn.onmousedown = () => attemptCloseSubmenu();
     }
-
-    slider.classList.add("submenu_active");
 }
 
 let isEyePreviewHolding = false;
@@ -298,38 +300,24 @@ function performCloseSubmenu() {
     updateSubmenuDirtyUI();
 
     const wrapper = document.getElementById("setting_wrapper");
-    const slider = document.querySelector(".settings_slider_container");
-    const settingsContent = document.getElementById("settings_content");
     const submenuView = document.querySelector(".settings_submenu_view");
 
-    if (slider) {
-        slider.classList.remove("submenu_active");
-    }
-
-    const eyeBtn = document.getElementById("submenu_eye_btn");
-    if (eyeBtn) {
-        eyeBtn.style.display = "none";
-    }
-
     if (wrapper) {
-        wrapper.classList.remove("hide_tabbar", "submenu_fullscreen", "preview_eye_active");
-        wrapper.style.width = "";
+        wrapper.classList.remove("submenu_active", "can_preview", "preview_eye_active");
     }
-    if (settingsContent) {
-        settingsContent.style.width = "";
-        settingsContent.style.minWidth = "";
+    if (submenuView) {
+        submenuView.classList.remove("show_content");
     }
 
-    // Cleanup DOM and inline width overrides after 800ms matching transition duration
-    setTimeout(() => {
-        if (slider && !slider.classList.contains("submenu_active")) {
-            if (submenuView) {
-                const oldSections = submenuView.querySelectorAll(":scope > :not(.submenu_header)");
-                oldSections.forEach((sec) => sec.remove());
-                submenuView.style.width = "";
-                submenuView.style.minWidth = "";
-            }
-            if (wrapper) wrapper.style.removeProperty("--submenu-width");
-        }
-    }, 800);
+    // Release the mounted content once the panel has finished sliding out, so
+    // heavy submenus (collection grid, editors) drop their DOM again.
+    clearTimeout(activeSubmenuState.cleanupTimer);
+    activeSubmenuState.cleanupTimer = setTimeout(() => {
+        activeSubmenuState.cleanupTimer = null;
+        if (wrapper && wrapper.classList.contains("submenu_active")) return;
+
+        const submenuBody = submenuView?.querySelector(".submenu_body");
+        if (submenuBody) submenuBody.innerHTML = "";
+        if (wrapper) wrapper.style.removeProperty("--submenu-requested-width");
+    }, SUBMENU_TRANSITION_MS);
 }

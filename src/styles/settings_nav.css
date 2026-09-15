@@ -1,41 +1,118 @@
 /* Sidebar Navigation Bar & Tooltips */
 
+/* The nav is only a narrow slot (--nav-width, settings_wrapper.css): the single
+   glass card inside carries the look and hugs whichever button list is visible. */
 .settings_nav {
-    width: 60px;
+    position: relative;
+    width: var(--nav-width, 52px);
     height: 100%;
-    background-color: rgba(255, 255, 255, 0.03);
-    border-right: 1px solid rgba(255, 255, 255, 0.07);
+    pointer-events: auto;
     overflow: visible;
-    transition: width 0.8s var(--expo_out), opacity 0.8s var(--expo_out), border-color 0.8s var(--expo_out);
-    opacity: 1;
     flex-shrink: 0;
+    /* Shared sizing of the card and its buttons: the submenu-state card height
+       is derived from these, so the buttons can never outgrow the card. */
+    --nav_item_size: 40px;
+    --nav_gap: 4px;
+    --nav_pad: 4px;
 }
 
-.settings_nav_inner {
-    width: 60px;
-    min-width: 60px;
-    height: 100%;
+.nav_group {
+    position: relative;
+    width: 100%;
+    /* Both button lists share the card's single cell, so they sit on the same top
+       edge and cross-fade in place. minmax(0, 1fr) keeps the row from being
+       forced open by the tall list while the card is shorter than it. */
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr);
+    /* Padding lives on the card, not on the lists: a hidden list would otherwise
+       still show its own padding as an empty strip. */
+    padding: var(--nav_pad) 0;
+    /* The card morphs by animating its own height: `auto` (the tab list) in the
+       sidebar state, the exact height of the actions list in the submenu state.
+       `interpolate-size` lets `auto` take part, so the height is a single easing
+       curve between two endpoints. Animating the two rows instead made the card
+       the max() of two opposite curves, which dipped below the target and came
+       back on the way out, and stopped dead the moment the fast row arrived on
+       the way in. */
+    height: auto;
+    interpolate-size: allow-keywords;
+    background-color: var(--bg-panel);
+    -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
+    backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);
+    /* The glass properties are transitioned for the hold-to-preview dissolve. */
+    transition:
+        height var(--settings-motion) var(--expo_out),
+        background-color var(--settings-motion) var(--expo_out),
+        -webkit-backdrop-filter var(--settings-motion) var(--expo_out),
+        backdrop-filter var(--settings-motion) var(--expo_out),
+        border-color var(--settings-motion) var(--expo_out),
+        box-shadow var(--settings-motion) var(--expo_out);
+}
+
+/* Submenu state: as tall as the back button, plus the eye button when the
+   submenu opted into hold-to-preview. */
+#setting_wrapper.submenu_active .nav_group {
+    height: calc(var(--nav_item_size) * 2 + var(--nav_gap) + var(--nav_pad) * 2);
+}
+
+#setting_wrapper.submenu_active:not(.can_preview) .nav_group {
+    height: calc(var(--nav_item_size) + var(--nav_pad) * 2);
+}
+
+/* The layers stay stretched to the card, so the tab layer's box always matches
+   the card's inner box - including while the card is morphing. */
+.nav_layer {
+    grid-area: 1 / 1;
+    min-width: 0;
+    /* Áp dụng pointer-events: none cho thẻ bọc ngoài cùng để nó không "chắn" click của lớp bên dưới */
+    pointer-events: none;
+}
+
+/* The tab list is far taller than the card whenever a submenu is open, so it is
+   clipped to the card's inner box and wiped away in step with it. The clip
+   region is widened way past the card because the tooltips pop out to the left. */
+.nav_layer_tabs {
+    clip-path: polygon(-400% 0, 500% 0, 500% 100%, -400% 100%);
+}
+
+/* Both lists keep their natural height and share the same 8px rhythm; only one is
+   ever visible, so the swap is a plain fade. The outgoing list leaves first so
+   the two can never be seen blended on top of each other. */
+.settings_nav_inner,
+.submenu_nav_actions {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 20px 0 10px 0;
-    gap: 8px;
+    gap: var(--nav_gap);
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto; /* Khôi phục lại click cho nội dung thực sự */
+    transition: opacity 0.3s var(--expo_out), visibility 0s linear 0s;
+}
+
+#setting_wrapper.submenu_active .settings_nav_inner,
+#setting_wrapper:not(.submenu_active) .submenu_nav_actions {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.15s var(--expo_out), visibility 0s linear 0.15s;
 }
 
 .nav_item {
-    width: 40px;
-    height: 40px;
+    width: var(--nav_item_size);
+    height: var(--nav_item_size);
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 4px;
+    border-radius: 8px;
     transition: all 0.3s var(--expo_out);
     color: rgba(255, 255, 255, 0.4);
     position: relative;
-}
-
-.nav_item_close {
-    margin-top: auto;
 }
 
 .nav_item_close svg {
@@ -66,10 +143,12 @@
     height: 20px;
 }
 
-/* Nav item tooltips pop out to the left of the sidebar */
+/* Nav item tooltips pop out to the left of the sidebar. Kept as a plain dark
+   chip: adding `backdrop-filter` here made the label flicker while clicking
+   through the tabs. */
 .nav_tooltip {
     position: absolute;
-    right: calc(100% + 20px);
+    right: calc(100% + 14px);
     top: 50%;
     transform: translateY(-50%) translateX(10px);
     opacity: 0;
@@ -77,13 +156,13 @@
     background-color: rgba(14, 14, 22, 0.5);
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow:
-        0 6px 20px rgba(0, 0, 0, 0.35),
+        0 6px 20px rgba(0, 0, 0, 0.15),
         inset 0 1px 0 rgba(255, 255, 255, 0.05);
     color: var(--text-primary, #ffffff);
     font-size: 0.8em;
-    font-weight: 600;
+    font-weight: 500;
     padding: 6px 12px;
-    border-radius: 2px;
+    border-radius: 8px;
     white-space: nowrap;
     transition:
         opacity 0.25s var(--expo_out),
@@ -95,6 +174,33 @@
 #setting_wrapper:not(.setting_wrapper_opened) .nav_tooltip {
     right: calc(100% - 80px);
     opacity: 0;
+    transition: none !important;
+}
+
+/* Keep both action buttons the exact size of a tab item. */
+.submenu_nav_actions .submenu_back_btn,
+.submenu_nav_actions .submenu_eye_btn {
+    margin: 0;
+    width: var(--nav_item_size);
+    height: var(--nav_item_size);
+}
+
+/* Unsaved-changes indicator, pinned to the corner of the back button. */
+.submenu_back_btn .submenu_dirty_dot {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+    display: none;
+}
+
+/* The eye button only exists for submenus that opt into hold-to-preview. */
+#setting_wrapper:not(.can_preview) .submenu_eye_btn {
+    display: none;
 }
 
 .nav_item:hover .nav_tooltip,

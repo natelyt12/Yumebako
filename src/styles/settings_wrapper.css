@@ -4,20 +4,51 @@
     z-index: var(--z-settings);
     position: absolute;
     top: 0;
-    right: 0px;
-    width: 380px;
-    height: 100vh;
+    right: 0;
+    padding: var(--settings-pad);
+    /* Exactly nav + gap + the widest view the card can hold, which is the main
+       menu while no submenu is open. */
+    width: calc(var(--nav-width) + var(--settings-gap) + var(--main-view-width));
+    /* content-box: keep the padding inside the viewport, otherwise the floating
+       cards overflow the bottom edge by twice the padding. */
+    height: calc(100vh - var(--settings-pad) * 2);
+    box-sizing: content-box;
     color: white;
-    background-color: var(--bg-panel);
-    transition: 0.8s var(--expo_out);
+    background-color: transparent;
+    transition: var(--settings-motion) var(--expo_out);
     transform: translateX(100%);
     visibility: hidden;
-    -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
-    backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
-    border-left: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: none;
     display: flex;
     flex-direction: row;
+    gap: var(--settings-gap);
+    pointer-events: none;
+
+    /* Single source of truth for every sidebar motion: the wrapper slide, the
+       submenu panel and the content fades all use it, so they finish together
+       (keep it in sync with SUBMENU_TRANSITION_MS in core/ui/submenu.js). */
+    --settings-motion: 0.8s;
+
+    /* Layout rhythm of the panel: the padding around the cards, the gap between
+       the nav and the content card, and the width of the three columns.
+       Everything below is derived from these, so resizing the sidebar is a
+       one-line change here (the nav reads --nav-width as well). */
+    --settings-pad: 10px;
+    --settings-gap: 8px;
+    --nav-width: 52px;
+    --main-view-width: 320px;
+
+    /* Width requested by the open submenu panel, clamped so the nav, the gap and
+       the padding always fit inside the viewport. */
+    --submenu-width: min(
+        var(--submenu-requested-width, 320px),
+        calc(100vw - var(--nav-width) - var(--settings-gap) - var(--settings-pad) * 2)
+    );
+}
+
+/* The submenu lives inside the content card, so the wrapper grows to fit the
+   same width instead of squeezing the panel into the main menu column. */
+#setting_wrapper.submenu_active {
+    width: calc(var(--nav-width) + var(--settings-gap) + var(--submenu-width));
 }
 
 #setting_wrapper.preload {
@@ -27,9 +58,6 @@
 .setting_wrapper_opened {
     transform: translateX(0%) !important;
     visibility: visible !important;
-    box-shadow:
-        -8px 0 32px rgba(0, 0, 0, 0.35),
-        inset 1px 0 0 rgba(255, 255, 255, 0.08) !important;
 }
 
 #setting_toggle_btn {
@@ -81,7 +109,6 @@
 /* Slide elements off-screen during preview */
 #setting_wrapper.preview_active {
     transform: translateX(100%) !important;
-    box-shadow: none !important;
 }
 
 #setting_wrapper.preview_active .nav_tooltip {

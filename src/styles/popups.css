@@ -31,12 +31,17 @@
     box-sizing: border-box;
     max-height: calc(100vh - 32px);
     max-width: calc(100vw - 32px);
-    border-radius: 6px;
+    /* One radius for the alert card plus the nested radius its children must use
+       when they touch an edge: outer - border. */
+    --alert-radius: 12px;
+    --alert-border: 1px;
+    --alert-radius-inner: calc(var(--alert-radius) - var(--alert-border));
+    border-radius: var(--alert-radius);
     display: flex;
     flex-direction: column;
     color: var(--text-primary);
     background-color: var(--bg-panel);
-    border: 1px solid var(--glass-border);
+    border: var(--alert-border) solid var(--glass-border);
     box-shadow:
         0 12px 40px rgba(0, 0, 0, 0.45),
         0 4px 12px rgba(0, 0, 0, 0.25),
@@ -258,7 +263,7 @@
     backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
     color: var(--text-primary);
     padding: 10px 16px;
-    border-radius: 4px;
+    border-radius: 12px;
     border: 1px solid var(--glass-border-sm);
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.4),

@@ -529,9 +529,10 @@ class BackgroundEditor {
         const imgRatio = natW / natH;
         const screenRatio = window.innerWidth / window.innerHeight;
 
-        // Padding inside editor_container to prevent corner handles (bottom: -7px) from
-        // being clipped by overflow: hidden. Must be >= 7px (corner handle offset).
-        const CORNER_PAD = 8;
+        // Padding inside the editor container. The corner handles are inset in
+        // the lens now, so they no longer need padding to escape the
+        // overflow: hidden edge - the image can use the full width.
+        const CORNER_PAD = 0;
         
         // Dynamically compute available width subtracting container padding (16px * 2 = 32px)
         // and the CORNER_PAD on each side so the total container stays within the section.
@@ -566,12 +567,10 @@ class BackgroundEditor {
             d.baseLensW = d.viewH * screenRatio;
         }
 
-        // ── Step 3: size container to fit lens + corner handle padding ─────
+        // ── Step 3: size container to fit lens ────────────────────
         //
         // • containerH = max(viewH, baseLensH) ensures lens is never taller than
         //   the container (portrait screens with landscape images).
-        // • CORNER_PAD on every side keeps the -7px corner handles inside the
-        //   overflow:hidden boundary so they are never clipped.
         const innerH = Math.max(d.viewH, d.baseLensH);
         const containerH = innerH + CORNER_PAD * 2;
         const containerW = d.viewW + CORNER_PAD * 2;

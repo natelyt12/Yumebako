@@ -1,11 +1,57 @@
 /* Settings Panel Main Layout & Section Options */
 
+/* The content card holds both views side by side: the main menu and, to its
+   right, the submenu. It fills the wrapper as a flex child, so the wrapper's
+   width animation (--submenu-width) is what morphs the card - the track inside
+   only slides. */
 #settings_content {
-    flex: 1;
-    height: 100vh;
-    overflow: hidden;
     position: relative;
-    transition: width 0.8s var(--expo_out);
+    /* One slider track: both views are laid out side by side inside the card, so
+       they can never overlap - they just slide across. */
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    /* Clips the track while it slides. */
+    overflow: hidden;
+    /* Fades with the submenu motion; the transform is the staggered entrance
+       against the sidebar slide (see `.setting_wrapper_opened` below). The glass
+       properties are transitioned for the hold-to-preview dissolve. */
+    transform: translateX(80px);
+    transition:
+        transform 0.7s var(--expo_out) 0.1s,
+        opacity var(--settings-motion) var(--expo_out),
+        background-color var(--settings-motion) var(--expo_out),
+        -webkit-backdrop-filter var(--settings-motion) var(--expo_out),
+        backdrop-filter var(--settings-motion) var(--expo_out),
+        border-color var(--settings-motion) var(--expo_out),
+        box-shadow var(--settings-motion) var(--expo_out);
+    background-color: var(--bg-panel);
+    -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
+    backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);
+    pointer-events: auto;
+    z-index: 1;
+}
+
+/* Coming in a beat after the sidebar itself, so the two cards never slide as a
+   single block (the same delay plays back on close). */
+#setting_wrapper.setting_wrapper_opened #settings_content {
+    transform: none;
+}
+
+/* Both halves of the track shift left by exactly one main column: the main menu
+   leaves through the left edge while the submenu arrives from the right. Pure
+   slide, no fade - the opacity is only touched by the hold-to-preview dissolve. */
+#setting_wrapper.submenu_active .settings_main_view,
+#setting_wrapper.submenu_active .settings_submenu_view {
+    transform: translateX(calc(-1 * var(--main-view-width)));
+}
+
+#setting_wrapper.submenu_active .settings_main_view {
+    pointer-events: none;
 }
 
 /* Original Glassmorphic White top loading indicator bar with width animation */
@@ -49,41 +95,24 @@
     }
 }
 
-.settings_slider_container {
-    display: flex;
-    height: 100%;
-    transition: transform 0.8s var(--expo_out);
-}
-
-.settings_slider_container.submenu_active {
-    transform: translateX(-320px);
-}
-
 .settings_main_view {
-    width: 320px;
-    min-width: 320px;
-    flex-shrink: 0;
+    /* First half of the track, at a fixed column width so it never stretches when
+       the card widens for a submenu. */
+    position: relative;
+    flex: 0 0 var(--main-view-width);
     height: 100%;
     overflow-y: auto;
     overflow-x: hidden;
     scroll-behavior: smooth;
+    /* Slides with the track, and fades for the hold-to-preview dissolve. */
+    transform: translateX(0);
+    transition:
+        transform var(--settings-motion) var(--expo_out),
+        opacity var(--settings-motion) var(--expo_out);
 }
 
-#setting_wrapper.hide_tabbar {
-    width: var(--submenu-width, 320px);
-}
-
-#setting_wrapper.hide_tabbar .settings_nav {
-    width: 0px;
-    opacity: 0;
-    border-right-color: transparent;
-    pointer-events: none;
-}
-
-#setting_wrapper.submenu_fullscreen {
-    width: 100vw !important;
-    border-left: none;
-}
+/* The nav stays visible next to the submenu, it just swaps its tab list for the
+   back / preview actions (see settings_nav.css). */
 
 .tab_content {
     display: none;
@@ -111,6 +140,11 @@
     display: flex;
     flex-direction: column;
     padding: 12px 16px;
+}
+
+/* Submenu sections breathe a bit more than the main menu ones. */
+.submenu_body .setting_section {
+    padding: 16px;
 }
 
 /* Submenu sections get the same gap-driven rhythm as `.setting_options` in the
@@ -238,9 +272,9 @@
     width: 36px;
     height: 20px;
     background: rgba(0, 0, 0, 0.2);
-    border-radius: 3px;
+    border-radius: 10px;
     position: relative;
-    transition: background 0.15s ease, border-color 0.15s ease;
+    transition: background 0.3s var(--expo_out), border-color 0.3s var(--expo_out);
     flex-shrink: 0;
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
@@ -252,9 +286,9 @@
     width: 14px;
     height: 14px;
     background: rgba(255, 255, 255, 0.6);
-    border-radius: 2px;
+    border-radius: 50%;
     box-shadow: none;
-    transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), background 0.15s ease;
+    transition: transform 0.4s var(--expo_out), background 0.2s var(--expo_out);
 }
 
 .checkbox input:checked+.ts-track {
@@ -336,6 +370,7 @@
     width: 100%;
     aspect-ratio: 16/9;
     border-radius: 2px;
+    border-radius: 8px;
     overflow: hidden;
     border: 1px solid var(--glass-border-sm);
     background: rgba(0, 0, 0, 0.2);

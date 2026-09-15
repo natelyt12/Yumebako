@@ -21,7 +21,7 @@
     /* ── Glass / Surface ───────────────────────── */
     --bg-page: #000000;
     --background: rgba(12, 12, 18, 0.45);
-    --bg-panel: rgba(8, 8, 14, 0.4);
+    --bg-panel: rgba(8, 8, 14, 0.38);
     --bg-surface: rgba(255, 255, 255, 0.04);
     --bg-surface-act: rgba(255, 255, 255, 0.03);
     --bg-overlay: rgba(0, 0, 0, 0.8);

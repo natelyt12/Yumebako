@@ -1,30 +1,33 @@
-/* Submenu Drawer Panels & Dropdown Components */
+/* Floating Submenu Panel & Dropdown Components */
 
+/* Submenu view: the second half of the content card's slider track. It sits right
+   after the main menu in the flow and is pulled into view by the shared track
+   transform (see settings_layout.css), so the two can never overlap. */
 .settings_submenu_view {
-    width: var(--submenu-width, 320px);
-    min-width: var(--submenu-width, 320px);
-    flex-shrink: 0;
+    position: relative;
+    flex: 0 0 var(--submenu-width);
     height: 100%;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--glass-border-sm);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transform: translateX(0);
+    opacity: 0;
+    pointer-events: none;
+    /* Motion duration lives in `--settings-motion` (settings_wrapper.css) so the
+       panel, the sidebar and the content fades always finish together. */
+    transition:
+        transform var(--settings-motion) var(--expo_out),
+        opacity var(--settings-motion) var(--expo_out);
 }
 
-.submenu_header {
-    position: relative;
-    z-index: 2;
-    padding: 8px 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    display: flex;
-    align-items: center;
-    background-color: transparent;
-    min-height: 48px;
-    gap: 8px;
-    flex-shrink: 0;
+#setting_wrapper.submenu_active .settings_submenu_view {
+    opacity: 1;
+    pointer-events: auto;
 }
 
+/* The panel content fades in / out on every switch, with the same duration as
+   the panel itself. `show_content` is toggled by the submenu controller so the
+   fade also replays when one submenu replaces another inside the same panel. */
 .submenu_body {
     flex: 1;
     overflow-y: auto;
@@ -33,99 +36,42 @@
     display: flex;
     flex-direction: column;
     scroll-behavior: smooth;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity var(--settings-motion) var(--expo_out), transform var(--settings-motion) var(--expo_out);
 }
 
-.submenu_back_btn {
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 2px;
-    background-color: var(--button);
-    border: 1px solid var(--glass-border-sm);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    color: var(--text-primary);
-    transition: background-color 0.2s var(--expo_out), transform 0.2s var(--expo_out);
-    flex-shrink: 0;
-    margin-left: -4px;
+.settings_submenu_view.show_content .submenu_body {
+    opacity: 1;
+    transform: none;
 }
 
-.submenu_back_btn:hover {
-    background-color: var(--button-hov);
-    border-color: var(--glass-border);
-}
-
-.submenu_back_btn svg {
-    width: 20px;
-    height: 20px;
-}
-
-.submenu_title_wrapper {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    flex: 1;
-    overflow: hidden;
-}
-
-.submenu_title {
-    color: var(--text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    text-align: center;
-}
-
-.submenu_dirty_dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background-color: rgba(255, 255, 255, 0.6);
-    flex-shrink: 0;
-    display: none;
-}
-
-.submenu_eye_btn {
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 2px;
-    background-color: var(--button);
-    border: 1px solid var(--glass-border-sm);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    color: var(--text-primary);
-    transition: background-color 0.2s var(--expo_out), transform 0.2s var(--expo_out);
-    flex-shrink: 0;
-    margin-right: -4px;
-}
-
-.submenu_eye_btn:hover {
-    background-color: var(--button-hov);
-    border-color: var(--glass-border);
-}
-
-.submenu_eye_btn:active {
-    transform: scale(0.92);
-}
-
-.submenu_eye_btn svg {
-    width: 18px;
-    height: 18px;
-}
-
+/* Hold-to-preview: dissolve the glass and fade the content instead of fading the
+   whole stack. Fading an ancestor disables backdrop-filter for the whole fade,
+   which made the blur pop back in the moment the fade finished. */
 #setting_wrapper.preview_eye_active {
+    pointer-events: none;
+}
+
+/* !important so the preview also hides content that the submenu state shows. */
+#setting_wrapper.preview_eye_active .settings_nav_inner,
+#setting_wrapper.preview_eye_active .submenu_nav_actions,
+#setting_wrapper.preview_eye_active .settings_main_view,
+#setting_wrapper.preview_eye_active .settings_submenu_view > * {
     opacity: 0 !important;
-    pointer-events: none !important;
-    transition: opacity 0.2s var(--expo_out) !important;
+}
+
+#setting_wrapper.preview_eye_active .nav_group,
+#setting_wrapper.preview_eye_active #settings_content {
+    background-color: transparent;
+    -webkit-backdrop-filter: blur(0) saturate(100%) brightness(1);
+    backdrop-filter: blur(0) saturate(100%) brightness(1);
+    border-color: transparent;
+    box-shadow: none;
 }
 
 /* Subsection Dropdown Modern UI */
+/* Dropdown Modern UI */
 .dropdown_wrapper {
     position: relative;
     width: 100%;
@@ -146,6 +92,7 @@
     background-color: rgba(10, 10, 18, 1);
     border: 1px solid var(--glass-border-sm);
     border-radius: 4px;
+    border-radius: 8px;
     box-shadow:
         0 16px 48px rgba(0, 0, 0, 0.55),
         inset 0 1px 0 var(--glass-inset);
@@ -195,6 +142,7 @@
     justify-content: flex-start;
     text-align: left;
     border-radius: 2px;
+    border-radius: 6px;
     transition:
         background-color 0.15s var(--smooth),
         color 0.15s var(--smooth);
@@ -261,20 +209,4 @@
 
 .btn_active .sbsctsvg svg {
     transform: rotateX(180deg);
-}
-
-.preview_wrapper {
-    transition: 0.8s var(--expo_out);
-    overflow: hidden;
-    position: relative;
-}
-
-#preview {
-    width: 100%;
-    min-height: 0;
-    object-fit: contain;
-    border-radius: 2px;
-    border: 1px solid var(--glass-border-sm);
-    transition: 0.8s var(--expo_out);
-    z-index: 0;
 }

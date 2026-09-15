@@ -159,20 +159,8 @@ hr {
     gap: 4px;
 }
 
-/* Scrollbar */
+/* Scrollbar - hidden for cleaner look as requested */
 ::-webkit-scrollbar {
-    width: 4px;
-}
-
-::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-    background: var(--scrollbar-thumb);
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: var(--scrollbar-hov);
+    display: none;
+    width: 0px;
 }

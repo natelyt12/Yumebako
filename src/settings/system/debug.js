@@ -118,28 +118,28 @@ function initSubmenuTest() {
         div.className = "setting_section";
         div.innerHTML = `
             <p class="setting_title">${titleText}</p>
-            <p style="font-size: 0.85em; opacity: 0.7; margin-bottom: 12px; line-height: 1.5;">Đây là khung nội dung Submenu tầng 2 trượt từ bên phải sang. Chiều rộng sidebar vẫn giữ nguyên 380px (hoặc tùy chỉnh).</p>
-            <div class="setting_options" style="display: flex; flex-direction: column; gap: 8px;">
-                <button id="sub_action_1">Thao tác thử nghiệm 1</button>
-                <button id="sub_action_2">Thao tác thử nghiệm 2</button>
+            <span class="tooltip">Floating submenu panel: it slides in next to the nav and takes the place of the main menu. Pass a width to make it wider than the sidebar column.</span>
+            <div class="setting_options flex_col gap_8">
+                <button id="sub_action_1">Test action 1</button>
+                <button id="sub_action_2">Test action 2</button>
             </div>
         `;
         div.querySelector("#sub_action_1")?.addEventListener("mousedown", () => {
-            showNotification("Đã nhấp Thao tác 1 trong Submenu", "success");
+            showNotification("Test action 1 clicked inside the submenu", "success");
         });
         div.querySelector("#sub_action_2")?.addEventListener("mousedown", () => {
-            showNotification("Đã nhấp Thao tác 2 trong Submenu", "info");
+            showNotification("Test action 2 clicked inside the submenu", "info");
         });
         return div;
     };
 
     document.getElementById("test_sidebar_submenu")?.addEventListener("mousedown", () => {
         const inputVal = document.getElementById("test_submenu_width")?.value.trim();
-        const title = inputVal ? `Submenu (${inputVal})` : "Cài đặt Nâng cao";
-        openSidebarSubmenu(title, createSubmenuContent("Chi tiết Submenu Nâng cao"), { width: inputVal });
+        const title = inputVal ? `Submenu (${inputVal})` : "Advanced Settings";
+        openSidebarSubmenu(title, createSubmenuContent("Advanced Submenu Details"), { width: inputVal, canPreview: true });
     });
 
     document.getElementById("test_sidebar_submenu_fullscreen")?.addEventListener("mousedown", () => {
-        openSidebarSubmenu("Submenu Fullscreen (100vw)", createSubmenuContent("Chi tiết Submenu Toàn Màn Hình"), { isFullScreen: true });
+        openSidebarSubmenu("Fullscreen Submenu", createSubmenuContent("Fullscreen Submenu Details"), { isFullScreen: true });
     });
 }
