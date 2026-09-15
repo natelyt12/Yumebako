@@ -13,6 +13,7 @@
     "common.cancel": "Cancel",
     "common.confirm": "Confirm",
     "common.easing.cubic_out": "Cubic Out",
+    "common.easing.ease_in_out": "Ease In Out",
     "common.easing.ease_out": "Ease Out",
     "common.easing.expo_out": "Expo Out",
     "common.easing.linear": "Linear",
