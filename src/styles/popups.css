@@ -8,7 +8,7 @@
     height: 100vh;
     visibility: hidden;
     background-color: transparent;
-    z-index: 1000;
+    z-index: var(--z-modal);
     transition:
         background-color 0.3s var(--expo_out),
         visibility 0.3s var(--expo_out);
@@ -99,7 +99,7 @@
     bottom: 24px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 9999;
+    z-index: var(--z-floating-bar);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -244,7 +244,7 @@
     top: 12px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 10000;
+    z-index: var(--z-toast);
     display: flex;
     flex-direction: column;
     align-items: center;

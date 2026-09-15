@@ -84,6 +84,8 @@ export function resolvePlayConfig(stored = {}) {
         speed: params.speed,
         // Only the wallpaper transform is tunable; the fade is hard-wired to an
         // expo-out (see OVERLAY_FADE_EASING).
+        // Only the wallpaper transform is tunable; the fade is hard-wired to
+        // ease_in_out (see OVERLAY_FADE_EASING).
         bgEasing: resolveEasing(params.bg_easing, DEFAULT_BG_EASING),
         overlaySpeed: params.overlay_speed,
         overlayEasing: resolveEasing(OVERLAY_FADE_EASING),

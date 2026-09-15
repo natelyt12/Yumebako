@@ -20,6 +20,7 @@
 export const EASING_REGISTRY = {
     linear: "linear",
     ease_out: "ease_out",
+    ease_in_out: "ease_in_out",
     expo_out: "expo_out",
     cubic_out: "cubic_out",
     sine_out: "sine_out",
@@ -36,8 +37,9 @@ export const DEFAULT_BG_EASING = "expo_out";
 /**
  * Curve applied to the overlay fade. Deliberately fixed — the plain `ease-out`
  * keyword is all this needs, so there is nothing to tune.
+ * Curve applied to the overlay fade. Set to ease_in_out.
  */
-export const OVERLAY_FADE_EASING = "ease_out";
+export const OVERLAY_FADE_EASING = "ease_in_out";
 
 /**
  * Normalise a stored value to a registry id.

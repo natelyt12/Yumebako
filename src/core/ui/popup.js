@@ -1,7 +1,7 @@
 import { renderIcons } from "/src/core/icon.js";
 import { t, translateDOM } from "/src/core/i18n.js";
 
-let currentZIndex = 1000;
+let currentZIndex = 50;
 
 // Track the most recent user click position to anchor popups contextually
 let lastPointerPos = null;

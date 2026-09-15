@@ -25,6 +25,8 @@ import { DEFAULT_BG_EASING } from "./easing.js";
  * Settings every preset inherits unless it overrides them. The overlay fade is
  * not tunable — it is hard-wired to an expo-out — so only the wallpaper
  * transform exposes parameters.
+ * not tunable — it is hard-wired to ease-in-out (see OVERLAY_FADE_EASING) —
+ * so only the wallpaper transform exposes parameters.
  */
 const SHARED_DEFAULTS = {
     bg_easing: DEFAULT_BG_EASING,

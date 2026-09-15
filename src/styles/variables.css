@@ -59,4 +59,18 @@
     --divider: rgba(255, 255, 255, 0.12);
     --scrollbar-thumb: rgba(255, 255, 255, 0.1);
     --scrollbar-hov: rgba(255, 255, 255, 0.2);
+
+    /* ── Z-Index Layers ────────────────────────── */
+    --z-below: -1;
+    --z-base: 0;
+    --z-bg: 1;
+    --z-overlay: 2;
+    --z-safemode: 5;
+    --z-widgets: 10;
+    --z-floating-bar: 20;
+    --z-settings: 30;
+    --z-settings-toggle: 31;
+    --z-dropdown: 40;
+    --z-modal: 50;
+    --z-toast: 100;
 }

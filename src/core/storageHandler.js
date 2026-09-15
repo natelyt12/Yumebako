@@ -57,6 +57,7 @@ const defaultSettings = {
         overlay_speed: 1,
         // The overlay fade is deliberately not configurable — it is hard-wired to
         // an expo-out. The id follows src/wallpaper/onload/easing.js and is
+        // ease-in-out. The id follows src/wallpaper/onload/easing.js and is
         // resolved to a `var(--token)` only at play time.
         bg_easing: "expo_out",
         advanced: false,
