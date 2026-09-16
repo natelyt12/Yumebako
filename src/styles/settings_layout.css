@@ -19,7 +19,7 @@
        properties are transitioned for the hold-to-preview dissolve. */
     transform: translateX(80px);
     transition:
-        transform 0.7s var(--expo_out) 0.1s,
+        transform 0.4s var(--cubic_in),
         opacity var(--settings-motion) var(--expo_out),
         background-color var(--settings-motion) var(--expo_out),
         -webkit-backdrop-filter var(--settings-motion) var(--expo_out),
@@ -29,7 +29,7 @@
     background-color: var(--bg-panel);
     -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
     backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: var(--settings-card-border, 1px) solid rgba(255, 255, 255, 0.12);
     border-radius: 12px;
     box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);
     pointer-events: auto;
@@ -40,17 +40,25 @@
    single block (the same delay plays back on close). */
 #setting_wrapper.setting_wrapper_opened #settings_content {
     transform: none;
+    transition:
+        transform 0.7s var(--expo_out) 0.1s,
+        opacity var(--settings-motion) var(--expo_out),
+        background-color var(--settings-motion) var(--expo_out),
+        -webkit-backdrop-filter var(--settings-motion) var(--expo_out),
+        backdrop-filter var(--settings-motion) var(--expo_out),
+        border-color var(--settings-motion) var(--expo_out),
+        box-shadow var(--settings-motion) var(--expo_out);
 }
 
 /* Both halves of the track shift left by exactly one main column: the main menu
-   leaves through the left edge while the submenu arrives from the right. Pure
-   slide, no fade - the opacity is only touched by the hold-to-preview dissolve. */
+   leaves through the left edge while fading out, and the submenu arrives from the right. */
 #setting_wrapper.submenu_active .settings_main_view,
 #setting_wrapper.submenu_active .settings_submenu_view {
-    transform: translateX(calc(-1 * var(--main-view-width)));
+    transform: translateX(calc(-1 * var(--settings-inner-main-width)));
 }
 
 #setting_wrapper.submenu_active .settings_main_view {
+    opacity: 0;
     pointer-events: none;
 }
 
@@ -62,7 +70,7 @@
     display: block;
     --height-of-loading: 1px;
     --loading-color: #ffffff;
-    width: 320px;
+    width: 100%;
     height: var(--height-of-loading);
     background-color: rgba(255, 255, 255, 0.05);
     transition: 0.5s ease-in-out;
@@ -97,9 +105,9 @@
 
 .settings_main_view {
     /* First half of the track, at a fixed column width so it never stretches when
-       the card widens for a submenu. */
+       the card widens for a submenu. Matches the inner width of the content card. */
     position: relative;
-    flex: 0 0 var(--main-view-width);
+    flex: 0 0 var(--settings-inner-main-width);
     height: 100%;
     overflow-y: auto;
     overflow-x: hidden;
@@ -142,9 +150,8 @@
     padding: 12px 16px;
 }
 
-/* Submenu sections breathe a bit more than the main menu ones. */
 .submenu_body .setting_section {
-    padding: 16px;
+    padding: 12px 16px;
 }
 
 /* Submenu sections get the same gap-driven rhythm as `.setting_options` in the

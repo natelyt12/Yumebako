@@ -5,7 +5,7 @@
    transform (see settings_layout.css), so the two can never overlap. */
 .settings_submenu_view {
     position: relative;
-    flex: 0 0 var(--submenu-width);
+    flex: 0 0 var(--settings-inner-submenu-width);
     height: 100%;
     overflow: hidden;
     display: flex;
