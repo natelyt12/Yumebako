@@ -14,7 +14,11 @@ These are the rules the agent must always keep in mind when coding a new feature
   - Settings about the system, the startpage, widgets and utilities are automatically stored under the `bako_settings` key.
 - **Never override stored data directly:** Always call `getSettings()` to read the latest state and use `saveSettings()` to update it. `saveSettings()` is designed to route the data into both keys above automatically.
 
-## 2. General Rules
+## 2. General Rules & Workflow
+- **Output & Workflow:**
+  - Do **NOT** create or update walkthrough artifacts (`walkthrough.md`).
+  - Do **NOT** run `npm run build` after changes unless explicitly requested by the user or checking syntax error.
+  - Keep responses concise and strictly limited. Summarize what changed briefly. Only communicate in normal length when discussion or user input is actually required.
 - **Continuous refactoring:** The user refactors the codebase very often. If a request makes any guidance in this rule file outdated, **proactively ask the user** whether this rule file should be updated instead of forcing a wrong implementation.
 - **Locale sync (i18n):** Whenever a feature is ADDED or REMOVED:
   - Always check and update the locale files together (`public/locales/en.json`, `public/locales/vi.json`).
