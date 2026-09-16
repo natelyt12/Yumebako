@@ -15,7 +15,18 @@ async function fetchImageBlob(url) {
     }
 }
 
-async function fetchWallhavenQueue() {
+/**
+ * Fetch a fresh batch of wallpapers matching the user's Wallhaven filters.
+ * Exported so the Switcher's WallhavenSource can build its own card list.
+ *
+ * @param {Object} [options]
+ * @param {boolean} [options.strict=false] - Rethrow on failure instead of
+ *     swallowing it into an empty batch. The Switcher needs to tell "the API is
+ *     unreachable" (an error the user can retry) apart from "the filters match
+ *     nothing" (a feed with nothing left), and an empty batch cannot say which.
+ * @returns {Promise<Array>} Raw Wallhaven wallpaper records.
+ */
+export async function fetchWallhavenQueue({ strict = false } = {}) {
     try {
         const s = getSettings().wallhavenConfig;
 
@@ -42,6 +53,7 @@ async function fetchWallhavenQueue() {
         return json.data || [];
     } catch (error) {
         console.error("[wallhavenAPI] Error fetching wallhaven queue:", error);
+        if (strict) throw error;
         return [];
     }
 }

@@ -70,7 +70,9 @@ export const Icons = {
     particlesSettings: toSvgString(Sparkles, { width: 18, height: 18 }),
     onloadSettings: toSvgString(PlayCircle, { width: 18, height: 18 }),
     videoBadge: toSvgString(Film, { width: 16, height: 16 }),
-    imageBadge: toSvgString(Image, { width: 16, height: 16 })
+    imageBadge: toSvgString(Image, { width: 16, height: 16 }),
+    // Wallpaper Switcher: trailing "load one more" card
+    addMore: toSvgString(Plus, { width: 40, height: 40 })
 };
 
 export function renderIcons(rootNode = document) {

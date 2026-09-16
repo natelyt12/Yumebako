@@ -15,7 +15,10 @@
     box-sizing: content-box;
     color: white;
     background-color: transparent;
-    transition: var(--settings-motion) var(--expo_out);
+    transition:
+        transform 0.45s var(--cubic_in),
+        width 0.45s var(--cubic_in),
+        visibility 0s 0.45s;
     transform: translateX(100%);
     visibility: hidden;
     display: flex;
@@ -36,6 +39,7 @@
     --settings-gap: 8px;
     --nav-width: 52px;
     --main-view-width: 320px;
+    --settings-card-border: 1px;
 
     /* Width requested by the open submenu panel, clamped so the nav, the gap and
        the padding always fit inside the viewport. */
@@ -43,6 +47,11 @@
         var(--submenu-requested-width, 320px),
         calc(100vw - var(--nav-width) - var(--settings-gap) - var(--settings-pad) * 2)
     );
+
+    /* Inner widths of the content card (minus 1px border on each side) to prevent
+       content overflow and ensure sections fit flush against the card borders. */
+    --settings-inner-main-width: calc(var(--main-view-width) - var(--settings-card-border) * 2);
+    --settings-inner-submenu-width: calc(var(--submenu-width) - var(--settings-card-border) * 2);
 }
 
 /* The submenu lives inside the content card, so the wrapper grows to fit the
@@ -58,52 +67,96 @@
 .setting_wrapper_opened {
     transform: translateX(0%) !important;
     visibility: visible !important;
+    transition:
+        transform var(--settings-motion) var(--expo_out),
+        width var(--settings-motion) var(--expo_out) !important;
 }
 
-#setting_toggle_btn {
+/* ── Action Buttons Container & Toggle Triggers ────────── */
+
+#action_buttons {
     visibility: visible !important;
     position: fixed;
-    background-color: transparent;
-    border: none;
     right: 14px;
     bottom: 12px;
     z-index: var(--z-settings-toggle);
     display: flex;
     align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    padding: 12px;
-    border-radius: 50px;
+    gap: 4px;
     opacity: 0.4;
     transition:
         opacity 0.3s var(--expo_out) 0.8s,
-        background-color 0.3s var(--expo_out);
+        background-color 0.3s var(--expo_out),
+        right 0.8s var(--expo_out);
 }
 
-#setting_toggle_btn:hover {
-    opacity: 0.8 !important;
-    background-color: rgba(255, 255, 255, 0.1) !important;
+#action_buttons:hover {
+    opacity: 0.85 !important;
     transition:
         opacity 0.15s var(--smooth) 0s,
-        right 0.8s var(--expo_out),
-        background-color 0.15s var(--smooth) 0s;
+        right 0.8s var(--expo_out);
 }
 
-#setting_toggle_btn.setting_toggle_btn_opened {
+#action_buttons.setting_toggle_btn_opened {
     opacity: 0 !important;
     pointer-events: none !important;
     transition:
-        opacity 0.3s var(--expo_out) 0s,
-        background-color 0.3s var(--expo_out);
+        opacity 0.3s var(--expo_out) 0s;
 }
 
-#setting_toggle_btn svg {
-    transform: scale(1.6);
-}
-
-#setting_toggle_btn.toggle_hidden {
+#action_buttons.toggle_hidden {
     opacity: 0;
+}
+
+/* Slide action buttons off-screen during preview */
+#action_buttons.preview_active,
+#action_buttons:has(#setting_toggle_btn.preview_active),
+#setting_toggle_btn.preview_active {
+    right: -120px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition:
+        right 0.8s var(--expo_out),
+        opacity 0.4s var(--expo_out) !important;
+}
+
+#action_buttons button,
+#setting_toggle_btn,
+#wallpaper_toggle_btn {
+    visibility: visible !important;
+    background-color: transparent !important;
+    border: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 40px !important;
+    height: 40px !important;
+    padding: 12px !important;
+    border-radius: 50px !important;
+    cursor: pointer !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    color: var(--text-primary);
+    transition:
+        background-color 0.2s var(--smooth),
+        box-shadow 0.2s var(--smooth);
+}
+
+#action_buttons button:hover,
+#setting_toggle_btn:hover,
+#wallpaper_toggle_btn:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+#wallpaper_toggle_btn.active {
+    background-color: rgba(255, 255, 255, 0.16) !important;
+    box-shadow: 0 0 16px rgba(255, 255, 255, 0.1) !important;
+}
+
+#action_buttons svg,
+#setting_toggle_btn svg,
+#wallpaper_toggle_btn svg {
+    transform: scale(1.6);
 }
 
 /* Slide elements off-screen during preview */
@@ -114,12 +167,4 @@
 #setting_wrapper.preview_active .nav_tooltip {
     opacity: 0 !important;
     pointer-events: none !important;
-}
-
-#setting_toggle_btn.preview_active {
-    right: -60px !important;
-    opacity: 0 !important;
-    transition:
-        right 0.8s var(--expo_out),
-        opacity 0.4s var(--expo_out) !important;
 }

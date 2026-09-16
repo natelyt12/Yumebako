@@ -13,6 +13,16 @@ export async function getCollection() {
 }
 
 /**
+ * Load a single collection item by id.
+ * @param {string} id
+ * @returns {Promise<Object|null>} The record, or null when it is gone.
+ */
+export async function getCollectionItem(id) {
+    const collection = await getCollection();
+    return collection.find((item) => String(item.id) === String(id)) || null;
+}
+
+/**
  * Add a new item to the collection.
  * @param {{ type: string, blob: Blob, thumbnail?: Blob|null, metadata?: Object }} item
  * @returns {Promise<Object>} The saved item (with generated id).
@@ -28,6 +38,7 @@ export async function addToCollection(item) {
     };
     collection.push(newItem);
     await saveToStore(COLLECTION_KEY, collection);
+    window.dispatchEvent(new CustomEvent("wallpaper-collection-updated", { detail: { collection } }));
     return newItem;
 }
 
@@ -40,6 +51,7 @@ export async function removeFromCollection(id) {
     const collection = await getCollection();
     const remaining = collection.filter((item) => item.id !== id);
     await saveToStore(COLLECTION_KEY, remaining);
+    window.dispatchEvent(new CustomEvent("wallpaper-collection-updated", { detail: { collection: remaining } }));
     return remaining;
 }
 
@@ -52,6 +64,7 @@ export async function removeMultipleFromCollection(ids) {
     const collection = await getCollection();
     const remaining = collection.filter((item) => !ids.includes(item.id));
     await saveToStore(COLLECTION_KEY, remaining);
+    window.dispatchEvent(new CustomEvent("wallpaper-collection-updated", { detail: { collection: remaining } }));
     return remaining;
 }
 
@@ -91,5 +104,6 @@ export async function recoverCollectionBlobs() {
 
     if (updated) {
         await saveToStore(COLLECTION_KEY, collection);
+        window.dispatchEvent(new CustomEvent("wallpaper-collection-updated", { detail: { collection } }));
     }
 }

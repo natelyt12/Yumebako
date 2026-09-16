@@ -53,7 +53,6 @@ export function openCustomPopup(title, contentNode, width = "400px", options = {
     if (canClose) {
         popupClose = document.createElement("button");
         popupClose.className = "popup_close";
-        popupClose.setAttribute("aria-label", "Close");
         popupClose.innerHTML = `
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18"></line>

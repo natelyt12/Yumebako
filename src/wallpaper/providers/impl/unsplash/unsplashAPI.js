@@ -15,7 +15,13 @@ async function fetchImageBlob(url) {
     }
 }
 
-async function fetchUnsplashQueue(apiKey) {
+/**
+ * Fetch a fresh batch of Unsplash photos.
+ * Exported so the Switcher's UnsplashSource can build its own card list.
+ * @param {string} apiKey
+ * @returns {Promise<Array>} Raw Unsplash photo records.
+ */
+export async function fetchUnsplashQueue(apiKey) {
     try {
         // Using query=nature,travel to get curated, high-quality backgrounds
         const url = `https://api.unsplash.com/photos/random?count=30&orientation=landscape&query=nature,travel&client_id=${apiKey}`;

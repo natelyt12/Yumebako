@@ -4,6 +4,7 @@ import { providerManager, initializeWavySettings, initializeParticles } from "..
 import { initWidget } from "../widgets/handler.js";
 import { initAppUtils } from "../settings/system/apputils.js";
 import { renderIcons } from "./icon.js";
+import { wallpaperSwitcher } from "../wallpaper/switcher/index.js";
 
 let settingsLoaded = false;
 
@@ -48,9 +49,9 @@ export async function start() {
     initializeParticles();
     renderIcons();
 
-    // 2. Load core components in parallel (i18n and background wallpaper)
+    // 2. Load core components in parallel (i18n and background layer)
     const i18nPromise = initI18n();
-    const bgPromise = providerManager.boot();
+    const bgPromise = providerManager.prepare();
 
     if (immediate) {
         // Load widgets immediately in parallel with i18n/background
@@ -67,14 +68,30 @@ export async function start() {
         }, { once: true });
     }
 
-    // 3. Register Lazy Loading settings listeners
+    // 3. Initialize Wallpaper Switcher — it now decides which wallpaper boots
+    await wallpaperSwitcher.init();
+
+    // 4. Safety net: if the switcher could not restore or fetch anything, fall
+    // back to the legacy provider flow so the overlay never stays covering the page.
+    await providerManager.ensureBackground();
+
+    // 5. Register Lazy Loading settings listeners
     const toggleBtn = document.getElementById("setting_toggle_btn");
     if (toggleBtn) {
-        toggleBtn.addEventListener("mousedown", loadSettingsPanel);
+        toggleBtn.addEventListener("mousedown", () => {
+            wallpaperSwitcher.close();
+            loadSettingsPanel();
+        });
     }
 
-    // 4. Register global shortcut Alt+X (Resolves original event/trigger bug)
+    // 6. Register global shortcuts Alt+X (Settings) and Alt+W (Wallpaper Switcher)
     document.addEventListener("keydown", (e) => {
+        if (e.altKey && e.code === "KeyW") {
+            e.preventDefault();
+            wallpaperSwitcher.toggle();
+            return;
+        }
+
         if (e.altKey && e.code === "KeyX") {
             e.preventDefault();
             const wrapper = document.getElementById("setting_wrapper");

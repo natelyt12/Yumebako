@@ -10,6 +10,13 @@ import { addToCollection, getCollection } from "./impl/collection/collectionDb.j
 import { generateImageThumbnail, generateVideoThumbnail } from "/src/core/utils/thumbnailGenerator.js";
 import { setDropdownValue } from "/src/core/ui/dropdown.js";
 
+/**
+ * Duration of the cross-fade used whenever the wallpaper is swapped. Owned here
+ * instead of CSS because the entrance animation leaves its own inline
+ * transition on the overlay, which can be much longer.
+ */
+const OVERLAY_FADE_MS = 500;
+
 class ProviderManager {
     constructor() {
         this.providers = {};
@@ -20,22 +27,46 @@ class ProviderManager {
         this.currentBlobUrl = null;
         this.currentType = null;
         this.isSubscribed = false;
+        this._suppressConfigReaction = false;
     }
 
     /**
-     * Boot the background provider system on startup.
+     * Boot the background layer at startup.
+     *
+     * This deliberately does NOT fetch or apply any wallpaper: the standalone
+     * Wallpaper Switcher owns that decision now (it restores the wallpaper the
+     * user already had and picks the source from the carousel). Here we only
+     * prepare the DOM layers and re-apply the saved geometry / filters.
      */
-    async boot() {
+    async prepare() {
         await this.initBackgroundUI();
 
         applyWallpaperPosition();
         applyWallpaperFilters();
 
-        const settings = getSettings();
-        const config = settings.wallpaperConfig || {};
-        let source = config.source || "wallhaven";
+        // Keep the active provider in sync with the saved source so the rest of
+        // the (still provider-based) settings panel behaves as before.
+        const config = getSettings().wallpaperConfig || {};
+        const sourceId = config.source || "wallhaven";
+        this.activeProvider = this.providers[sourceId] || this.providers["wallhaven"] || null;
 
-        await this.switchProvider(source, true);
+        if (this.globalUI?.API_selector && this.activeProvider) {
+            setDropdownValue(this.globalUI.API_selector, this.activeProvider.id);
+        }
+        if (this.globalUI?.APIName && this.activeProvider) {
+            this.globalUI.APIName.innerText = this.activeProvider.name;
+        }
+    }
+
+    /**
+     * Last-resort wallpaper load used at startup. Normal startup is driven by
+     * the Wallpaper Switcher; this only runs when it could not put anything on
+     * screen (e.g. an empty source on a fresh profile), so the page is never
+     * left covered by the loading overlay.
+     */
+    async ensureBackground() {
+        if (this.hasActiveBackground) return;
+        await this.changeWallpaper({ firstRun: true });
     }
 
     /**
@@ -51,6 +82,55 @@ class ProviderManager {
         saveSettings({ wallpaperConfig: settings.wallpaperConfig });
 
         await this.switchProvider("collection", firstRun);
+    }
+
+    /**
+     * Apply a wallpaper payload that was already picked by the standalone
+     * Wallpaper Switcher (i.e. NOT fetched by a provider itself).
+     *
+     * The blob is already in memory, so there is no spinner and no provider
+     * re-fetch — but the swap still goes through the same overlay cross-fade as
+     * every other provider, so switching wallpapers always looks identical.
+     *
+     * The owning provider is marked as active and the config is written with the
+     * settings listener suppressed — otherwise ProviderManager's own
+     * `wallpaperConfig` subscription would immediately call `switchProvider()`
+     * and re-fetch a random wallpaper, overriding the user's pick.
+     *
+     * @param {Object} data - Payload shaped like `provider.fetch()` output (needs `blob`).
+     * @param {string} sourceId - Provider id owning this payload.
+     * @param {Object} [options]
+     * @param {boolean} [options.firstRun=false] - Play the entrance animation instead of a fade.
+     */
+    async applyExternalData(data, sourceId, { firstRun = false } = {}) {
+        if (!data?.blob) return;
+        if (!this.globalUI) await this.initBackgroundUI();
+
+        const targetProvider = this.providers[sourceId];
+        if (targetProvider) {
+            this.activeProvider = targetProvider;
+            if (this.globalUI?.API_selector) setDropdownValue(this.globalUI.API_selector, sourceId);
+            if (this.globalUI?.APIName) this.globalUI.APIName.innerText = targetProvider.name;
+        }
+
+        this._suppressConfigReaction = true;
+        try {
+            const settings = getSettings();
+            if (!settings.wallpaperConfig) settings.wallpaperConfig = {};
+            settings.wallpaperConfig.source = sourceId;
+            if (data.id) settings.wallpaperConfig.activeWallpaperId = data.id;
+            saveSettings({ wallpaperConfig: settings.wallpaperConfig });
+        } finally {
+            this._suppressConfigReaction = false;
+        }
+
+        // Same cross-fade as changeWallpaper(). On the very first apply the
+        // entrance animation handles the reveal instead.
+        if (!firstRun) await this._fadeToOverlay();
+
+        this.hasActiveBackground = true;
+        await this.applyPayload(data, firstRun);
+        this.updateMetadataUI();
     }
 
     /**
@@ -174,6 +254,9 @@ class ProviderManager {
                 isInitialTrigger = false;
                 return; // Prevent race condition with loadInitialBackground's switchProvider(..., true)
             }
+            // The Switcher already applied the exact wallpaper it wants; reacting
+            // here would re-fetch and override it (see applyExternalData).
+            if (this._suppressConfigReaction) return;
             if (!this.globalUI) return;
             const source = newConfig?.source || "wallhaven";
 
@@ -282,6 +365,38 @@ class ProviderManager {
     }
 
     /**
+     * Darken the screen and resolve only once the overlay is fully opaque, so
+     * the wallpaper is never swapped halfway through the fade.
+     */
+    async _fadeToOverlay() {
+        const overlay = this.globalUI?.overlay;
+        if (!overlay) return;
+
+        // Take control of the duration: the entrance animation leaves an inline
+        // transition behind that would otherwise stall this wait.
+        overlay.style.transition = `opacity ${OVERLAY_FADE_MS}ms var(--ease_in_out)`;
+        if (Number(getComputedStyle(overlay).opacity) >= 1) return;
+
+        overlay.style.opacity = 1;
+
+        await new Promise((resolve) => {
+            let timer = null;
+            const finish = () => {
+                overlay.removeEventListener("transitionend", onEnd);
+                if (timer) clearTimeout(timer);
+                resolve();
+            };
+            const onEnd = (event) => {
+                if (event.target === overlay && event.propertyName === "opacity") finish();
+            };
+
+            overlay.addEventListener("transitionend", onEnd);
+            // Safety net in case the transition never fires.
+            timer = setTimeout(finish, OVERLAY_FADE_MS + 120);
+        });
+    }
+
+    /**
      * Change wallpaper via active provider fetch.
      * Implements smart fallback logic.
      * @param {{ refresh?: boolean, firstRun?: boolean }} options
@@ -292,8 +407,6 @@ class ProviderManager {
 
         this.updateMenuUI(true);
         if (!firstRun && this.globalUI?.overlay) {
-            this.globalUI.overlay.style.opacity = 1;
-
             // Fade out any secondary backgrounds (like thumbnails) before changing
             document.querySelectorAll(".image, .video").forEach(el => {
                 if (el !== this.globalUI.bg && el !== this.globalUI.video) {
@@ -302,7 +415,7 @@ class ProviderManager {
                 }
             });
 
-            await new Promise((r) => setTimeout(r, 400));
+            await this._fadeToOverlay();
         }
 
         try {

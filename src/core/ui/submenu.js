@@ -55,23 +55,25 @@ export function initToggleSettingBtn() {
     const settingToggleBtn = document.getElementById("setting_toggle_btn");
     const settingCloseBtn = document.getElementById("setting_close_btn");
     const settingWrapper = document.getElementById("setting_wrapper");
+    const actionButtons = document.getElementById("action_buttons");
 
     if (!settingToggleBtn || !settingWrapper) return;
-
 
     const setOpenState = (isOpen) => {
         if (isOpen) {
             settingWrapper.classList.add("setting_wrapper_opened");
             settingToggleBtn.classList.add("setting_toggle_btn_opened");
-            settingToggleBtn.classList.remove("toggle_hidden");
+            actionButtons?.classList.add("setting_toggle_btn_opened");
+            actionButtons?.classList.remove("toggle_hidden");
         } else {
             settingWrapper.classList.remove("setting_wrapper_opened");
             settingToggleBtn.classList.remove("setting_toggle_btn_opened");
-            const isDim = getSettings().hideToggleButton !== false;
+            actionButtons?.classList.remove("setting_toggle_btn_opened");
+            const isDim = getSettings().hideToggleButton === true;
             if (isDim) {
-                settingToggleBtn.classList.add("toggle_hidden");
+                actionButtons?.classList.add("toggle_hidden");
             } else {
-                settingToggleBtn.classList.remove("toggle_hidden");
+                actionButtons?.classList.remove("toggle_hidden");
             }
         }
     };

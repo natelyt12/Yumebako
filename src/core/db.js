@@ -119,3 +119,46 @@ export async function getAllFromStore() {
         return null;
     }
 }
+
+/**
+ * Remove a single key from the IndexedDB store.
+ * @param {string} key - The key to delete.
+ * @returns {Promise<boolean>} A promise that resolves to true if successful, false otherwise.
+ */
+export async function removeFromStore(key) {
+    try {
+        const db = await getDB();
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction([STORE_NAME], "readwrite");
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.delete(key);
+
+            request.onsuccess = () => resolve(true);
+            request.onerror = () => reject("Error removing data from store");
+        });
+    } catch (error) {
+        console.error("Error in removeFromStore:", error);
+        return false;
+    }
+}
+
+/**
+ * List every key held by the IndexedDB store.
+ * @returns {Promise<Array<string>>} A promise resolving to the stored keys (empty on error).
+ */
+export async function getAllKeys() {
+    try {
+        const db = await getDB();
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction([STORE_NAME], "readonly");
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.getAllKeys();
+
+            request.onsuccess = () => resolve(request.result || []);
+            request.onerror = () => reject("Error getting keys from store");
+        });
+    } catch (error) {
+        console.error("Error in getAllKeys:", error);
+        return [];
+    }
+}

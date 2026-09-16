@@ -157,9 +157,18 @@ export function getFormattedDate() {
 }
 
 function initToggleButtonOpacity() {
+    const actionButtons = document.getElementById("action_buttons");
+    const settingToggleBtn = document.getElementById("setting_toggle_btn");
+    const target = actionButtons || settingToggleBtn;
+    const isDim = getSettings().hideToggleButton === true;
+
+    if (target && isDim) {
+        target.classList.add("toggle_hidden");
+    }
+
     const toggleOpacityBox = document.getElementById("toggle_button_opacity");
     if (toggleOpacityBox) {
-        toggleOpacityBox.checked = getSettings().hideToggleButton !== false;
+        toggleOpacityBox.checked = isDim;
         toggleOpacityBox.onchange = (e) => {
             saveSettings({ hideToggleButton: e.target.checked });
         };
@@ -195,19 +204,21 @@ subscribe("presentationMode", (isEnabled) => {
 
 subscribe("hideToggleButton", (isDim) => {
     const settingToggleBtn = document.getElementById("setting_toggle_btn");
+    const actionButtons = document.getElementById("action_buttons");
     const settingWrapper = document.getElementById("setting_wrapper");
     const isOpened = settingWrapper && settingWrapper.classList.contains("setting_wrapper_opened");
+    const target = actionButtons || settingToggleBtn;
 
-    if (settingToggleBtn) {
-        if (isDim !== false && !isOpened) {
-            settingToggleBtn.classList.add("toggle_hidden");
+    if (target) {
+        if (isDim === true && !isOpened) {
+            target.classList.add("toggle_hidden");
         } else {
-            settingToggleBtn.classList.remove("toggle_hidden");
+            target.classList.remove("toggle_hidden");
         }
     }
 
     const toggleOpacityBox = document.getElementById("toggle_button_opacity");
     if (toggleOpacityBox) {
-        toggleOpacityBox.checked = isDim !== false;
+        toggleOpacityBox.checked = isDim === true;
     }
 });

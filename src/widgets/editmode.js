@@ -465,6 +465,7 @@ function startEditMode() {
 
     // Hide settings panel during edit mode
     document.querySelector("#setting_wrapper")?.classList.add("preview_active");
+    document.querySelector("#action_buttons")?.classList.add("preview_active");
     document.querySelector("#setting_toggle_btn")?.classList.add("preview_active");
 
     // Create lightweight floating action bar with only Cancel and Save buttons
@@ -571,5 +572,6 @@ function exitMode() {
 
     // Restore settings panel
     document.querySelector("#setting_wrapper")?.classList.remove("preview_active");
+    document.querySelector("#action_buttons")?.classList.remove("preview_active");
     document.querySelector("#setting_toggle_btn")?.classList.remove("preview_active");
 }

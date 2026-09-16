@@ -3,12 +3,51 @@ import { getAllFromStore, saveToStore, clearStore } from "/src/core/db.js";
 import { initDate, initClock } from "/src/core/time.js";
 
 const STORAGE_KEY = "bako_settings";
-const WALLPAPER_KEYS = ["wallpaperConfig", "wallpaperPosition", "wavy", "particles", "onload"];
+const WALLPAPER_KEYS = ["wallpaperConfig", "wallpaperSwitcher", "wallpaperPosition", "wavy", "particles", "onload", "wallpapers"];
 
 // Legacy flat wavy params, back when the classic wave generator existed. That
 // generator was removed, so the values are carried over to WAVY_DEFAULT_MOTION.
 const WAVY_LEGACY_MOTION_KEYS = ["amplitudeX", "speedX", "amplitudeY", "speedY", "amplitudeRotate", "speedRotate"];
 const WAVY_DEFAULT_MOTION = "noise";
+
+/**
+ * Factory for generating default per-wallpaper effect profile.
+ */
+export function getDefaultWallpaperEffects() {
+    return {
+        position: { x: 50, y: 50, zoom: 1, mode: "cover" },
+        filter: { brightness: 1, blur: 0, contrast: 1, saturate: 1, bloom: 0 },
+        wavy: {
+            enabled: false,
+            parallaxEnabled: false,
+            config: {
+                motionType: "noise",
+                scale: 1.04,
+                advanced: false,
+                parallaxInertia: 0.03,
+                parallaxAmplitude: -30,
+                motions: {},
+            },
+        },
+        particles: {
+            enabled: false,
+            dynamic: [],
+            static: [],
+        },
+        onload: {
+            enabled: false,
+            widget_immediate: true,
+            preset: "zoom_in_light",
+            zoom: 1.2,
+            rotate: 0,
+            blur: 10,
+            speed: 3,
+            overlay_speed: 1,
+            bg_easing: "expo_out",
+            advanced: false,
+        },
+    };
+}
 
 // Define default data structure
 // NOTE: When adding a new module that requires settings, add its default key here.
@@ -18,12 +57,19 @@ const defaultSettings = {
     // ==========================================
     wallpaperConfig: {
         source: "wallhaven",
+        activeWallpaperId: null,
         brightness: 1,
         blur: 0,
         contrast: 1,
         saturate: 1,
         bloom: 0,
         mode: "cover",
+    },
+    // Standalone Wallpaper Switcher (Alt + W) browsing state.
+    wallpaperSwitcher: {
+        // Fallback source tab. The tab actually opened is the one owning the
+        // current desktop wallpaper. See src/wallpaper/switcher/sources/registry.js
+        activeSource: "wallhaven",
     },
     wallpaperPosition: { x: 50, y: 50, zoom: 1, mode: "cover" },
     wavy: {
@@ -62,6 +108,7 @@ const defaultSettings = {
         bg_easing: "expo_out",
         advanced: false,
     },
+    wallpapers: [],
 
     // ==========================================
     // SYSTEM & STARTPAGE (Utility)
