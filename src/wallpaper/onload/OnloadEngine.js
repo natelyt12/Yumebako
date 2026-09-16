@@ -99,6 +99,7 @@ export class OnloadEngine {
         this.frame = null;
         this.overlay = null;
         this._timeouts = new Set();
+        this._rafId = null;
         this._refreshRefs();
     }
 
@@ -115,7 +116,7 @@ export class OnloadEngine {
         return Boolean(this.frame && this.overlay);
     }
 
-    // ── Timeout bookkeeping ───────────────────────────────────────────────────
+    // ── Timeout & RAF bookkeeping ─────────────────────────────────────────────
 
     _schedule(fn, delay) {
         const id = setTimeout(() => {
@@ -129,6 +130,13 @@ export class OnloadEngine {
     _clearTimeouts() {
         this._timeouts.forEach((id) => clearTimeout(id));
         this._timeouts.clear();
+    }
+
+    _clearRaf() {
+        if (this._rafId) {
+            cancelAnimationFrame(this._rafId);
+            this._rafId = null;
+        }
     }
 
     // ── Reset helpers ─────────────────────────────────────────────────────────
@@ -151,6 +159,7 @@ export class OnloadEngine {
 
     /** Cancel any in-flight animation and restore the initial visual state. */
     reset() {
+        this._clearRaf();
         this._clearTimeouts();
         this._refreshRefs();
         this._resetOverlay();
@@ -183,6 +192,7 @@ export class OnloadEngine {
      */
     play(options = {}) {
         if (!this._refreshRefs()) return;
+        this._clearRaf();
         this._clearTimeouts();
 
         const config = {
@@ -281,6 +291,9 @@ export class OnloadEngine {
     }
 
     _nextFrame(callback) {
-        requestAnimationFrame(callback);
+        this._rafId = requestAnimationFrame((timestamp) => {
+            this._rafId = null;
+            callback(timestamp);
+        });
     }
 }

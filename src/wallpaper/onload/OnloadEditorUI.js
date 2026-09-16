@@ -54,8 +54,7 @@ export class OnloadEditorUI {
             canPreview: true,
             isDirty: () => this.isDirty,
             onCancel: () => {
-                this.engine.reset();
-                this.isPreviewing = false;
+                this.stopPreview();
                 this.isDirty = false;
                 setSubmenuDirty(false);
             },
@@ -197,7 +196,7 @@ export class OnloadEditorUI {
         this._onDropdownSelect(this.presetDropdown, (value) => this.selectPreset(value));
         this._onDropdownSelect(this.bgEasingDropdown, (value) => this.selectEasing("bg_easing", value, this.bgEasingBtn));
 
-        this.btnPreview?.addEventListener("mousedown", () => this.handlePreview());
+        this.btnPreview?.addEventListener("mousedown", () => this.togglePreview());
         this.btnSave?.addEventListener("mousedown", () => this.handleSave());
     }
 
@@ -272,40 +271,43 @@ export class OnloadEditorUI {
 
     // ── Preview / Save ────────────────────────────────────────────────────────
 
-    handlePreview() {
-        if (this.isPreviewing || this.btnPreview?.disabled) return;
+    togglePreview() {
+        if (this.btnPreview?.disabled) return;
+        if (this.isPreviewing) {
+            this.stopPreview();
+        } else {
+            this.startPreview();
+        }
+    }
+
+    startPreview() {
+        if (this.isPreviewing) {
+            this.engine.reset();
+        }
 
         this.isPreviewing = true;
         if (this.btnPreview) this.btnPreview.disabled = true;
-        if (this.btnSave) this.btnSave.disabled = true;
-
-        const wrapper = document.getElementById("setting_wrapper");
-        if (wrapper) {
-            wrapper.style.transition = "opacity 0.3s ease";
-            wrapper.style.opacity = "0";
-            wrapper.style.pointerEvents = "none";
-        }
 
         this.engine.play({
             ...resolvePlayConfig(this.working),
             isPreview: true,
             onComplete: () => {
-                this.isPreviewing = false;
-                if (this.btnPreview) this.btnPreview.disabled = false;
-                if (this.btnSave) this.btnSave.disabled = false;
-
-                if (wrapper) {
-                    wrapper.style.opacity = "1";
-                    wrapper.style.pointerEvents = "";
-                    setTimeout(() => {
-                        wrapper.style.transition = "";
-                    }, 300);
-                }
+                this.stopPreview();
             },
         });
     }
 
+    stopPreview() {
+        if (!this.isPreviewing) return;
+
+        this.isPreviewing = false;
+        if (this.btnPreview) this.btnPreview.disabled = false;
+        this.engine.reset();
+    }
+
     handleSave() {
+        this.stopPreview();
+
         const current = getSettings().onload || {};
         const next = {
             ...current,
