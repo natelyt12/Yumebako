@@ -17,7 +17,7 @@
     flex: 1;
     background: var(--bg-surface);
     border: 1px solid var(--glass-border-sm);
-    border-radius: 2px;
+    border-radius: 8px;
     padding: 10px 12px;
     display: flex;
     flex-direction: column;
@@ -55,7 +55,7 @@
     background: var(--button);
     border: 1px solid var(--glass-border-sm);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    border-radius: 2px;
+    border-radius: 8px;
     overflow: hidden;
     transition: border-color 0.15s var(--smooth);
 }
@@ -107,6 +107,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    box-shadow: none;
     transition:
         background 0.15s,
         color 0.15s,
@@ -175,7 +176,7 @@
     z-index: 20;
     background: var(--bg-panel);
     border: 1px solid var(--glass-border);
-    border-radius: 2px;
+    border-radius: 8px;
     padding: 4px;
     box-shadow:
         0 8px 24px rgba(0, 0, 0, 0.4),

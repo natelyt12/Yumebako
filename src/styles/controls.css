@@ -130,6 +130,11 @@ hr {
     margin: 6px 0;
 }
 
+.section_divider:first-child,
+.slider_section_divider:first-child {
+    margin-top: 0;
+}
+
 .section_divider::before,
 .section_divider::after,
 .slider_section_divider::before,
