@@ -1,6 +1,7 @@
 const DB_NAME = "BakoDB";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = "appData";
+const MEDIA_STORE_NAME = "mediaData";
 
 let db = null;
 
@@ -29,6 +30,9 @@ async function getDB() {
             if (!db.objectStoreNames.contains(STORE_NAME)) {
                 db.createObjectStore(STORE_NAME, { keyPath: "key" });
             }
+            if (!db.objectStoreNames.contains(MEDIA_STORE_NAME)) {
+                db.createObjectStore(MEDIA_STORE_NAME, { keyPath: "key" });
+            }
         };
     });
 }
@@ -36,14 +40,15 @@ async function getDB() {
 /**
  * Retrieve a value from the IndexedDB store by its key.
  * @param {string} key - The unique key identifying the stored value.
+ * @param {string} storeName - The object store to query (defaults to appData).
  * @returns {Promise<any|null>} A promise that resolves to the retrieved value, or null if an error occurs.
  */
-export async function getFromStore(key) {
+export async function getFromStore(key, storeName = STORE_NAME) {
     try {
         const db = await getDB();
         return new Promise((resolve, reject) => {
-            const transaction = db.transaction([STORE_NAME], "readonly");
-            const store = transaction.objectStore(STORE_NAME);
+            const transaction = db.transaction([storeName], "readonly");
+            const store = transaction.objectStore(storeName);
             const request = store.get(key);
 
             request.onsuccess = () => resolve(request.result?.value);
@@ -59,14 +64,15 @@ export async function getFromStore(key) {
  * Save or update a key-value pair in the IndexedDB store.
  * @param {string} key - The unique key for the data.
  * @param {any} value - The data to store.
+ * @param {string} storeName - The object store to write to (defaults to appData).
  * @returns {Promise<boolean>} A promise that resolves to true if successful, or false if an error occurs.
  */
-export async function saveToStore(key, value) {
+export async function saveToStore(key, value, storeName = STORE_NAME) {
     try {
         const db = await getDB();
         return new Promise((resolve, reject) => {
-            const transaction = db.transaction([STORE_NAME], "readwrite");
-            const store = transaction.objectStore(STORE_NAME);
+            const transaction = db.transaction([storeName], "readwrite");
+            const store = transaction.objectStore(storeName);
             const request = store.put({ key, value });
 
             request.onsuccess = () => resolve(true);
@@ -80,14 +86,15 @@ export async function saveToStore(key, value) {
 
 /**
  * Clear all data from the IndexedDB store.
+ * @param {string} storeName - The object store to clear (defaults to appData).
  * @returns {Promise<boolean>} A promise that resolves to true if successful, false otherwise.
  */
-export async function clearStore() {
+export async function clearStore(storeName = STORE_NAME) {
     try {
         const db = await getDB();
         return new Promise((resolve, reject) => {
-            const transaction = db.transaction([STORE_NAME], "readwrite");
-            const store = transaction.objectStore(STORE_NAME);
+            const transaction = db.transaction([storeName], "readwrite");
+            const store = transaction.objectStore(storeName);
             const request = store.clear();
 
             request.onsuccess = () => resolve(true);
@@ -101,14 +108,15 @@ export async function clearStore() {
 
 /**
  * Retrieve all items stored in the IndexedDB store.
+ * @param {string} storeName - The object store to query (defaults to appData).
  * @returns {Promise<Array<any>|null>} A promise that resolves to an array of all stored items, or null on error.
  */
-export async function getAllFromStore() {
+export async function getAllFromStore(storeName = STORE_NAME) {
     try {
         const db = await getDB();
         return new Promise((resolve, reject) => {
-            const transaction = db.transaction([STORE_NAME], "readonly");
-            const store = transaction.objectStore(STORE_NAME);
+            const transaction = db.transaction([storeName], "readonly");
+            const store = transaction.objectStore(storeName);
             const request = store.getAll();
 
             request.onsuccess = () => resolve(request.result);
@@ -123,14 +131,15 @@ export async function getAllFromStore() {
 /**
  * Remove a single key from the IndexedDB store.
  * @param {string} key - The key to delete.
+ * @param {string} storeName - The object store to query (defaults to appData).
  * @returns {Promise<boolean>} A promise that resolves to true if successful, false otherwise.
  */
-export async function removeFromStore(key) {
+export async function removeFromStore(key, storeName = STORE_NAME) {
     try {
         const db = await getDB();
         return new Promise((resolve, reject) => {
-            const transaction = db.transaction([STORE_NAME], "readwrite");
-            const store = transaction.objectStore(STORE_NAME);
+            const transaction = db.transaction([storeName], "readwrite");
+            const store = transaction.objectStore(storeName);
             const request = store.delete(key);
 
             request.onsuccess = () => resolve(true);
@@ -144,14 +153,15 @@ export async function removeFromStore(key) {
 
 /**
  * List every key held by the IndexedDB store.
+ * @param {string} storeName - The object store to query (defaults to appData).
  * @returns {Promise<Array<string>>} A promise resolving to the stored keys (empty on error).
  */
-export async function getAllKeys() {
+export async function getAllKeys(storeName = STORE_NAME) {
     try {
         const db = await getDB();
         return new Promise((resolve, reject) => {
-            const transaction = db.transaction([STORE_NAME], "readonly");
-            const store = transaction.objectStore(STORE_NAME);
+            const transaction = db.transaction([storeName], "readonly");
+            const store = transaction.objectStore(storeName);
             const request = store.getAllKeys();
 
             request.onsuccess = () => resolve(request.result || []);

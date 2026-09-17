@@ -4,7 +4,7 @@ import { providerManager, initializeWavySettings, initializeParticles } from "..
 import { initWidget } from "../widgets/handler.js";
 import { initAppUtils } from "../settings/system/apputils.js";
 import { renderIcons } from "./icon.js";
-import { wallpaperSwitcher } from "../wallpaper/switcher/index.js";
+import { wallpaperSwitcher } from "../wallpaper/core/WallpaperSwitcher.js";
 
 let settingsLoaded = false;
 
@@ -71,9 +71,7 @@ export async function start() {
     // 3. Initialize Wallpaper Switcher — it now decides which wallpaper boots
     await wallpaperSwitcher.init();
 
-    // 4. Safety net: if the switcher could not restore or fetch anything, fall
-    // back to the legacy provider flow so the overlay never stays covering the page.
-    await providerManager.ensureBackground();
+    // 4. (Legacy fallback removed) The Wallpaper Switcher is now fully responsible for booting the background.
 
     // 5. Register Lazy Loading settings listeners
     const toggleBtn = document.getElementById("setting_toggle_btn");

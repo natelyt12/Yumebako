@@ -1,4 +1,4 @@
-import { recoverCollectionBlobs } from "/src/wallpaper/providers/index.js";
+import { recoverCollectionBlobs } from "/src/wallpaper/sources/api/collectionDb.js";
 import { getAllFromStore, saveToStore, clearStore } from "/src/core/db.js";
 import { initDate, initClock } from "/src/core/time.js";
 
@@ -68,7 +68,7 @@ const defaultSettings = {
     // Standalone Wallpaper Switcher (Alt + W) browsing state.
     wallpaperSwitcher: {
         // Fallback source tab. The tab actually opened is the one owning the
-        // current desktop wallpaper. See src/wallpaper/switcher/sources/registry.js
+        // current desktop wallpaper. See src/wallpaper/sources/registry.js
         activeSource: "wallhaven",
     },
     wallpaperPosition: { x: 50, y: 50, zoom: 1, mode: "cover" },
@@ -402,13 +402,13 @@ export async function exportSettings(type = 'all') {
 
         // Exclude blob objects from backup to reduce JSON export size
         for (let item of filteredIdbData) {
-            if (item.key === "wallhaven_data" && item.value?.current?.blob) {
+            if (item.key === "data:wallhaven" && item.value?.current?.blob) {
                 delete item.value.current.blob;
             }
-            if (item.key === "picre_data" && item.value?.blob) {
+            if (item.key === "data:picre" && item.value?.blob) {
                 delete item.value.blob;
             }
-            if (item.key === "background_collection" && Array.isArray(item.value)) {
+            if (item.key === "data:collection" && Array.isArray(item.value)) {
                 item.value = item.value.filter(bg => bg.type && !bg.type.startsWith("local"));
                 item.value.forEach(bg => {
                     delete bg.blob;

@@ -1,0 +1,680 @@
+/* ── Wallpaper Switcher Styles ────────────────────────── */
+
+/* ── Switcher Fullscreen Wrapper ───────────────────────── */
+
+.wallpaper_switcher {
+    --card-width-selected: 600px;
+    --card-height: 320px;
+    --card-gap: 12px;
+
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 28;
+    /* Bên dưới setting panel (z-index 30) */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    pointer-events: none;
+    overflow: hidden;
+    background: transparent;
+    visibility: hidden;
+    transition: visibility 0s 0.45s;
+}
+
+.wallpaper_switcher.active {
+    pointer-events: auto;
+    visibility: visible;
+    transition: none;
+}
+
+.wallpaper_switcher_inner {
+    position: relative;
+    width: 100%;
+    height: 460px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    overflow: hidden;
+    padding-bottom: 20px;
+    transform: translateY(100%);
+    opacity: 0;
+    transition:
+        transform 0.45s var(--cubic_in),
+        opacity 0.35s var(--cubic_in);
+
+    /* Gradient đen trong suốt từ trên xuống: không đen tuyền, đáy khoảng 0.68 */
+    background: linear-gradient(to bottom,
+            rgba(0, 0, 0, 0) 0%,
+            rgba(0, 0, 0, 0.20) 20%,
+            rgba(0, 0, 0, 0.60) 55%,
+            rgba(0, 0, 0, 1) 100%);
+}
+
+.wallpaper_switcher.active .wallpaper_switcher_inner {
+    transform: translateY(0);
+    opacity: 1;
+    transition:
+        transform 0.7s var(--expo_out),
+        opacity 0.45s var(--expo_out);
+}
+
+/* ── Carousel Track ────────────────────────────────────── */
+
+.wallpaper_carousel_container {
+    position: relative;
+    width: 100%;
+    height: 360px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+}
+
+
+
+/* Switching source: drop away with cubic-in, then come back with expo-out
+   once the new content is in place. Keep the duration in sync with
+   WallpaperSwitcher.SWAP_OUT_MS. The container clips *only* while this plays,
+   so the cards can travel far enough to feel like they left the stage without
+   ever overlapping the bar below. */
+.wallpaper_carousel_container.is_swapping {
+    overflow: visible;
+}
+
+.wallpaper_carousel_container.is_swapping .wallpaper_carousel_track {
+    opacity: 0;
+    transform: translateY(96px);
+    pointer-events: none;
+    transition:
+        transform 0.26s var(--cubic_in),
+        opacity 0.22s var(--cubic_in);
+}
+
+/* Track được cố định tâm ở chính giữa viewport (50vw), là gốc tọa độ (0, 0)
+   cho toàn bộ các slot bên trong. Transform do JS RAF LERP điều khiển quán tính. */
+.wallpaper_carousel_track {
+    position: absolute;
+    top: calc((360px - var(--card-height, 320px)) / 2);
+    left: 50%;
+    height: var(--card-height, 320px);
+    width: 0;
+    will-change: transform;
+    opacity: 1;
+    pointer-events: none;
+    transition: opacity 0.4s var(--expo_out);
+}
+
+/* Vô hiệu hóa hover của card trong lúc dirty sau khi lăn chuột */
+.wallpaper_switcher.no_hover .wallpaper_card {
+    pointer-events: none;
+}
+
+/* ── Cards ─────────────────────────────────────────────────────────────────
+   Tầng Slot và Card do Pure LERP Physics Engine điều khiển trực tiếp từng frame
+   (cả transform, width, opacity, filter) để đạt độ mượt mà và đồng bộ 1:1 tuyệt đối. */
+
+.wallpaper_card_slot {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: var(--card-height, 320px);
+    overflow: visible;
+    pointer-events: auto;
+    will-change: transform, width;
+    transition: none;
+}
+
+.wallpaper_card {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 100%;
+    transform: translateX(-50%);
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: pointer;
+    background: transparent;
+    user-select: none;
+    transition:
+        opacity 0.4s var(--expo_out),
+        filter 0.4s var(--expo_out);
+}
+
+/* Thêm ::after cho border để không bị cắt */
+.wallpaper_card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    pointer-events: none;
+    z-index: 4;
+    /* Nằm trên cùng */
+    transition: border-color 0.5s var(--expo_out);
+}
+
+/* Lớp Giữa (z-index: 2): Hình ảnh */
+.wallpaper_card_layer_image {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: var(--card-width-selected, 600px);
+    height: 100%;
+    pointer-events: none;
+    border-radius: inherit;
+    background-color: transparent;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    z-index: 2;
+    transition: opacity 0.5s var(--expo_out);
+    opacity: 1;
+}
+
+/* Nếu card đang chứa giao diện `more`, ta ẩn ảnh đi */
+.wallpaper_card_slot.is_more .wallpaper_card_layer_image {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Lớp Đỉnh (z-index: 3): Khung Card (Viền, Shadow, Title, Icon) */
+.wallpaper_card_layer_overlay {
+    position: absolute;
+    inset: 0;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 10px 12px;
+    border-radius: inherit;
+    background:
+        linear-gradient(to top, rgba(0, 0, 0, 0.75) 0%, transparent 60%),
+        rgba(255, 255, 255, 0.05);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    z-index: 3;
+    pointer-events: none;
+    overflow: hidden;
+    /* Overlay vẫn cắt xén (clip) các title / badge */
+    transition: box-shadow 0.5s var(--expo_out);
+}
+
+/* Không ẩn overlay nữa, để MORE card có viền như card thường */
+
+/* Độ mờ giảm dần theo khoảng cách từ tâm: 2 ảnh bên cạnh đạt 1, sau đó rút dần xuống sàn tối thiểu 0.60 */
+.wallpaper_card_slot[data-distance="1"] .wallpaper_card {
+    opacity: 1;
+    filter: brightness(0.95);
+}
+
+.wallpaper_card_slot[data-distance="2"] .wallpaper_card {
+    opacity: 0.85;
+    filter: brightness(0.88);
+}
+
+.wallpaper_card_slot[data-distance="3"] .wallpaper_card {
+    opacity: 0.72;
+    filter: brightness(0.82);
+}
+
+.wallpaper_card_slot[data-distance="4"] .wallpaper_card,
+.wallpaper_card_slot[data-distance="5"] .wallpaper_card,
+.wallpaper_card_slot[data-distance="6"] .wallpaper_card,
+.wallpaper_card_slot[data-distance="7"] .wallpaper_card,
+.wallpaper_card_slot[data-distance="8"] .wallpaper_card,
+.wallpaper_card_slot[data-distance="9"] .wallpaper_card,
+.wallpaper_card_slot[data-distance="10"] .wallpaper_card,
+.wallpaper_card_slot[data-distance="11"] .wallpaper_card,
+.wallpaper_card_slot[data-distance="12"] .wallpaper_card,
+.wallpaper_card_slot[data-distance="13"] .wallpaper_card,
+.wallpaper_card_slot[data-distance="14"] .wallpaper_card,
+.wallpaper_card_slot[data-distance="15"] .wallpaper_card,
+.wallpaper_card_slot[data-distance="16"] .wallpaper_card {
+    opacity: 0.60;
+    filter: brightness(0.75);
+}
+
+/* Hover không tăng kích thước mà chỉ sáng hình:
+   Phản hồi tức thì khi hover vào (transition 0s), chuyển tiếp mượt mà khi hover ra */
+.wallpaper_card_slot:hover:not(.selected) .wallpaper_card {
+    opacity: 0.95 !important;
+    filter: brightness(1.15) !important;
+    transition:
+        opacity 0s,
+        filter 0s;
+}
+
+.wallpaper_card_slot:hover:not(.selected) .wallpaper_card::after {
+    border-color: rgba(255, 255, 255, 0.4);
+    transition: border-color 0s;
+}
+
+/* Ảnh đang chọn */
+.wallpaper_card_slot.selected .wallpaper_card {
+    opacity: 1;
+    filter: brightness(1.05);
+    z-index: 5;
+}
+
+.wallpaper_card_slot.selected .wallpaper_card::after {
+    border: 2px solid rgba(255, 255, 255, 0.9);
+}
+
+.wallpaper_card_slot.selected .wallpaper_card_layer_overlay {
+    box-shadow:
+        0 20px 44px rgba(0, 0, 0, 0.65),
+        0 0 24px rgba(255, 255, 255, 0.18);
+}
+
+/* Lớp Đáy (z-index: 1): Giao diện Get New Image */
+.wallpaper_card_layer_more {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: inherit;
+    color: var(--text-primary);
+    z-index: 1;
+    pointer-events: none;
+    overflow: hidden;
+    transition: opacity 0.45s var(--smooth);
+}
+
+.wallpaper_card_layer_more>svg {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+}
+
+.wallpaper_card_more_slot {
+    position: absolute;
+    top: calc(50% + 34px);
+    left: 8px;
+    right: 8px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wallpaper_card_more_label {
+    display: block;
+    /* Cho phép co nhỏ hơn bề rộng chữ, nếu không thì không bao giờ bị cắt. */
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    color: var(--text-secondary);
+}
+
+/* Nhãn lỗi: dùng đúng tông chữ của nút danger để đọc ra ngay là "có vấn đề". */
+.wallpaper_card_slot.is_error .wallpaper_card_more_label {
+    color: #ffa0a0;
+}
+
+/* Nhãn không còn đủ chỗ: ẩn hẳn thay vì hiện dấu "..." (do JS gắn) */
+.wallpaper_card_more_label.is_clipped {
+    display: none;
+}
+
+/* Thẻ vừa được nạp: khối "Get new image" (icon, nhãn, spinner) mờ hẳn đi TRƯỚC,
+   rồi tấm ảnh mới fade + zoom lên từ nhỏ ra to. Để khối đó biến mất đột ngột thì
+   nó sẽ lộ ra sau lưng tấm ảnh đang fade in. */
+.wallpaper_card_slot.is_revealing_new .wallpaper_card_layer_more {
+    animation: wallpaper_card_veil_out 0.2s var(--smooth) both;
+}
+
+.wallpaper_card_slot.is_revealing_new .wallpaper_card_layer_more>svg,
+.wallpaper_card_slot.is_revealing_new .wallpaper_card_layer_more [data-icon],
+.wallpaper_card_slot.is_revealing_new .wallpaper_card_more_slot,
+.wallpaper_card_slot.is_revealing_new .wallpaper_card_more_label {
+    display: none !important;
+}
+
+/* 0.2s delay: ảnh chỉ bắt đầu hiện khi khối trên đã mờ hẳn. */
+.wallpaper_card_slot.is_revealing_new .wallpaper_card_layer_image {
+    animation: wallpaper_card_reveal 0.5s var(--expo_out) 0.2s both;
+}
+
+/* Thẻ đang chờ hình nền đổi xong: chưa hề lộ thumb.
+   Khung card tạm làm chỗ cho spinner cho tới khi overlay đổi xong (xem
+   WallpaperSwitcher._revealCard). Icon và nhãn của "Get new image" được bốc đi
+   luôn, nên trong lúc chờ chỉ còn spinner — đúng trạng thái loading mà thẻ "+"
+   đã hiện trước đó. */
+.wallpaper_card_slot.is_pending .wallpaper_card_layer_image {
+    opacity: 0;
+}
+
+.wallpaper_card_slot.is_pending .wallpaper_card_layer_more {
+    opacity: 1 !important;
+}
+
+.wallpaper_card_slot.is_pending .wallpaper_card_layer_more>svg,
+.wallpaper_card_slot.is_pending .wallpaper_card_layer_more [data-icon],
+.wallpaper_card_slot.is_pending .wallpaper_card_more_slot,
+.wallpaper_card_slot.is_pending .wallpaper_card_more_label {
+    visibility: hidden;
+}
+
+/* Thẻ đang được xóa trực tiếp (Giai đoạn 2): slot co width về 0 và mờ dần. */
+.wallpaper_card_slot.is_removing {
+    width: 0px !important;
+    min-width: 0px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition:
+        transform 0.38s var(--expo_out),
+        width 0.38s var(--expo_out),
+        opacity 0.32s var(--smooth) !important;
+}
+
+.wallpaper_card_slot.is_removing .wallpaper_card {
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/* Thẻ bị xóa (Giai đoạn 1 - Bung lên rồi rơi tại chỗ):
+   Slot GIỮ NGUYÊN WIDTH để không gian đứng yên.
+   Chỉ riêng card bật lên như tấm bảng bong đinh rồi rơi tự do xuống dưới. */
+.wallpaper_card_slot.is_sliding_down {
+    pointer-events: none !important;
+}
+
+.wallpaper_card_slot.is_sliding_down .wallpaper_card {
+    transform-origin: center;
+    animation: wallpaper_card_pluck 0.5s var(--cubic_in) both !important;
+}
+
+/* Thẻ "+" mới nảy ra từ hư vô: cũng từ nhỏ ra to, cùng hướng với ảnh vừa nạp. */
+.wallpaper_card_slot.is_popping .wallpaper_card {
+    animation: wallpaper_card_pop 0.42s var(--expo_out) both;
+    pointer-events: none !important;
+}
+
+/* Khung chứa ảnh mới: fade + zoom nhẹ in.
+   Chỉ lớp ảnh động, khung card đứng yên: ở đường morph, khung đã nằm sẵn trên
+   màn hình (nó chính là thẻ "+" cũ), ẩn nó đi sẽ thành một cú nháy. */
+.wallpaper_card_slot.is_revealing_new {
+    pointer-events: none !important;
+}
+
+/* Thẻ "+" khi feed kết thúc: cột co lại và ẩn đi */
+.wallpaper_card_slot.is_more.is_removing {
+    width: 0px !important;
+    min-width: 0px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition:
+        transform 0.42s var(--expo_out),
+        width 0.42s var(--expo_out),
+        opacity 0.32s var(--smooth) !important;
+}
+
+.wallpaper_card_slot.is_more.is_removing .wallpaper_card {
+    opacity: 0 !important;
+    transition: opacity 0.32s var(--smooth) !important;
+}
+
+@keyframes wallpaper_card_reveal {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) scale(0.92);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) scale(1);
+    }
+}
+
+/* Khối "Get new image" nhường chỗ cho tấm ảnh. */
+@keyframes wallpaper_card_veil_out {
+    to {
+        opacity: 0;
+    }
+}
+
+/* Tấm bảng bong đinh tại chỗ: bật nhẹ lên trên rồi rơi tự do xuống dưới */
+@keyframes wallpaper_card_pluck {
+    0% {
+        transform: translateX(-50%) translateY(0) rotate(0deg);
+        opacity: 1;
+    }
+
+    14% {
+        transform: translateX(-50%) translateY(-18px) rotate(-1.6deg);
+        opacity: 1;
+    }
+
+    78% {
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateX(-50%) translateY(260px) rotate(6deg);
+        opacity: 0;
+    }
+}
+
+/* Chỉ động transform: độ mờ của card do `data-distance` quyết định, để hai thứ
+   không tranh nhau trên cùng một thuộc tính. */
+@keyframes wallpaper_card_pop {
+    from {
+        transform: translateX(-50%) scale(0.5);
+    }
+
+    to {
+        transform: translateX(-50%) scale(1);
+    }
+}
+
+.wallpaper_card_title_row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    opacity: 0;
+    transform: translateY(4px);
+    transition:
+        opacity 0.3s var(--smooth),
+        transform 0.3s var(--smooth);
+}
+
+.wallpaper_card_slot.selected:not(.is_more) .wallpaper_card_title_row {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.wallpaper_card_title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wallpaper_card_type_badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+
+
+/* ── Bottom Bar ────────────────────────────────────────────
+   Row 1: tabs (left) · actions (centre) · source settings (right)
+   Row 2: navigation hint, full width                                             */
+
+.wallpaper_switcher_bar {
+    position: relative;
+    width: 100%;
+    max-width: 1400px;
+    padding: 14px max(24px, 3.5vw) 0;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 12px 16px;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.wallpaper_switcher_bar>* {
+    pointer-events: auto;
+}
+
+/* ── Source Tabs ───────────────────────────────────────── */
+
+.wallpaper_source_tabs {
+    grid-column: 1;
+    justify-self: start;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--glass-border-sm);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+
+.wallpaper_source_tab {
+    width: auto;
+    height: 32px;
+    padding: 0 14px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background-color: transparent;
+    box-shadow: none;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    transition:
+        background-color 0.25s var(--smooth),
+        color 0.25s var(--smooth);
+}
+
+.wallpaper_source_tab:hover {
+    background-color: rgba(255, 255, 255, 0.10);
+    border-color: transparent;
+    color: var(--text-primary);
+}
+
+.wallpaper_source_tab:active {
+    background-color: rgba(255, 255, 255, 0.14);
+}
+
+.wallpaper_source_tab.active {
+    background-color: rgba(255, 255, 255, 0.16);
+    border-color: transparent;
+    color: var(--text-primary);
+}
+
+/* ── Item Actions ──────────────────────────────────────── */
+
+.wallpaper_source_actions {
+    grid-column: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+/* These are plain system buttons: only their size differs from the global
+   default, so hover / active / border colours stay exactly as the app defines. */
+.wallpaper_action,
+.wallpaper_source_settings {
+    width: auto;
+    height: 34px;
+    padding: 0 14px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* Per-source settings, pinned to the right end of the row. Not wired up yet. */
+.wallpaper_source_settings {
+    grid-column: 3;
+    justify-self: end;
+}
+
+.wallpaper_action>svg,
+.wallpaper_source_settings>svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+/* ── Navigation Hint (own row, below the buttons) ──────── */
+
+.wallpaper_switcher_hint {
+    grid-column: 1 / -1;
+    justify-self: center;
+    font-size: 12px;
+    color: var(--text-muted);
+    letter-spacing: 0.3px;
+    user-select: none;
+    pointer-events: none;
+}
+
+/* ── Loading Spinner (owned by the trailing "+" card) ─── */
+
+.wallpaper_card_spinner {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 32px;
+    height: 32px;
+    border: 2px solid rgba(255, 255, 255, 0.18);
+    border-top-color: rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    /* Ẩn bằng opacity chứ không bằng `display`: đổi `display` sẽ tắt animation
+       quay, và nó khởi động lại từ 0° ngay giữa lúc đang tải. */
+    opacity: 0;
+    transition: opacity 0.2s var(--smooth);
+}
+
+/* Chỉ thẻ "+" và thẻ đang chờ mới thật sự quay, để không có hàng chục vòng tròn
+   chạy mãi. Suốt đường morph `is_more` → `is_pending` animation không hề bị
+   ngắt, nên pha quay liền mạch. */
+.wallpaper_card_slot.is_more .wallpaper_card_spinner,
+.wallpaper_card_slot.is_loading .wallpaper_card_spinner,
+.wallpaper_card_slot.is_pending .wallpaper_card_spinner {
+    animation: wallpaper_spinner_rotate 0.8s linear infinite;
+}
+
+.wallpaper_card_slot.is_loading .wallpaper_card_spinner,
+.wallpaper_card_slot.is_pending .wallpaper_card_spinner {
+    opacity: 1;
+}
+
+/* Spinner thay chỗ cho dấu "+": nó được đặt tuyệt đối đúng tâm card, còn dấu
+   "+" và nhãn ẩn đi (visibility) nên layout không hề xê dịch. */
+.wallpaper_card_slot.is_loading .wallpaper_card_layer_more>svg,
+.wallpaper_card_slot.is_loading .wallpaper_card_layer_more [data-icon],
+.wallpaper_card_slot.is_loading .wallpaper_card_more_slot,
+.wallpaper_card_slot.is_loading .wallpaper_card_more_label {
+    visibility: hidden;
+}
+
+@keyframes wallpaper_spinner_rotate {
+    to {
+        transform: rotate(360deg);
+    }
+}
