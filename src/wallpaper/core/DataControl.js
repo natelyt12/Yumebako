@@ -150,32 +150,53 @@ export class DataControl {
             source: this.activeSource,
         });
 
-        // Đọc danh sách thẻ từ BakoDB (appData)
-        let storedItems = await getFromStore(`carousel:${sourceId}`);
+        let storedItems = [];
 
-        // Làm sạch: loại bỏ bất kỳ thẻ nào có dạng { kind: 'more' } cũ nếu còn sót lại trong DB
-        if (Array.isArray(storedItems)) {
-            storedItems = storedItems.filter((it) => it && it.kind !== "more");
-        } else {
-            storedItems = [];
-        }
-
-        // Nếu nguồn rỗng, gọi fetch ban đầu (seed)
-        if (storedItems.length === 0 && this.activeSource) {
+        if (this.activeSource?.isVolatile) {
+            // Nguồn biến động (như Collection), luôn lấy danh sách mới nhất từ DB
             try {
-                const initial = await this.activeSource.fetchItems();
-                if (Array.isArray(initial) && initial.length > 0) {
-                    storedItems = initial.filter((it) => it && it.kind !== "more");
-                    await this._persistCards(sourceId, storedItems);
+                const fetched = await this.activeSource.fetchItems();
+                if (Array.isArray(fetched)) {
+                    storedItems = fetched.filter((it) => it && it.kind !== "more");
                 }
             } catch (err) {
-                console.error(`[DataControl] Failed to seed source [${sourceId}]:`, err);
-                this.emit("error", {
-                    action: "seed",
-                    sourceId,
-                    error: err,
-                    message: err?.message || "Lỗi khi nạp ảnh ban đầu",
-                });
+                console.error(`[DataControl] Failed to fetch items for volatile source [${sourceId}]:`, err);
+            }
+        } else {
+            // Đọc danh sách thẻ từ BakoDB (appData)
+            storedItems = (await getFromStore(`carousel:${sourceId}`)) || [];
+
+            // Làm sạch: loại bỏ bất kỳ thẻ nào có dạng { kind: 'more' } cũ nếu còn sót lại trong DB
+            if (Array.isArray(storedItems)) {
+                storedItems = storedItems.filter((it) => it && it.kind !== "more");
+            } else {
+                storedItems = [];
+            }
+
+            // Nếu nguồn rỗng, gọi fetch ban đầu (seed)
+            if (storedItems.length === 0 && this.activeSource) {
+                try {
+                    const initial = await this.activeSource.fetchItems();
+                    if (Array.isArray(initial) && initial.length > 0) {
+                        storedItems = initial.filter((it) => it && it.kind !== "more");
+                        await this._persistCards(sourceId, storedItems);
+                    }
+                } catch (err) {
+                    console.error(`[DataControl] Failed to seed source [${sourceId}]:`, err);
+                    this.emit("error", {
+                        action: "seed",
+                        sourceId,
+                        error: err,
+                        message: err?.message || "Lỗi khi nạp ảnh ban đầu",
+                    });
+                }
+            }
+
+            // Phục hồi thumbnail hợp lệ (Object URL mới trong session hiện tại) cho các thẻ
+            if (this.activeSource && typeof this.activeSource.prepareThumb === "function") {
+                await Promise.all(
+                    storedItems.map((item) => this.activeSource.prepareThumb(item).catch(() => null))
+                );
             }
         }
 
@@ -427,7 +448,16 @@ export class DataControl {
 
     async _persistCards(sourceId, cards) {
         // Chỉ lưu danh sách các object sạch vào appData
-        const cleanCards = cards.filter((c) => c && c.kind !== "more");
+        // Không lưu chuỗi `blob:` vào IndexedDB vì object URL sẽ bị hủy sau khi reload trang!
+        const cleanCards = cards
+            .filter((c) => c && c.kind !== "more")
+            .map((c) => {
+                const item = { ...c };
+                if (typeof item.thumbnailUrl === "string" && item.thumbnailUrl.startsWith("blob:")) {
+                    item.thumbnailUrl = null;
+                }
+                return item;
+            });
         await saveToStore(`carousel:${sourceId}`, cleanCards);
     }
 

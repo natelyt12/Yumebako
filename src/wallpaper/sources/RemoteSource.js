@@ -207,6 +207,11 @@ export class RemoteSource extends BaseSource {
   async prepareThumb(item) {
     if (!item?.id) return null;
 
+    // Nếu thumbnailUrl là blob URL cũ (từ session trước hoặc DB), xóa bỏ để không render URL chết
+    if (typeof item.thumbnailUrl === "string" && item.thumbnailUrl.startsWith("blob:") && !this.thumbCache.has(item.id)) {
+      item.thumbnailUrl = null;
+    }
+
     // 1. Đã có URL còn sống trong RAM
     if (this.thumbCache.has(item.id)) {
       item.thumbnailUrl = this.thumbCache.get(item.id);
@@ -235,8 +240,13 @@ export class RemoteSource extends BaseSource {
       }
     }
 
-    // 4. Dự phòng: dùng URL trực tuyến
-    return item.thumbnailUrl || item.url || null;
+    // 4. Dự phòng: dùng URL trực tuyến (nếu không phải chuỗi blob chết)
+    if (item.url && !item.url.startsWith("blob:")) {
+      item.thumbnailUrl = item.url;
+      return item.url;
+    }
+
+    return null;
   }
 
   /**

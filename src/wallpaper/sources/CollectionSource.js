@@ -194,9 +194,23 @@ export class CollectionSource extends BaseSource {
 
   /** Media already lives in IndexedDB, so the thumbnail is free to build. */
   async prepareThumb(item) {
-    if (item.thumbnailUrl) return item.thumbnailUrl;
+    if (!item?.id) return FALLBACK_THUMB;
+    const idStr = String(item.id);
 
-    item.thumbnailUrl = this._resolveThumb(await getCollectionItem(item.id));
+    // 1. Nếu đã có URL còn sống trong session hiện tại
+    if (this._thumbUrls.has(idStr)) {
+      item.thumbnailUrl = this._thumbUrls.get(idStr);
+      return item.thumbnailUrl;
+    }
+
+    // 2. Nếu là URL từ xa (không phải blob chết)
+    if (typeof item.thumbnailUrl === "string" && !item.thumbnailUrl.startsWith("blob:")) {
+      return item.thumbnailUrl;
+    }
+
+    // 3. Tái tạo living Object URL từ IndexedDB record
+    const raw = await getCollectionItem(item.id);
+    item.thumbnailUrl = this._resolveThumb(raw);
     return item.thumbnailUrl;
   }
 
