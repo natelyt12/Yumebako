@@ -1,16 +1,33 @@
 <div class="wallpaper_switcher_inner">
-    <div class="wallpaper_carousel_container">
-        <div class="wallpaper_carousel_track" id="wallpaper_carousel_track"></div>
+    <div class="carousel-container hide-accent-bg" id="wallpaper_carousel">
+        <div class="carousel-guide"></div>
+        <div class="carousel-viewfinder"></div>
+        <div class="carousel-track hide-accent-bg" id="wallpaper_carousel_track"></div>
+        <div class="carousel-empty-state" id="wallpaper_carousel_empty">
+            <i data-icon="image"></i>
+            <span class="empty-title" data-i18n="wallpaper_switcher.empty_title">Chưa có hình nền nào</span>
+            <span class="empty-sub" data-i18n="wallpaper_switcher.empty_hint">Kéo thả ảnh vào đây hoặc bấm nút Tải
+                lên</span>
+        </div>
     </div>
     <div class="wallpaper_switcher_bar">
-        <div class="wallpaper_source_tabs" id="wallpaper_source_tabs"></div>
+        <div class="wallpaper_switcher_meta">
+            <div class="wallpaper_source_tabs" id="wallpaper_source_tabs"></div>
+            <span class="wallpaper_switcher_counter" id="wallpaper_switcher_counter"></span>
+        </div>
         <div class="wallpaper_source_actions hidden" id="wallpaper_switcher_actions"></div>
-        <button type="button" class="icon_button wallpaper_source_settings" id="wallpaper_source_settings">
-            <i data-icon="settings"></i>
-            <span data-i18n="sp.api.common.extra_settings">Cài đặt bổ sung</span>
-        </button>
+        <div class="wallpaper_switcher_controls" id="wallpaper_switcher_controls">
+            <button type="button" class="icon_button wallpaper_upload_btn hidden" id="wallpaper_upload_btn">
+                <i data-icon="upload"></i>
+                <span data-i18n="sp.api.collection.upload_btn">Tải lên ảnh / video</span>
+            </button>
+            <button type="button" class="icon_button wallpaper_source_settings hidden" id="wallpaper_source_settings">
+                <i data-icon="settings"></i>
+                <span data-i18n="wallpaper_switcher.extra_settings">Cài đặt nguồn</span>
+            </button>
+        </div>
         <div class="wallpaper_switcher_hint" id="wallpaper_switcher_hint">
-            <span data-i18n="wallpaper_switcher.nav_hint">←/→ hoặc cuộn chuột để đổi hình • ↑/↓ đổi nguồn</span>
+            <span data-i18n="wallpaper_switcher.nav_hint">←/→, kéo hoặc cuộn để đổi hình • ↑/↓ đổi nguồn</span>
         </div>
     </div>
 </div>

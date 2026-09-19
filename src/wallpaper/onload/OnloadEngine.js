@@ -170,7 +170,7 @@ export class OnloadEngine {
 
     /**
      * Play the saved startup animation.
-     * Called once the wallpaper has been painted (see ProviderManager).
+     * Called once the wallpaper has been painted (see wallpaperRenderer).
      */
     apply() {
         this.play(resolvePlayConfig(getSettings().onload || {}));

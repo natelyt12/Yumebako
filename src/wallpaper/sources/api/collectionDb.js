@@ -43,6 +43,27 @@ export async function addToCollection(item) {
 }
 
 /**
+ * Add multiple items to the collection in a single batch.
+ * @param {Array<{ type: string, blob: Blob, thumbnail?: Blob|null, metadata?: Object }>} items
+ * @returns {Promise<Array<Object>>} The saved items.
+ */
+export async function addBatchToCollection(items) {
+    if (!Array.isArray(items) || items.length === 0) return [];
+    const collection = await getCollection();
+    const newItems = items.map((item, i) => ({
+        id: String(Date.now() + i) + "_" + Math.random().toString(36).slice(2, 7),
+        type: item.type || "unknown",
+        blob: item.blob,
+        thumbnail: item.thumbnail || null,
+        metadata: item.metadata || {},
+    }));
+    collection.push(...newItems);
+    await saveToStore(COLLECTION_KEY, collection);
+    window.dispatchEvent(new CustomEvent("wallpaper-collection-updated", { detail: { collection } }));
+    return newItems;
+}
+
+/**
  * Remove an item from the collection by its id.
  * @param {string} id
  * @returns {Promise<Array>} Remaining items.

@@ -1,10 +1,11 @@
 import { initI18n } from "./i18n.js";
 import { getSettings } from "./storageHandler.js";
-import { providerManager, initializeWavySettings, initializeParticles } from "../wallpaper/index.js";
+import { initializeWavySettings, initializeParticles } from "../wallpaper/index.js";
 import { initWidget } from "../widgets/handler.js";
 import { initAppUtils } from "../settings/system/apputils.js";
 import { renderIcons } from "./icon.js";
 import { wallpaperSwitcher } from "../wallpaper/core/WallpaperSwitcher.js";
+import { dataControl } from "../wallpaper/core/DataControl.js";
 
 let settingsLoaded = false;
 
@@ -49,26 +50,28 @@ export async function start() {
     initializeParticles();
     renderIcons();
 
-    // 2. Load core components in parallel (i18n and background layer)
+    // 2. Load core components (i18n and widgets)
     const i18nPromise = initI18n();
-    const bgPromise = providerManager.prepare();
 
     if (immediate) {
-        // Load widgets immediately in parallel with i18n/background
-        await Promise.all([
-            i18nPromise,
-            bgPromise,
-            initWidget()
-        ]);
+        await Promise.all([i18nPromise, initWidget()]);
     } else {
-        // Load widgets only after the entrance animation completes
-        await Promise.all([i18nPromise, bgPromise]);
-        document.addEventListener("onload-animation-complete", () => {
-            initWidget();
-        }, { once: true });
+        await i18nPromise;
+        document.addEventListener(
+            "onload-animation-complete",
+            () => {
+                initWidget();
+            },
+            { once: true }
+        );
     }
 
-    // 3. Initialize Wallpaper Switcher — it now decides which wallpaper boots
+    // 3. Khởi tạo DataControl trước để nạp dữ liệu sạch (Tầng 2 -> Tầng 3 -> IndexedDB)
+    window.dataControl = dataControl;
+    await dataControl.init();
+
+    // 4. Khởi tạo Wallpaper Switcher (Tầng 1) và áp dụng hình nền ban đầu (Tầng 4)
+    window.wallpaperSwitcher = wallpaperSwitcher;
     await wallpaperSwitcher.init();
 
     // 4. (Legacy fallback removed) The Wallpaper Switcher is now fully responsible for booting the background.

@@ -1,4 +1,5 @@
 import { applyOnloadAnimation } from "/src/wallpaper/onload/index.js";
+import { dataControl } from "/src/wallpaper/core/DataControl.js";
 
 /**
  * renderer.js
@@ -124,6 +125,20 @@ class WallpaperRenderer {
             ui.overlay.style.opacity = 0;
         }
     }
+
+    bindDataControl() {
+        dataControl.on("card:hard", async ({ card, sourceId, firstRun }) => {
+            if (!card) return;
+            const source = dataControl.sources.get(sourceId) || dataControl.activeSource;
+            if (!source) return;
+            try {
+                await source.apply(card, { firstRun: Boolean(firstRun) });
+            } catch (err) {
+                console.error("[WallpaperRenderer] Error applying wallpaper for card:", card.id, err);
+            }
+        });
+    }
 }
 
 export const wallpaperRenderer = new WallpaperRenderer();
+wallpaperRenderer.bindDataControl();

@@ -65,63 +65,7 @@
 <div id="settings_content">
     <div class="settings_main_view">
         <div class="tab_content active" id="tab-wallpaper">
-            <!-- IMAGE API -->
-            <div class="loading"></div>
-            <div class="setting_section">
-                <p class="setting_title" data-i18n="sp.wall_source_title">Nguồn hình nền</p>
-                <div class="setting_options">
-                    <div id="wallpaper_thumbnail_container">
-                        <div class="image"></div>
-                        <video class="video" loop muted></video>
-                    </div>
-                    <p data-i18n="sp.api_selector.label">Nguồn cung cấp</p>
-                    <div class="dropdown_wrapper">
-                        <button class="dropdown_button" id="API_selector">
-                            <span class="selected_value">--</span>
-                            <div class="sbsctsvg"></div>
-                        </button>
-                        <div class="dropdown">
-                            <button class="dropdown_item" data-value="collection"
-                                data-i18n="sp.api_selector.collection_option">Bộ sưu tập</button>
-                            <span class="tooltip text_center" data-i18n="sp.api_selector.external_source_option">Nguồn
-                                bên ngoài</span>
-                            <button class="dropdown_item" data-value="unsplash" style="display: none;"
-                                data-i18n="sp.api_selector.unsplash_option">Unsplash</button>
-                            <button class="dropdown_item" data-value="wallhaven"
-                                data-i18n="sp.api_selector.wallhaven_option">Wallhaven</button>
-                            <button class="dropdown_item" data-value="picre"
-                                data-i18n="sp.api_selector.picre_option">Pic.re (Anime)</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <!-- API options -->
-            <div class="setting_section" id="api_config" style="display: none">
-                <p class="setting_title"><span id="api_name"></span></p>
-                <div class="setting_options flex_col gap_8">
-                    <span class="tooltip" id="provider_info_tooltip"></span>
-                    <button id="provider_changewall" class="icon_button">
-                        <i data-icon="changeWallpaper"></i>
-                        <span data-i18n="sp.api.common.changeWallpaper">Đổi hình nền khác</span>
-                    </button>
-                    <button id="provider_source" class="icon_button">
-                        <i data-icon="viewSource"></i>
-                        <span data-i18n="sp.api.common.viewSource">Xem nguồn ảnh</span>
-                    </button>
-                    <button id="provider_download" class="icon_button">
-                        <i data-icon="collectionDownload"></i>
-                        <span data-i18n="sp.api.common.downloadWallpaper">Tải hình nền</span>
-                    </button>
-                    <button id="provider_add_to_collection" class="icon_button">
-                        <i data-icon="addToCollection"></i>
-                        <span data-i18n="sp.api.collection.add_to_collection">Thêm vào bộ sưu tập</span>
-                    </button>
-                    <button id="provider_extra_settings" class="icon_button submenu_button">
-                        <i data-icon="settings"></i>
-                        <span data-i18n="sp.api.common.extra_settings">Cài đặt bổ sung</span>
-                    </button>
-                </div>
-            </div>
+
             <!-- Wallpaper Customization moved back from Appearance tab -->
             <div class="setting_section">
                 <p class="setting_title" data-i18n="sp.wallpaper_customization.title">Tùy chỉnh hình nền</p>

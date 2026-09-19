@@ -56,7 +56,7 @@ const defaultSettings = {
     // WALLPAPER & EFFECTS (Aesthetics)
     // ==========================================
     wallpaperConfig: {
-        source: "wallhaven",
+        source: "picre",
         activeWallpaperId: null,
         brightness: 1,
         blur: 0,
@@ -69,7 +69,8 @@ const defaultSettings = {
     wallpaperSwitcher: {
         // Fallback source tab. The tab actually opened is the one owning the
         // current desktop wallpaper. See src/wallpaper/sources/registry.js
-        activeSource: "wallhaven",
+        activeSource: "picre",
+        sourceIndices: {},
     },
     wallpaperPosition: { x: 50, y: 50, zoom: 1, mode: "cover" },
     wavy: {

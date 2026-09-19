@@ -76,8 +76,6 @@ export async function initSettingsLauncher() {
 
         // --- 4. RESTORE UI STATES FROM STORAGE ---
         const restoreStates = [
-            { id: "API_selector", value: settings.wallpaperConfig.source },
-            { id: "wh_resolution", value: settings.wallhavenConfig?.resolution || "" },
             { id: "language", value: settings.language || "vi" },
         ];
 
@@ -119,38 +117,6 @@ export async function initSettingsLauncher() {
 
         // Remove preload class immediately to enable smooth transition
         document.getElementById("setting_wrapper")?.classList.remove("preload");
-        
-        syncThumbnailUI();
-        
-        const { providerManager } = await import("/src/wallpaper/legacy/index.js");
-        providerManager.bindSettingsUI();
-    }
-}
-
-function syncThumbnailUI() {
-    const mainImg = document.querySelector('.background_container .image');
-    const mainVideo = document.querySelector('.background_container .video');
-    
-    const thumbImg = document.querySelector('#wallpaper_thumbnail_container .image');
-    const thumbVideo = document.querySelector('#wallpaper_thumbnail_container .video');
-
-    if (mainVideo && mainVideo.style.display !== "none" && mainVideo.src && !mainVideo.src.endsWith("undefined")) {
-        if (thumbVideo) {
-            thumbVideo.style.display = "block";
-            thumbVideo.src = mainVideo.src;
-            thumbVideo.play().catch(() => {});
-        }
-        if (thumbImg) thumbImg.style.display = "none";
-    } else if (mainImg) {
-        if (thumbImg) {
-            thumbImg.style.display = "block";
-            thumbImg.style.backgroundImage = mainImg.style.backgroundImage;
-        }
-        if (thumbVideo) {
-            thumbVideo.style.display = "none";
-            thumbVideo.pause();
-            thumbVideo.removeAttribute("src");
-        }
     }
 }
 

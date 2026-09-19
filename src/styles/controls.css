@@ -19,7 +19,7 @@ input[type="number"] {
     cursor: text;
     border: 1px solid var(--glass-border-sm);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    border-radius: 2px;
+    border-radius: 8px;
 }
 
 /* Remove default spinner arrows from number inputs globally */

@@ -1,21 +1,14 @@
 import { t } from "/src/core/i18n.js";
-import { showConfirm, showNotification } from "/src/core/ui.js";
-import { addToCollection, getCollection, removeFromCollection } from "/src/wallpaper/sources/api/collectionDb.js";
+import { showNotification } from "/src/core/ui.js";
+import { addToCollection, getCollection } from "/src/wallpaper/sources/api/collectionDb.js";
 import { generateImageThumbnail, generateVideoThumbnail } from "/src/core/utils/thumbnailGenerator.js";
-import { isMoreItem } from "../stores/carouselSchema.js";
 
 /**
  * sourceActions.js
  * ---------------------------------------------------------------------------
  * The action verbs the Switcher's bottom button row can offer. Each source
  * picks the subset that makes sense for its items via `BaseSource.actions`.
- *
- * An action receives `(card, context)` — the context carries the source that
- * owns the card, the store holding its window, and the switcher itself.
- * An action that changes the list animates that change on its own, through
- * `switcher.removeCardAnimated` + `store.remove` / `store.refresh`: the store is
- * the single source of truth and the view follows it, so nothing has to be
- * redrawn behind the action's back.
+ * Actions receive `(card, context)` and are executed via SwitcherBar & DataControl.
  */
 
 /** File extension matching a blob's mime type. */
@@ -55,6 +48,28 @@ function hasSourcePage(card) {
     return /^https?:\/\//i.test(card?.sourceUrl || "");
 }
 
+/** Kiểm tra xem một thẻ đã tồn tại trong bộ sưu tập chưa (so khớp sourceUrl, url và id). */
+function isCardInCollection(card, source, collection) {
+    if (!Array.isArray(collection) || collection.length === 0 || !card) return false;
+
+    const sourceUrl = source?.getSourceUrl ? source.getSourceUrl(card) : (card.sourceUrl || "");
+    const cardUrl = card.url || "";
+    const cardId = String(card.id || "");
+
+    return collection.some((entry) => {
+        const meta = entry.metadata || {};
+        const entrySource = meta.source || "";
+        const entryUrl = meta.url || "";
+        const entryId = String(meta.id || entry.id || meta.wallpaperId || "");
+
+        if (sourceUrl && (entrySource === sourceUrl || entryUrl === sourceUrl)) return true;
+        if (cardUrl && (entryUrl === cardUrl || entrySource === cardUrl)) return true;
+        if (cardId && (entryId === cardId || meta.id === cardId)) return true;
+
+        return false;
+    });
+}
+
 /** Copy the card's media into the personal collection. */
 async function add(card, { source }) {
     const blob = await source.getBlob(card);
@@ -65,7 +80,7 @@ async function add(card, { source }) {
 
     const sourceUrl = source.getSourceUrl(card);
     const collection = await getCollection();
-    if (sourceUrl && collection.some((entry) => entry.metadata?.source === sourceUrl)) {
+    if (isCardInCollection(card, source, collection)) {
         showNotification(t("sp.api.collection.already_saved", "Ảnh này đã có trong bộ sưu tập"), "info");
         return;
     }
@@ -78,9 +93,10 @@ async function add(card, { source }) {
         blob,
         thumbnail,
         metadata: {
+            id: card.id,
             provider: source.id,
             providerName: source.name,
-            source: sourceUrl || source.id,
+            source: sourceUrl || card.url || source.id,
             url: card.url || "",
             width: card.width,
             height: card.height,
@@ -92,71 +108,24 @@ async function add(card, { source }) {
 }
 
 /**
- * Find the card to fall back to when the current one is removed: the previous
- * card, falling back to the next one.
- *
- * The previous card is preferred because of where it leaves the space. This way
- * the card that leaves always sits at or after the new selection, so the row only
- * ever closes up beside and behind the centered card — nothing shifts underneath
- * it, and the axis has nothing to travel for. Deleting the first card is the one
- * case with no previous card, and there the track compensates.
- *
- * @param {Object} card - The card being removed.
- * @param {{ store: Object }} context
- * @returns {Object|null} The neighbour, when there was one.
- */
-function findNeighbour(card, { store }) {
-    const items = store.items;
-    const at = items.findIndex((entry) => entry.id === card.id);
-    if (at === -1) return null;
-
-    const left = items[at - 1];
-    if (left && !isMoreItem(left)) return left;
-
-    const right = items[at + 1];
-    if (right && !isMoreItem(right)) return right;
-
-    return null;
-}
-
-/**
- * Drop the card from the carousel window. Non-destructive: nothing is removed
- * from the collection, nor from the provider's stored queue — the wallpaper
- * simply stops being offered while browsing.
+ * Drop the card from the carousel window.
  */
 async function removeFromCarousel(card, context) {
-    const { store, switcher } = context;
-    const neighbour = findNeighbour(card, context);
-
-    await switcher.removeCardAnimated(card, neighbour);
-    await store.remove(card.id, { focusId: neighbour?.id });
-    switcher.syncCarousel(store);
+    if (context?.switcher?.bar) {
+        await context.switcher.bar._handleDeleteCard(card, false);
+    } else if (context?.dataControl) {
+        await context.dataControl.deleteCard();
+    }
 }
 
 /**
  * Delete the card's media from the personal collection.
  */
 async function remove(card, context) {
-    const { store, switcher } = context;
-    const confirmed = await showConfirm(t("sp.api.collection.delete_msg", "Bạn có chắc chắn muốn xóa hình nền này khỏi bộ sưu tập?"), {
-        title: t("sp.api.collection.delete_title", "Xác nhận xóa"),
-        okText: t("sp.api.collection.delete_btn", "Xóa"),
-        isDanger: true,
-    });
-    if (!confirmed) return;
-
-    const neighbour = findNeighbour(card, context);
-
-    // Redrawing the window on the event would re-center it on a slot that is
-    // about to shift.
-    store.isMutating = true;
-    try {
-        await switcher.removeCardAnimated(card, neighbour);
-        await removeFromCollection(card.id);
-        await store.refresh({ focusId: neighbour?.id });
-        switcher.syncCarousel(store);
-    } finally {
-        store.isMutating = false;
+    if (context?.switcher?.bar) {
+        await context.switcher.bar._handleDeleteCard(card, true);
+    } else if (context?.dataControl) {
+        await context.dataControl.deleteCard();
     }
 }
 
@@ -212,11 +181,8 @@ export const SOURCE_ACTIONS = {
          * @returns {Promise<boolean|{ disabled: true, reason: string }>}
          */
         async isAvailable(card, { source }) {
-            const url = source.getSourceUrl(card);
-            if (!url) return true;
-
             const collection = await getCollection();
-            return collection.some((entry) => entry.metadata?.source === url)
+            return isCardInCollection(card, source, collection)
                 ? { disabled: true, reason: t("sp.api.collection.already_saved", "Ảnh này đã có trong bộ sưu tập") }
                 : true;
         },

@@ -3,8 +3,8 @@ import { resolveMotionClass } from "./registry.js";
 /**
  * MotionEngine.js
  * ---------------------------------------------------------------------------
- * Facade the wallpaper layer talks to. Mirrors `ProviderManager` / `EffectsEngine`:
- * it resolves ids from the registry, materialises each generator's parameter bag
+ * Facade the wallpaper layer talks to.
+ * It resolves ids from the registry, materialises each generator's parameter bag
  * (class DEFAULTS merged with whatever the user stored) and hands back a running
  * sampler instance.
  */

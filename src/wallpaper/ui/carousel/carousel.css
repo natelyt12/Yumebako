@@ -1,0 +1,559 @@
+/* ── Carousel accordion (sketch layout) ────────────────────────────────────
+   Bản port của `temp/carousel_layout/style.css`, đã scope dưới `.wallpaper_switcher`
+   để không rò token/selector ra phần còn lại của app.
+
+   Mọi kích thước đi qua biến CSS ở khối đầu tiên: sửa ở đó là sửa cả hệ, còn
+   công thức tính layout nằm trong `geometry.js` (phải khớp `--base-width` và
+   `--container-height`).
+
+   Bố cục: `.carousel-track` là một khối rộng bằng container, gốc toạ độ ở mép
+   trái của nó; mỗi `.carousel-item` được JS đặt `width` + `translateX()` theo hệ
+   toạ độ đó. Vì vậy container phải trải đủ bề ngang vùng hiển thị. */
+
+.wallpaper_switcher {
+    /* Kích thước thẻ & sân khấu */
+    --base-width: 800px;
+    --card-margin: 4px;
+    /* Margin 4px để thấy rõ nền đằng sau */
+    --container-height: 454px;
+    /* (800 - 4*2) * 9 / 16 + 4*2 = 446 + 8 = 454px (tỉ lệ 16:9) */
+
+    /* Màu sân khấu: chỉ dùng khi bật accent bg. Mặc định sân khấu trong suốt để
+       gradient của switcher (và chính wallpaper phía sau) lộ qua, thay vì một
+       băng màu đục cắt ngang màn hình. */
+    --stage-bg: transparent;
+    --accent-idle: #059669;
+    --accent-active: #eab308;
+    --accent-buffer: linear-gradient(135deg, #f472b6, #db2777);
+
+    /* Hiệu ứng thở của khung ngắm */
+    --breathe-duration: 2.5s;
+    --breathe-start-scale: 1;
+    --breathe-zoom-scale: 1.05;
+    /* <<== CHỈNH ĐỘ ZOOM TO RA CỦA HIỆU ỨNG THỞ TẠI ĐÂY */
+
+    /* [1] Fade-out icon loading (chỉ icon ở tâm, không gồm label) */
+    --loading-fadeout-duration: 0.4s;
+    --loading-fadeout-scale: 1;
+
+    /* [2] Hiệu ứng 1: nạp ảnh mới phía trong (zoom nhỏ -> to) */
+    --img-enter-duration: 0.7s;
+    --img-enter-start-scale: 0.95;
+    --img-enter-end-radius: 4px;
+
+    /* [3] Hiệu ứng 2: thẻ xuất hiện vào slot */
+    --slot-enter-duration: 0.7s;
+    --slot-enter-start-scale: 0.9;
+    --slot-enter-start-opacity: 0;
+}
+
+/* ── Sân khấu ──────────────────────────────────────────────────────────── */
+
+.wallpaper_switcher .carousel-container {
+    position: relative;
+    width: 100%;
+    height: var(--container-height);
+    background-color: var(--stage-bg);
+    display: flex;
+    align-items: center;
+    /* Hai đường kẻ mảnh ở mép trên/dưới đánh dấu dải carousel trên nền wallpaper.
+       Không đặt border-radius hay clip ở đây: mép thẻ phải được vẽ tràn ra ngoài. */
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    overflow: visible;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.wallpaper_switcher .carousel-container.is-empty {
+    cursor: default;
+}
+
+.wallpaper_switcher .carousel-container.is-dragging {
+    cursor: grabbing;
+}
+
+/* Trong lúc kéo, con trỏ có thể ra ngoài sân khấu — giữ luôn tay nắm cho khớp. */
+body.wp-carousel-dragging,
+body.wp-carousel-dragging * {
+    cursor: grabbing !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+
+/* Đường chỉ đỏ ở tâm: chỉ để soi lúc căn chỉnh, tắt theo accent bg */
+.wallpaper_switcher .carousel-guide {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 2px;
+    background-color: rgba(248, 113, 113, 0.9);
+    transform: translateX(-50%);
+    pointer-events: none;
+    z-index: 10;
+}
+
+.wallpaper_switcher .carousel-container.hide-accent-bg .carousel-guide {
+    display: none !important;
+}
+
+/* Khung ngắm trắng ở tâm: cố định, là mốc để mắt biết thẻ nào sắp chốt */
+.wallpaper_switcher .carousel-viewfinder {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(1);
+    width: calc(var(--base-width) - var(--card-margin) * 2);
+    height: calc(var(--container-height) - var(--card-margin) * 2);
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 25;
+    box-sizing: border-box;
+    box-shadow: 0 0 16px rgba(255, 255, 255, 0.12);
+    /* Khi hiện lại: fade lên từ từ và scale mượt mà */
+    transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+        transform 0.45s cubic-bezier(0.34, 1.45, 0.64, 1),
+        border-color 0.2s ease,
+        box-shadow 0.25s ease;
+}
+
+/* Biến mất nhanh khi đang xóa ảnh */
+.wallpaper_switcher .carousel-viewfinder.is-hidden {
+    opacity: 0 !important;
+    transform: translate(-50%, -50%) scale(1) !important;
+    transition: opacity 0.15s ease-out, transform 0.15s ease-out !important;
+}
+
+/* Vòng thở: đứng yên thì ẩn, chỉ bật khi đang lướt/kéo */
+.wallpaper_switcher .carousel-viewfinder::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border: 1.5px solid rgba(255, 255, 255, 0.75);
+    border-radius: 6px;
+    pointer-events: none;
+    box-sizing: border-box;
+    opacity: 0;
+}
+
+.wallpaper_switcher .carousel-viewfinder.is-moving::after,
+.wallpaper_switcher .carousel-container.is-dragging .carousel-viewfinder::after {
+    animation: wp-viewfinder-breathe var(--breathe-duration) cubic-bezier(0.2, 0.55, 0.35, 1) infinite;
+}
+
+@keyframes wp-viewfinder-breathe {
+    0% {
+        transform: scale(var(--breathe-start-scale));
+        opacity: 0.85;
+    }
+
+    100% {
+        transform: scale(var(--breathe-zoom-scale));
+        opacity: 0;
+    }
+}
+
+.wallpaper_switcher .carousel-viewfinder.is-moving,
+.wallpaper_switcher .carousel-container.is-dragging .carousel-viewfinder {
+    transform: translate(-50%, -50%) scale(1.03);
+    border-color: #ffffff;
+}
+
+/* ── Track & thẻ ───────────────────────────────────────────────────────── */
+
+.wallpaper_switcher .carousel-track {
+    position: relative;
+    height: 100%;
+    width: 100%;
+    overflow: visible;
+}
+
+/* Thẻ là khối tuyệt đối: width và translateX đều do engine ghi ra từng frame.
+   Cố tình KHÔNG `overflow: hidden`: việc cắt ảnh đã do `.card-frame` lo, còn
+   mép thẻ (viền mảnh, đổ bóng) thì phải vẽ được tràn ra ngoài slot. */
+.wallpaper_switcher .carousel-item {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background-color: var(--accent-idle);
+    border-right: 1px solid rgba(255, 255, 255, 0.15);
+    user-select: none;
+    transition: none;
+    overflow: visible;
+    will-change: transform, width;
+}
+
+.wallpaper_switcher .carousel-item.buffer {
+    background: var(--accent-buffer);
+}
+
+.wallpaper_switcher .carousel-item.active {
+    background-color: var(--accent-active);
+}
+
+.wallpaper_switcher .carousel-item:first-child {
+    border-left: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Tắt accent bg: bỏ luôn nền xanh/vàng và đường kẻ dọc giữa các thẻ */
+.wallpaper_switcher .carousel-track.hide-accent-bg .carousel-item {
+    background-color: transparent !important;
+    background-image: none !important;
+    border-right: none;
+}
+
+.wallpaper_switcher .carousel-track.hide-accent-bg .carousel-item:first-child {
+    border-left: none;
+}
+
+.wallpaper_switcher .carousel-item.deleting {
+    border: none !important;
+    overflow: visible;
+    z-index: 20;
+}
+
+/* Khung ảnh: co giãn theo bề rộng slot, chừa 4px để lộ nền sân khấu */
+.wallpaper_switcher .card-frame {
+    position: relative;
+    width: calc(100% - var(--card-margin) * 2);
+    height: calc(100% - var(--card-margin) * 2);
+    margin: var(--card-margin);
+    border-radius: 6px;
+    overflow: hidden;
+    /* Đen 0.5, không phải tông xanh slate: đây là mặt nền lộ ra trong lúc ảnh
+       đang tải, và bất kỳ ánh xanh nào ở đây đều lộ ngay trên nền wallpaper. */
+    background-color: rgba(0, 0, 0, 0.5);
+    /* Viền mảnh vẽ bằng inset shadow thay vì border: nó theo đúng border-radius
+       và không bao giờ bị `overflow: hidden` của chính khung cắt mất một nửa.
+       Cần thiết vì sân khấu trong suốt — không có nó, một ảnh sáng nằm cạnh một
+       ảnh sáng sẽ dính vào nhau không còn ranh giới. */
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+    will-change: transform, opacity;
+}
+
+.wallpaper_switcher .carousel-item.mode-2 {
+    overflow: visible !important;
+}
+
+/* Mode 2: khung ảnh tách khỏi bề rộng slot, luôn bung đủ 792px và căn giữa */
+.wallpaper_switcher .carousel-item.mode-2 .card-frame {
+    position: absolute;
+    top: var(--card-margin);
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(var(--base-width) - var(--card-margin) * 2);
+    margin: 0;
+    z-index: 30;
+}
+
+.wallpaper_switcher .card-frame.slide-down {
+    pointer-events: none;
+}
+
+/* Ảnh 16:9 cố định 792×446, căn giữa khung: thẻ co lại thì ảnh bị cắt hai bên
+   chứ không bị bóp méo tỉ lệ. */
+.wallpaper_switcher .card-bg {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: calc(var(--base-width) - var(--card-margin) * 2);
+    height: calc(var(--container-height) - var(--card-margin) * 2);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    pointer-events: none;
+    border-radius: 4px;
+}
+
+/* ── Khối thông tin trên thẻ ───────────────────────────────────────────── */
+
+.wallpaper_switcher .carousel-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 18px;
+    pointer-events: none;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.35) 65%, transparent 100%);
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+    will-change: opacity;
+}
+
+.wallpaper_switcher .card-meta-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #f8fafc;
+    font-size: 0.88rem;
+    font-weight: 500;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 55%;
+}
+
+.wallpaper_switcher .card-meta-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #cbd5e1;
+    font-size: 0.82rem;
+    white-space: nowrap;
+    max-width: 45%;
+}
+
+.wallpaper_switcher .card-meta-right code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.78rem;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 2px 7px;
+    border-radius: 4px;
+    color: #e2e8f0;
+    backdrop-filter: blur(4px);
+    letter-spacing: 0.2px;
+}
+
+.wallpaper_switcher .card-meta-sep {
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 0.75rem;
+    margin: 0 1px;
+}
+
+.wallpaper_switcher .card-info-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #f8fafc;
+    font-size: 0.92rem;
+    font-weight: 500;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.wallpaper_switcher .card-info-inline .item-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.wallpaper_switcher .card-info-inline .info-sep {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.85rem;
+}
+
+.wallpaper_switcher .card-info-inline .item-num {
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: #cbd5e1;
+}
+
+/* ── Thẻ "lấy thêm" ────────────────────────────────────────────────────── */
+
+.wallpaper_switcher .card-add-frame {
+    background: rgba(0, 0, 0, 0.5) !important;
+    border: 2px dashed rgba(255, 255, 255, 0.28);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.3s ease, background-color 0.3s ease;
+}
+
+.wallpaper_switcher .carousel-item.active .card-add-frame {
+    border-color: rgba(255, 255, 255, 0.65);
+    background-color: rgba(0, 0, 0, 0.62) !important;
+}
+
+.wallpaper_switcher .card-add-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 2;
+    transition: transform 0.25s cubic-bezier(0.34, 1.45, 0.64, 1);
+}
+
+.wallpaper_switcher .card-plus-icon {
+    width: 52px;
+    height: 52px;
+    color: #ffffff;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.45));
+    transition: transform 0.2s ease;
+    will-change: opacity, transform;
+}
+
+.wallpaper_switcher .carousel-item.active .card-plus-icon {
+    transform: scale(1.1);
+}
+
+.wallpaper_switcher .card-loading-spinner {
+    width: 44px;
+    height: 44px;
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: wp-card-spin 0.75s linear infinite;
+    box-shadow: none;
+    will-change: opacity, transform;
+}
+
+@keyframes wp-card-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Trạng thái đang tải giữ nguyên mặt nền đen 0.5: đổi sang tông khác ở đây sẽ
+   thành một cú nháy màu giữa lúc chờ ảnh. */
+.wallpaper_switcher .card-add-item.is-loading .card-add-frame {
+    border-color: rgba(255, 255, 255, 0.75);
+    border-style: solid;
+    background-color: rgba(0, 0, 0, 0.5) !important;
+}
+
+.wallpaper_switcher .card-add-item.is-loading .card-plus-icon {
+    display: none !important;
+}
+
+.wallpaper_switcher .card-add-item.is-loading .card-loading-spinner {
+    display: block !important;
+}
+
+/* Chỉ khối tâm (icon + spinner) mờ đi trước khi ảnh mới hiện — nhãn thông tin
+   bên dưới vẫn giữ nguyên, vì mờ nó chỉ làm chữ nhấp nháy vô cớ. */
+.wallpaper_switcher .card-add-item.is-loading.is-fading-out .card-add-center {
+    opacity: 0 !important;
+    transform: translate(-50%, -50%) scale(var(--loading-fadeout-scale, 0.85));
+    transition: opacity var(--loading-fadeout-duration, 0.22s) ease-out,
+        transform var(--loading-fadeout-duration, 0.22s) ease-out;
+}
+
+.wallpaper_switcher .card-add-item.is-loading.is-fading-out .card-add-frame {
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    transition: border-color var(--loading-fadeout-duration, 0.22s) ease-out;
+}
+
+/* ── Hiệu ứng chuyển cảnh ──────────────────────────────────────────────── */
+
+/* [1] Ảnh mới hiện ra: zoom nhỏ -> to, bo góc giữ nguyên */
+.wallpaper_switcher .card-fade-in {
+    animation: wp-card-fade-in var(--img-enter-duration, 0.7s) cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes wp-card-fade-in {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(var(--img-enter-start-scale, 0.7));
+        border-radius: var(--img-enter-end-radius, 4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+        border-radius: var(--img-enter-end-radius, 4px);
+    }
+}
+
+/* [2] Thẻ vào slot: zoom nhẹ + fade. Độ mờ đích do JS truyền qua
+   `--slot-target-opacity` để không đè lên độ mờ mà layout đã tính. */
+.wallpaper_switcher .card-frame.card-enter-slot {
+    animation: wp-card-enter-slot var(--slot-enter-duration, 0.7s) cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes wp-card-enter-slot {
+    from {
+        opacity: var(--slot-enter-start-opacity, 0);
+        transform: scale(var(--slot-enter-start-scale, 0.7));
+    }
+
+    to {
+        opacity: var(--slot-target-opacity, 1);
+        transform: scale(1);
+    }
+}
+
+/* Mode 2 đặt khung bằng translateX(-50%) nên keyframes phải giữ luôn phần bù đó */
+.wallpaper_switcher .carousel-item.mode-2 .card-frame.card-enter-slot {
+    animation: wp-card-enter-slot-mode2 var(--slot-enter-duration, 0.7s) cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes wp-card-enter-slot-mode2 {
+    from {
+        opacity: var(--slot-enter-start-opacity, 0);
+        transform: translateX(-50%) scale(var(--slot-enter-start-scale, 0.7));
+    }
+
+    to {
+        opacity: var(--slot-target-opacity, 1);
+        transform: translateX(-50%) scale(1);
+    }
+}
+
+/* ── Empty State khi danh sách không có thẻ nào ──────────────────────── */
+
+.wallpaper_switcher .carousel-empty-state {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.96);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    z-index: 20;
+    pointer-events: none;
+    user-select: none;
+    text-align: center;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+        opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+        transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+        visibility 0.35s;
+}
+
+.wallpaper_switcher .carousel-container.is-empty .carousel-empty-state,
+.wallpaper_switcher .carousel-empty-state.is-visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.wallpaper_switcher .carousel-empty-state i,
+.wallpaper_switcher .carousel-empty-state svg {
+    font-size: 36px;
+    width: 36px;
+    height: 36px;
+    color: rgba(255, 255, 255, 0.35);
+    margin-bottom: 2px;
+}
+
+.wallpaper_switcher .carousel-empty-state .empty-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.wallpaper_switcher .carousel-empty-state .empty-sub {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.4);
+}
