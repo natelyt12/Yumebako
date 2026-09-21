@@ -2,13 +2,126 @@ import { recoverCollectionBlobs } from "/src/wallpaper/sources/api/collectionDb.
 import { getAllFromStore, saveToStore, clearStore } from "/src/core/db.js";
 import { initDate, initClock } from "/src/core/time.js";
 
-const STORAGE_KEY = "bako_settings";
+// ─── JSDoc type definitions ───────────────────────────────────────────────────
+
+/**
+ * @typedef {Object} WallpaperConfig
+ * @property {string}      source              - Active source id (e.g. "picre", "collection").
+ * @property {string|null} activeWallpaperId   - Id of the currently applied wallpaper card.
+ * @property {string|null} [activeCollectionItemId] - Id within the collection source (when source === "collection").
+ * @property {number}      brightness          - CSS filter: brightness multiplier (1 = normal).
+ * @property {number}      blur                - CSS filter: blur in px.
+ * @property {number}      contrast            - CSS filter: contrast multiplier (1 = normal).
+ * @property {number}      saturate            - CSS filter: saturate multiplier (1 = normal).
+ * @property {number}      bloom               - Bloom intensity (0–1 range).
+ * @property {string}      mode                - Object-fit mode: "cover" | "contain" | "fill" | "none".
+ */
+
+/**
+ * @typedef {Object} WallpaperSwitcher
+ * @property {string}              activeSource   - Fallback source tab id.
+ * @property {Record<string, number>} sourceIndices - Last-visited index per source id.
+ */
+
+/**
+ * @typedef {Object} WavyMotionConfig
+ * @property {string}  motionType        - Active motion generator id (e.g. "noise").
+ * @property {number}  scale             - Wallpaper upscale factor to hide translation edges (e.g. 1.04).
+ * @property {boolean} advanced          - Whether advanced sliders are shown in the editor.
+ * @property {number}  parallaxInertia   - Spring inertia for parallax movement.
+ * @property {number}  parallaxAmplitude - Max parallax offset in px.
+ * @property {Record<string, Record<string, number>>} motions - Per-generator parameter bags, keyed by motion id.
+ */
+
+/**
+ * @typedef {Object} WavyConfig
+ * @property {boolean}        enabled          - Whether the wavy animation is active.
+ * @property {boolean}        parallaxEnabled  - Whether mouse-parallax is active.
+ * @property {WavyMotionConfig} config         - Motion generator parameters.
+ */
+
+/**
+ * A single particle effect entry in the particles layer.
+ * The exact shape is declared by each ParticleEffect subclass.
+ * @typedef {Record<string, any>} ParticleEffectEntry
+ */
+
+/**
+ * @typedef {Object} ParticlesConfig
+ * @property {boolean}               enabled - Whether the particles overlay is active.
+ * @property {ParticleEffectEntry[]} dynamic - List of animated particle effects.
+ * @property {ParticleEffectEntry[]} static  - List of static particle effects.
+ */
+
+/**
+ * @typedef {Object} OnloadConfig
+ * @property {boolean} enabled         - Whether the entrance animation plays on page load.
+ * @property {boolean} widget_immediate - Widgets appear immediately (no delay).
+ * @property {string}  preset          - Preset animation id (e.g. "zoom_in_light").
+ * @property {number}  zoom            - Zoom factor during the animation.
+ * @property {number}  rotate          - Rotation angle in degrees.
+ * @property {number}  blur            - Blur intensity in px.
+ * @property {number}  speed           - Background animation duration in seconds.
+ * @property {number}  overlay_speed   - Overlay fade duration in seconds.
+ * @property {string}  bg_easing       - Easing id for the background transition (e.g. "expo_out").
+ * @property {boolean} advanced        - Whether advanced sliders are shown in the editor.
+ */
+
+/**
+ * Widget position using anchor-relative coordinates.
+ * ax/ay are percentage-based anchor points (0–100); x/y are pixel offsets from the anchor.
+ *
+ * @typedef {Object} WidgetPositionConfig
+ * @property {number}      ax   - Horizontal anchor percentage (0 = left, 50 = center, 100 = right).
+ * @property {number}      ay   - Vertical anchor percentage (0 = top, 50 = center, 100 = bottom).
+ * @property {number}      x    - Pixel offset from the horizontal anchor.
+ * @property {number}      y    - Pixel offset from the vertical anchor.
+ * @property {number|null} [w]  - Fixed width in px, or null for auto.
+ * @property {number|null} [h]  - Fixed height in px, or null for auto.
+ */
+
+/**
+ * A single widget's persisted state.
+ * @typedef {Object} WidgetEntry
+ * @property {boolean}            enabled  - Whether this widget is rendered.
+ * @property {WidgetPositionConfig} position - Position on the widget canvas.
+ * @property {Record<string, any>} config  - Widget-specific configuration.
+ */
+
+/**
+ * @typedef {Object} WidgetsConfig
+ * @property {boolean}     enabled      - Master toggle for the widget layer.
+ * @property {number}      grid_size    - Snap grid size in px.
+ * @property {number}      grid_padding - Canvas edge padding in px.
+ * @property {WidgetEntry} clock        - Analog/digital clock widget.
+ * @property {WidgetEntry} date         - Date display widget.
+ * @property {WidgetEntry} lunar        - Lunar calendar widget.
+ * @property {WidgetEntry} weather      - Weather widget.
+ */
+
+/**
+ * Full merged application settings object, combining bako_settings and bako_wallpaper.
+ *
+ * @typedef {Object} AppSettings
+ * @property {WallpaperConfig}   wallpaperConfig    - Active wallpaper and filter settings.
+ * @property {WallpaperSwitcher} wallpaperSwitcher  - Switcher browsing state.
+ * @property {{x:number, y:number, zoom:number, mode:string}} wallpaperPosition - Position/zoom of the wallpaper.
+ * @property {WavyConfig}        wavy               - Wavy motion settings.
+ * @property {ParticlesConfig}   particles          - Particle effect settings.
+ * @property {OnloadConfig}      onload             - Page-load entrance animation settings.
+ * @property {Array<any>}        wallpapers         - Legacy wallpaper list (unused, kept for migration).
+ * @property {string}            tabTitle           - Custom browser tab title.
+ * @property {boolean}           presentationMode   - Hide UI chrome for presentations.
+ * @property {string}            language           - Locale id (e.g. "en", "vi").
+ * @property {{query:string, categories:Object, resolution:string, sorting:string, topRange:string}} wallhavenConfig - Wallhaven search parameters.
+ * @property {string}            unsplashApiKey     - User-supplied Unsplash API key.
+ * @property {boolean}           debugI18n          - Highlight missing i18n keys.
+ * @property {boolean}           hideToggleButton   - Hide the settings toggle button.
+ * @property {WidgetsConfig}     widgets            - Widget layer configuration.
+ */
+
 const WALLPAPER_KEYS = ["wallpaperConfig", "wallpaperSwitcher", "wallpaperPosition", "wavy", "particles", "onload", "wallpapers"];
 
-// Legacy flat wavy params, back when the classic wave generator existed. That
-// generator was removed, so the values are carried over to WAVY_DEFAULT_MOTION.
-const WAVY_LEGACY_MOTION_KEYS = ["amplitudeX", "speedX", "amplitudeY", "speedY", "amplitudeRotate", "speedRotate"];
-const WAVY_DEFAULT_MOTION = "noise";
 
 /**
  * Factory for generating default per-wallpaper effect profile.
@@ -49,8 +162,7 @@ export function getDefaultWallpaperEffects() {
     };
 }
 
-// Define default data structure
-// NOTE: When adding a new module that requires settings, add its default key here.
+// Add new settings keys here when introducing new modules.
 const defaultSettings = {
     // ==========================================
     // WALLPAPER & EFFECTS (Aesthetics)
@@ -66,9 +178,9 @@ const defaultSettings = {
         mode: "cover",
     },
     // Standalone Wallpaper Switcher (Alt + W) browsing state.
+    // The tab actually opened is the one owning the current desktop wallpaper.
+    // See src/wallpaper/sources/registry.js for tab resolution logic.
     wallpaperSwitcher: {
-        // Fallback source tab. The tab actually opened is the one owning the
-        // current desktop wallpaper. See src/wallpaper/sources/registry.js
         activeSource: "picre",
         sourceIndices: {},
     },
@@ -82,9 +194,8 @@ const defaultSettings = {
             advanced: false,
             parallaxInertia: 0.03,
             parallaxAmplitude: -30,
-            // Per-motion-type parameter bags, keyed by motion id. Each generator
-            // declares its own defaults in its class (see src/wallpaper/motion),
-            // so only the container lives here — same approach as `particles`.
+            // Each generator declares its own defaults in its class (src/wallpaper/motion).
+            // Only the container bag lives here — same pattern as `particles`.
             motions: {}
         }
     },
@@ -102,18 +213,13 @@ const defaultSettings = {
         blur: 10,
         speed: 3,
         overlay_speed: 1,
-        // The overlay fade is deliberately not configurable — it is hard-wired to
-        // an expo-out. The id follows src/wallpaper/onload/easing.js and is
-        // ease-in-out. The id follows src/wallpaper/onload/easing.js and is
-        // resolved to a `var(--token)` only at play time.
+        // Easing id resolved to a CSS var(--token) at play time. See src/wallpaper/onload/easing.js.
         bg_easing: "expo_out",
         advanced: false,
     },
     wallpapers: [],
 
-    // ==========================================
-    // SYSTEM & STARTPAGE (Utility)
-    // ==========================================
+    // ── System & Startpage ───────────────────────────────────────────────────
     tabTitle: "",
     presentationMode: false,
     language: "en",
@@ -164,7 +270,9 @@ const defaultSettings = {
 };
 
 /**
- * Utility for deep merging settings objects automatically
+ * Returns true if the value is a plain (non-array) object.
+ * @param {unknown} item
+ * @returns {boolean}
  */
 function isObject(item) {
     return item && typeof item === "object" && !Array.isArray(item);
@@ -192,7 +300,7 @@ const keyListeners = new Map();
 /**
  * Retrieve all settings from LocalStorage.
  * Automatically merges with defaultSettings to avoid missing keys.
- * @returns {Object} The merged configuration object.
+ * @returns {AppSettings} The merged configuration object.
  */
 export function getSettings() {
     if (settingsCache) return settingsCache;
@@ -242,61 +350,6 @@ export function getSettings() {
     }
 
     try {
-        // Migrate legacy string rotation strings to numbers (Support users with old settings)
-        if (mergedStored.wallpaperConfig && typeof mergedStored.wallpaperConfig.rotation === "string") {
-            const LEGACY_ROTATION_MAP = { never: 0, "15min": 1, "30min": 2, "1hour": 3, "2hour": 4 };
-            mergedStored.wallpaperConfig.rotation = LEGACY_ROTATION_MAP[mergedStored.wallpaperConfig.rotation] ?? 0;
-        }
-
-        // Drop legacy keys from wallpaperConfig.
-        if (mergedStored.wallpaperConfig) {
-            delete mergedStored.wallpaperConfig.chroma;
-            delete mergedStored.wallpaperConfig.vibrance;
-        }
-
-        // The classic wave generator was removed. Carry its parameters (the old
-        // flat keys and/or the legacy `motions.sine` bag) over to the new default
-        // generator so users keep their tuning — existing target values win.
-        const legacyWavyConfig = mergedStored.wavy?.config;
-        if (legacyWavyConfig) {
-            if (!legacyWavyConfig.motions) legacyWavyConfig.motions = {};
-
-            const carried = { ...(legacyWavyConfig.motions.sine || {}) };
-            WAVY_LEGACY_MOTION_KEYS.forEach((key) => {
-                if (legacyWavyConfig[key] !== undefined) {
-                    carried[key] = legacyWavyConfig[key];
-                    delete legacyWavyConfig[key];
-                }
-            });
-            delete legacyWavyConfig.motions.sine;
-
-            if (Object.keys(carried).length > 0) {
-                legacyWavyConfig.motions[WAVY_DEFAULT_MOTION] = {
-                    ...carried,
-                    ...(legacyWavyConfig.motions[WAVY_DEFAULT_MOTION] || {}),
-                };
-            }
-
-            if (legacyWavyConfig.motionType === "sine") {
-                legacyWavyConfig.motionType = WAVY_DEFAULT_MOTION;
-            }
-        }
-
-        // The wipe overlay was removed and the fade curve is now fixed, so drop
-        // every legacy key that only ever drove them.
-        if (mergedStored.onload) {
-            [
-                "wipe",
-                "overlay_mode",
-                "overlay_easing",
-                "wipe_easing",
-                "wipe_speed",
-                "wipe_angle",
-                "wipe_target_angle_enabled",
-                "wipe_target_angle",
-            ].forEach((key) => delete mergedStored.onload[key]);
-        }
-
         settingsCache = deepMerge(defaultSettings, mergedStored);
         return settingsCache;
     } catch (e) {
@@ -308,11 +361,12 @@ export function getSettings() {
 
 /**
  * Save merged settings into LocalStorage.
- * @param {Object} partialSettings - Partial object containing new updates.
+ * Keys listed in WALLPAPER_KEYS are routed to bako_wallpaper; all others go to bako_settings.
+ * @param {Partial<AppSettings>} partialSettings - Partial object containing new updates.
  */
 export function saveSettings(partialSettings) {
     const current = getSettings();
-    // Use shallow merge on save to prevent accidentally merging removed arrays.
+    // Shallow merge on save — prevents accidentally clobbering removed array items.
     const updated = { ...current, ...partialSettings };
     
     let currentSystem = {};
@@ -341,7 +395,7 @@ export function saveSettings(partialSettings) {
     settingsCache = updated;
     console.debug("Settings: Saved and notifying listeners", partialSettings);
 
-    // Notify key listeners
+    // Notify per-key subscribers.
     Object.keys(partialSettings).forEach((key) => {
         if (keyListeners.has(key)) {
             keyListeners.get(key).forEach((callback) => {
@@ -358,9 +412,10 @@ export function saveSettings(partialSettings) {
 /**
  * Subscribe to changes on a specific settings key.
  * The callback is immediately fired with the current value.
- * @param {string} key - The settings key to listen to.
- * @param {Function} callback - Callback function receiving (newValue, allSettings).
- * @returns {Function} Unsubscribe function.
+ * @template {keyof AppSettings} K
+ * @param {K} key - The settings key to listen to.
+ * @param {(newValue: AppSettings[K], allSettings: AppSettings) => void} callback
+ * @returns {() => void} Unsubscribe function.
  */
 export function subscribe(key, callback) {
     if (!keyListeners.has(key)) {
@@ -368,7 +423,8 @@ export function subscribe(key, callback) {
     }
     keyListeners.get(key).add(callback);
 
-    // Immediately trigger with current value for initial setup
+    // Fire immediately with the current value so callers can do initial setup
+    // without a separate getSettings() call.
     const currentSettings = getSettings();
     try {
         callback(currentSettings[key], currentSettings);
@@ -398,10 +454,10 @@ export async function exportSettings(type = 'all') {
         lsData = { ...lsData, ...sysData };
         
         const idbData = await getAllFromStore();
-        // Exclude local API data (heavy images, videos) from backup file
+        // Exclude local API data (heavy images/videos) — they are never part of a backup.
         const filteredIdbData = idbData ? idbData.filter((item) => item.key !== "local_image_data" && item.key !== "local_video_data") : [];
 
-        // Exclude blob objects from backup to reduce JSON export size
+        // Strip blob fields to keep export file size manageable.
         for (let item of filteredIdbData) {
             if (item.key === "data:wallhaven" && item.value?.current?.blob) {
                 delete item.value.current.blob;
@@ -457,9 +513,9 @@ export async function exportSettings(type = 'all') {
 export async function importSettings(jsonString) {
     try {
         const importedData = JSON.parse(jsonString);
-        let importedLS = importedData.localStorage || importedData; // fallback old format
+        let importedLS = importedData.localStorage || importedData; // fallback: old export format had no wrapper
 
-        // Restore IndexedDB & Weather Cache if they are present in the backup (i.e. 'all' or 'system' backup)
+        // Restore IndexedDB and weather cache when present (full or system backup).
         if (Array.isArray(importedData.indexedDB)) {
             if (importedData.weatherCache) {
                 localStorage.setItem("weather_cache", JSON.stringify(importedData.weatherCache));
@@ -474,16 +530,15 @@ export async function importSettings(jsonString) {
                 }
             }
 
-            // Attempt to recover blobs from background_collection
+            // Attempt to recover collection item blobs regenerated from IDB.
             try {
-
                 await recoverCollectionBlobs();
             } catch (err) {
                 console.error("Failed to recover collection blobs during import:", err);
             }
         }
 
-        // Distribute the imported local storage data back to bako_settings and bako_wallpaper
+        // Distribute imported data back into the two storage keys.
         let currentSystem = {};
         let currentWallpaper = {};
         try {
@@ -502,7 +557,7 @@ export async function importSettings(jsonString) {
         localStorage.setItem("bako_settings", JSON.stringify(currentSystem));
         localStorage.setItem("bako_wallpaper", JSON.stringify(currentWallpaper));
 
-        // Update settingsCache and notify all registered key listeners
+        // Rebuild cache and notify all active key subscribers.
         settingsCache = deepMerge(defaultSettings, { ...currentSystem, ...currentWallpaper });
         console.debug("Settings: Imported successfully, notifying all listeners");
 

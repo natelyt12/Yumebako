@@ -3,6 +3,53 @@ import { getFromStore, saveToStore, removeFromStore } from "/src/core/db.js";
 import { getSettings, saveSettings } from "/src/core/storageHandler.js";
 
 /**
+ * A single wallpaper card item managed by DataControl.
+ * Produced by BaseSource.toCarouselItem() and persisted in BakoDB.
+ *
+ * @typedef {Object} CardItem
+ * @property {string}  id           - Unique identifier for the card.
+ * @property {"item"}  kind         - Discriminant: always "item" for real cards.
+ * @property {string}  source       - The source id that owns this card.
+ * @property {string}  url          - Direct URL of the full-size media.
+ * @property {string}  sourceUrl    - Canonical page URL (shown by "view source").
+ * @property {string}  title        - Display title / file name.
+ * @property {string}  category     - Optional tag / category string.
+ * @property {"image"|"video"} mediaType - Media type of the card.
+ * @property {string|null} thumbnailUrl  - Low-res thumbnail URL (may be a blob:, null when not yet generated).
+ * @property {string}  trackUrl     - Analytics or referral tracking URL.
+ * @property {boolean} local        - true when the file lives on-device.
+ * @property {number}  width        - Original media width in pixels.
+ * @property {number}  height       - Original media height in pixels.
+ * @property {number}  size         - File size in bytes.
+ * @property {number}  addedAt      - Unix timestamp (ms) when the card was added.
+ */
+
+/**
+ * Named events emitted by DataControl.
+ *
+ * @typedef {"source:change" | "cards:loaded" | "card:soft" | "card:hard" | "card:added" | "card:deleted" | "feed:exhausted" | "state:change" | "error"} DataControlEvent
+ */
+
+/**
+ * Snapshot returned by DataControl.getState().
+ *
+ * @typedef {Object} DataControlState
+ * @property {string}          sourceId        - Active source id.
+ * @property {string}          sourceName      - Localized source name.
+ * @property {"idle"|"fetching"|"deleting"|"switching"} status - Current busy status.
+ * @property {boolean}         isBusy          - True while any async operation is running.
+ * @property {number}          currentIndex    - Hard-settled index.
+ * @property {number}          softIndex       - Scroll-preview index.
+ * @property {CardItem|null}   activeCard      - Hard-settled card (or null).
+ * @property {CardItem|null}   softCard        - Scroll-preview card (or null).
+ * @property {number}          cardCount       - Total number of cards in the active source.
+ * @property {number}          total           - Alias for cardCount.
+ * @property {CardItem[]}      items           - Shallow copy of the cards array.
+ * @property {boolean}         canGrow         - Whether fetchMore() is available.
+ * @property {boolean}         hasExtraSettings - Whether the source has its own settings panel.
+ */
+
+/**
  * DataControl.js
  * ---------------------------------------------------------------------------
  * TẦNG 2: Bộ não điều phối trung tâm (Single Source of Truth)
@@ -15,16 +62,23 @@ import { getSettings, saveSettings } from "/src/core/storageHandler.js";
  */
 export class DataControl {
     constructor() {
+        /** @type {Map<string, import("../sources/BaseSource.js").BaseSource>} */
         this.sources = new Map();
+        /** @type {string|null} */
         this.activeSourceId = null;
 
-        /** Mảng các thẻ wallpaper THẬT của source hiện hành (không có kind: 'more') */
+        /** Mảng các thẻ wallpaper THẬT của source hiện hành (không có kind: 'more')
+         * @type {CardItem[]} */
         this.items = [];
-        this.currentIndex = 0; // Hard index (chốt)
-        this.softIndex = 0;    // Soft index (đang lướt)
+        /** Hard index — chốt khi cuộn dừng hẳn. @type {number} */
+        this.currentIndex = 0;
+        /** Soft index — đang lướt qua (chưa chốt). @type {number} */
+        this.softIndex = 0;
 
+        /** @type {boolean} */
         this.isBusy = false;
-        this.status = "idle";  // "idle" | "fetching" | "deleting" | "switching"
+        /** @type {"idle" | "fetching" | "deleting" | "switching"} */
+        this.status = "idle";
 
         /** @type {Map<string, Set<Function>>} */
         this._listeners = new Map();
@@ -34,6 +88,12 @@ export class DataControl {
 
     /* ── Event Emitter (Pub / Sub) ─────────────────────────────────────────── */
 
+    /**
+     * Subscribe to a DataControl event.
+     * @param {DataControlEvent} event
+     * @param {(payload: any) => void} callback
+     * @returns {() => void} Unsubscribe function.
+     */
     on(event, callback) {
         if (!this._listeners.has(event)) {
             this._listeners.set(event, new Set());
@@ -42,11 +102,21 @@ export class DataControl {
         return () => this.off(event, callback);
     }
 
+    /**
+     * Unsubscribe a previously registered callback.
+     * @param {DataControlEvent} event
+     * @param {(payload: any) => void} callback
+     */
     off(event, callback) {
         const set = this._listeners.get(event);
         if (set) set.delete(callback);
     }
 
+    /**
+     * Emit an event to all registered listeners.
+     * @param {DataControlEvent} event
+     * @param {any} payload
+     */
     emit(event, payload) {
         const set = this._listeners.get(event);
         if (set) {
@@ -108,6 +178,7 @@ export class DataControl {
 
     /**
      * Ảnh chụp toàn bộ trạng thái (Dùng cho Status Monitor & Action Buttons).
+     * @returns {DataControlState}
      */
     getState() {
         return {
@@ -323,7 +394,7 @@ export class DataControl {
 
     /**
      * Yêu cầu nguồn nạp thêm ảnh mới (khi người dùng đến ô '+' hoặc bấm nút).
-     * @returns {Promise<Object|null>} Thẻ mới vừa nạp xong, hoặc null nếu hết/lỗi.
+     * @returns {Promise<CardItem|null>} Thẻ mới vừa nạp xong, hoặc null nếu hết/lỗi.
      */
     async requestMore() {
         if (this.isBusy || !this.activeSource?.canGrow) return null;

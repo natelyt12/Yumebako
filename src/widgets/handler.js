@@ -3,6 +3,8 @@ import { startClockUpdates, stopClockUpdates, initClockSettings } from "/src/wid
 import { startWeatherUpdates, stopWeatherUpdates } from "/src/widgets/weather/weather.js";
 import { makeWidgetsDraggable, syncWidgetEditMode } from "./editmode.js";
 
+/** @typedef {import("/src/core/storageHandler.js").WidgetPositionConfig} WidgetPositionConfig */
+
 let gridSize = 10;
 let widgetSubscriptions = [];
 let resizeObserver = null;
@@ -12,6 +14,7 @@ let resizeObserver = null;
  * Canvas occupies the largest area that is a multiple of gridSize fitting in the container.
  * @param {number} containerW - container clientWidth
  * @param {number} containerH - container clientHeight
+ * @returns {{ effectiveW: number, effectiveH: number, offsetX: number, offsetY: number, centerX: number, centerY: number }}
  */
 export function getCanvasMetrics(containerW, containerH) {
     const step = gridSize; // Expand by 1 grid at a time
@@ -38,6 +41,11 @@ export function updateCanvasOffsets() {
     container.style.setProperty("--canvas-effective-h", `${effectiveH}px`);
 }
 
+/**
+ * Apply anchor-relative position styles to a widget DOM element.
+ * @param {HTMLElement} widget - The widget DOM element.
+ * @param {WidgetPositionConfig} pos - The position config to apply.
+ */
 export function applyWidgetPositionStyles(widget, pos) {
     widget.style.right = "";
     widget.style.bottom = "";
@@ -69,7 +77,7 @@ export function applyWidgetPositionStyles(widget, pos) {
 
 import clockHtml from "./clock/clock.html?raw";
 import weatherHtml from "./weather/weather.html?raw";
-import "./style.css";
+import "./editmode.css";
 import "./clock/clock.css";
 import "./weather/weather.css";
 

@@ -49,7 +49,7 @@ const WHEEL_RESET_MS = 120;
 /** Khoảng cách tối thiểu giữa hai lần bấm phím liên tiếp. */
 const NAV_COOLDOWN_MS = 80;
 /** Thời gian cột thu lại sau khi thẻ bị xóa rơi khỏi khung. */
-const COLLAPSE_MS = 350;
+const COLLAPSE_MS = 600;
 /** Dự phòng khi không đọc được `--loading-fadeout-duration`. */
 const FADE_OUT_FALLBACK_MS = 220;
 

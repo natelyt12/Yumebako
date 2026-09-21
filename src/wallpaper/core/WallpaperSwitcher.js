@@ -36,7 +36,7 @@ import "../ui/carousel/carousel.css";
  */
 
 /** Duration of one carousel snap, in ms. */
-const CAROUSEL_DURATION = 800;
+const CAROUSEL_DURATION = 600;
 /** Must match the `.is_swapping` transition duration in switcher.css. */
 const SWAP_OUT_MS = 260;
 
@@ -125,10 +125,30 @@ export class WallpaperSwitcher {
       }
     });
     dataControl.on("card:added", ({ addedCards, allCards }) => {
-      // Khi ở nguồn không có thẻ '+' (Collection) hoặc nạp theo lô (Batch upload),
-      // tự vẽ lại carousel để cập nhật thẻ mới
+      // For Collection (no '+' card) or batch uploads, sync the carousel
+      // using syncItems so only genuinely new cards receive the enter animation.
+      // setItems / renderFromDataControl would rebuild the whole DOM and fire
+      // the animation on every existing card too.
       if (!this.activeSource?.showsMoreItem || (addedCards && addedCards.length > 1)) {
-        this.renderFromDataControl();
+        const source = this.activeSource;
+        const engineItems = (dataControl.items || []).map((item) => {
+          const meta = resolveCardMeta(this.activeSourceId, item);
+          return {
+            id: item.id,
+            name: item.title || item.id,
+            sub: item.category || source?.name || "",
+            url: item.thumbnailUrl || item.url || "",
+            card: item,
+            metaLeft: meta.leftHtml,
+            metaRight: meta.rightHtml,
+          };
+        });
+
+        if (source?.showsMoreItem !== false && source?.canGrow) {
+          engineItems.push(createActionItem(this.carousel.actionConfig));
+        }
+
+        this.carousel.syncItems(engineItems, dataControl.currentIndex, { silent: true });
         this.bar?.syncCounter();
       }
 
@@ -190,8 +210,11 @@ export class WallpaperSwitcher {
 
   /**
    * Render carousel items directly from DataControl.
+   * @param {boolean} [animate=false] - Whether to play the card-enter-slot animation.
+   *   Pass true only when genuinely new cards are being introduced (e.g. source
+   *   seed on very first open). Most callers should leave this false.
    */
-  renderFromDataControl() {
+  renderFromDataControl(animate = false) {
     if (!this.carousel) return;
     const source = this.activeSource;
     const items = dataControl.items || [];
@@ -224,7 +247,7 @@ export class WallpaperSwitcher {
 
     this._silentRender = true;
     try {
-      this.carousel.setItems(engineItems, dataControl.currentIndex);
+      this.carousel.setItems(engineItems, dataControl.currentIndex, { animate });
     } finally {
       this._silentRender = false;
     }
@@ -390,13 +413,15 @@ export class WallpaperSwitcher {
 
     this._isSwapping = true;
     this.bar?.setBusy(true);
-    try {
-      this.carouselEl.classList.add("is_swapping");
 
+    try {
+      // ── Phase 1: slide down (cubic-in) ──────────────────────────────────
+      this.carouselEl.classList.add("is_swapping");
       await new Promise((resolve) => setTimeout(resolve, SWAP_OUT_MS));
+
+      // ── Phase 2: swap content while track is off-screen ─────────────────
       await this.loadSource(sourceId);
 
-      // Phản chiếu hình nền mới của nguồn vừa chuyển
       const activeCard = dataControl.activeCard;
       if (activeCard) {
         dataControl.emit("card:hard", {
@@ -407,9 +432,29 @@ export class WallpaperSwitcher {
       } else {
         this.bar?.renderActions(null);
       }
-    } finally {
-      this._isSwapping = false;
+
+      // ── Phase 3: slide back up (expo-out) ───────────────────────────────
+      // Switch to is_swapping_in first (no transition) to pin the track at
+      // the displaced position, then force a reflow so the browser registers
+      // the starting state before we kick off the return transition.
       this.carouselEl.classList.remove("is_swapping");
+      this.carouselEl.classList.add("is_swapping_in");
+      void this.carouselEl.offsetWidth; // force reflow
+      this.carouselEl.classList.add("is_animating_in");
+
+      await new Promise((resolve) => {
+        const track = this.carouselEl.querySelector(".carousel-track");
+        const onEnd = () => {
+          track?.removeEventListener("transitionend", onEnd);
+          resolve();
+        };
+        track?.addEventListener("transitionend", onEnd, { once: true });
+        // Safety fallback in case transitionend never fires (e.g. reduced-motion).
+        setTimeout(resolve, 420);
+      });
+    } finally {
+      this.carouselEl.classList.remove("is_swapping", "is_swapping_in", "is_animating_in");
+      this._isSwapping = false;
       this.bar?.setBusy(false);
     }
   }

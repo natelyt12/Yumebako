@@ -1,5 +1,7 @@
 import { t } from "/src/core/i18n.js";
 
+/** @typedef {import("/src/wallpaper/core/DataControl.js").CardItem} CardItem */
+
 /**
  * BaseSource.js
  * ---------------------------------------------------------------------------
@@ -108,7 +110,7 @@ export class BaseSource {
    * @abstract
    * First item(s) of a window that has nothing yet. Usually one item: the
    * wallpaper the user already has, or a fresh one when there is none.
-   * @returns {Promise<Array<Object>>} Items, in display order.
+   * @returns {Promise<CardItem[]>} Items, in display order.
    */
   async fetchItems() {
     return [];
@@ -117,7 +119,7 @@ export class BaseSource {
   /**
    * @abstract
    * Next item(s), requested when the user reaches the trailing "+".
-   * @returns {Promise<Array<Object>|null>} Items to append, `[]` when the feed
+   * @returns {Promise<CardItem[]|null>} Items to append, `[]` when the feed
    *     has nothing left to give (the "+" item retires) or `null` when this
    *     round was aborted and may simply be retried (a cancelled file picker).
    */
@@ -128,7 +130,7 @@ export class BaseSource {
   /**
    * Make sure the item can be drawn: the carousel only ever renders
    * thumbnails, never full-size images.
-   * @param {Object} item
+   * @param {CardItem} item
    * @returns {Promise<string|null>} The item's `thumbnailUrl`.
    */
   async prepareThumb(item) {
@@ -140,9 +142,10 @@ export class BaseSource {
   /**
    * @abstract
    * Apply the given card item as the desktop background.
-   * @param {Object} _item
+   * @param {CardItem} _item
    * @param {Object} [_options]
    * @param {boolean} [_options.firstRun] - Play the entrance animation instead of a fade.
+   * @returns {Promise<void>}
    */
   async apply(_item, _options) {
     throw new Error(`[${this.id}] apply() must be implemented by the source.`);
@@ -165,6 +168,7 @@ export class BaseSource {
   /**
    * @abstract
    * Resolve the item's media as a Blob, for download / add-to-collection.
+   * @param {CardItem} _item
    * @returns {Promise<Blob|null>}
    */
   async getBlob(_item) {
@@ -178,7 +182,12 @@ export class BaseSource {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
-  /** Build an item in the persisted shape for carousel cards. */
+  /**
+   * Build an item in the persisted shape for carousel cards.
+   * @param {Record<string, any>} raw - Raw data from the provider API.
+   * @param {Partial<CardItem>}  [overrides] - Fields to override on the default card shape.
+   * @returns {CardItem}
+   */
   toCarouselItem(raw, overrides = {}) {
     return {
       id: String(raw?.id ?? ""),

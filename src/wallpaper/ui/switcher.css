@@ -41,7 +41,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: flex-end;
-    overflow: hidden;
+    overflow: visible;
     /* Chừa 20px phía trên sân khấu: khung ngắm phình ra khi lướt (scale 1.03) và
        vòng thở của nó vươn tới 1.05, nếu sát mép thì `overflow: hidden` sẽ cắt
        mất viền trắng ở cạnh trên. Padding trong suốt, không đổi vị trí thẻ. */
@@ -87,6 +87,23 @@
     transition:
         transform 0.26s var(--cubic_in),
         opacity 0.22s var(--cubic_in);
+}
+
+/* Slide-in phase: pin the track at the displaced position first (no transition),
+   then a JS-triggered reflow kicks off the return trip with expo-out. */
+.wallpaper_switcher .carousel-container.is_swapping_in .carousel-track {
+    opacity: 0;
+    transform: translateY(96px);
+    pointer-events: none;
+    transition: none;
+}
+
+.wallpaper_switcher .carousel-container.is_swapping_in.is_animating_in .carousel-track {
+    opacity: 1;
+    transform: translateY(0);
+    transition:
+        transform 0.38s var(--expo_out),
+        opacity 0.28s var(--expo_out);
 }
 
 /* ── Bottom Bar ────────────────────────────────────────────

@@ -4,7 +4,5 @@
 @import "./styles/buttons.css";
 @import "./styles/controls.css";
 @import "./styles/popups.css";
-@import "./styles/editor.css";
-@import "./styles/settings_wrapper.css";
-@import "./styles/collection.css";
+@import "./settings/settings_wrapper.css";
 @import "./styles/utilities.css";

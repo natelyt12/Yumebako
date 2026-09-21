@@ -8,7 +8,7 @@ import { dataControl } from "/src/wallpaper/core/DataControl.js";
  * Completely independent from fetching logic.
  */
 
-const OVERLAY_FADE_MS = 500;
+const OVERLAY_FADE_MS = 400;
 
 class WallpaperRenderer {
     constructor() {
@@ -83,7 +83,7 @@ class WallpaperRenderer {
                 v.style.display = "block";
                 if (newBlobUrl) {
                     v.src = newBlobUrl;
-                    v.play().catch(() => {});
+                    v.play().catch(() => { });
                 }
             });
             document.querySelectorAll(".image").forEach((img) => {

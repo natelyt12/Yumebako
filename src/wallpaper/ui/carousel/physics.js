@@ -24,9 +24,9 @@ import {
 } from "./easing.js";
 
 /** Quãng kéo (px) tương ứng với đúng một thẻ. */
-export const DRAG_STEP = 240;
+export const DRAG_STEP = 300;
 /** Trên ngưỡng này (px/ms) cú nhả tay được coi là "flick" và đi thêm một thẻ. */
-export const FLICK_VELOCITY = 0.45;
+export const FLICK_VELOCITY = 4;
 /** Flick chỉ tính khi quãng kéo đủ xa, để cú click rung tay không nhảy thẻ. */
 export const FLICK_MIN_DISTANCE = 25;
 /** Hệ số nén khi kéo vượt mép (rubber-banding). */
@@ -137,7 +137,7 @@ export const GRAVITY_CONFIG = Object.freeze({
 export function animateUnpinDrop(frame, onComplete, customConfig = {}) {
   if (!frame) {
     onComplete?.();
-    return () => {};
+    return () => { };
   }
 
   const config = { ...GRAVITY_CONFIG, ...customConfig };
@@ -180,16 +180,16 @@ export function animateUnpinDrop(frame, onComplete, customConfig = {}) {
         v < config.fadeStartRatio
           ? 1
           : Math.max(
-              0,
-              1 - (v - config.fadeStartRatio) / (1 - config.fadeStartRatio),
-            );
+            0,
+            1 - (v - config.fadeStartRatio) / (1 - config.fadeStartRatio),
+          );
     }
 
     scale =
       elapsed <= config.scalePopDuration
         ? 1 +
-          (config.scalePop - 1) *
-            easeOutCubic(elapsed / config.scalePopDuration)
+        (config.scalePop - 1) *
+        easeOutCubic(elapsed / config.scalePopDuration)
         : config.scalePop;
 
     frame.style.transform = `translate(-50%, ${y}px) rotate(${rot}deg) scale(${scale})`;

@@ -5,6 +5,22 @@
 export const MAX_DT = 0.05;
 
 /**
+ * Descriptor for a single slider control rendered by the generic settings editor
+ * (WavyEditorUI, EffectsEditorUI). Entries sharing the same `group` are rendered
+ * together as a labelled block; `tooltipKey` is shown once at the end of the group.
+ *
+ * @typedef {Object} SliderSettingSpec
+ * @property {string}  key          - Property name in the generator's config bag.
+ * @property {string}  label        - i18n key or raw label string shown in the UI.
+ * @property {number}  min          - Minimum slider value.
+ * @property {number}  max          - Maximum slider value.
+ * @property {number}  step         - Step increment.
+ * @property {string}  [unit]       - Display unit appended after the value (e.g. "%", "px", "deg", "s").
+ * @property {string}  [group]      - Group key; controls with the same group are clustered together.
+ * @property {string}  [tooltipKey] - i18n key for the tooltip shown at the end of the group.
+ */
+
+/**
  * BaseMotion.js
  * ---------------------------------------------------------------------------
  * Abstract base class for every wavy motion generator.
@@ -65,7 +81,7 @@ export class BaseMotion {
      * Each entry: { key, label, min, max, step, unit, group?, tooltipKey? }
      * Entries sharing a `group` are rendered together, with `tooltipKey` shown
      * once at the end of the group.
-     * @returns {Array<Object>}
+     * @returns {SliderSettingSpec[]}
      */
     static getSettingsSpec() {
         return [];
