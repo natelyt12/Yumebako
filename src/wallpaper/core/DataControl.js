@@ -57,8 +57,7 @@ import { getSettings, saveSettings } from "/src/core/storageHandler.js";
  * Chịu trách nhiệm:
  *   1. Quản lý trạng thái hiện tại (active source, soft index, hard index, cards).
  *   2. Đọc/Ghi mảng thẻ sạch trực tiếp từ src/core/db.js (BakoDB/appData).
- *   3. Không nhét item giả (không kind: "more") vào dữ liệu.
- *   4. Cơ chế Pub/Sub (Event Emitter) cho UI Carousel, SwitcherBar và Desktop Renderer.
+ *   3. Cơ chế Pub/Sub (Event Emitter) cho UI Carousel, SwitcherBar và Desktop Renderer.
  */
 export class DataControl {
     constructor() {
@@ -67,7 +66,7 @@ export class DataControl {
         /** @type {string|null} */
         this.activeSourceId = null;
 
-        /** Mảng các thẻ wallpaper THẬT của source hiện hành (không có kind: 'more')
+        /** Mảng các thẻ wallpaper của source hiện hành
          * @type {CardItem[]} */
         this.items = [];
         /** Hard index — chốt khi cuộn dừng hẳn. @type {number} */
@@ -228,28 +227,22 @@ export class DataControl {
             try {
                 const fetched = await this.activeSource.fetchItems();
                 if (Array.isArray(fetched)) {
-                    storedItems = fetched.filter((it) => it && it.kind !== "more");
+                    storedItems = fetched.filter(Boolean);
                 }
             } catch (err) {
                 console.error(`[DataControl] Failed to fetch items for volatile source [${sourceId}]:`, err);
             }
         } else {
             // Đọc danh sách thẻ từ BakoDB (appData)
-            storedItems = (await getFromStore(`carousel:${sourceId}`)) || [];
-
-            // Làm sạch: loại bỏ bất kỳ thẻ nào có dạng { kind: 'more' } cũ nếu còn sót lại trong DB
-            if (Array.isArray(storedItems)) {
-                storedItems = storedItems.filter((it) => it && it.kind !== "more");
-            } else {
-                storedItems = [];
-            }
+            const rawStored = await getFromStore(`carousel:${sourceId}`);
+            storedItems = Array.isArray(rawStored) ? rawStored.filter(Boolean) : [];
 
             // Nếu nguồn rỗng, gọi fetch ban đầu (seed)
             if (storedItems.length === 0 && this.activeSource) {
                 try {
                     const initial = await this.activeSource.fetchItems();
                     if (Array.isArray(initial) && initial.length > 0) {
-                        storedItems = initial.filter((it) => it && it.kind !== "more");
+                        storedItems = initial.filter(Boolean);
                         await this._persistCards(sourceId, storedItems);
                     }
                 } catch (err) {
@@ -411,8 +404,7 @@ export class DataControl {
                 return null;
             }
 
-            // Lọc bỏ nếu có phần tử kind: 'more'
-            const validFresh = newItems.filter((it) => it && it.kind !== "more");
+            const validFresh = newItems.filter(Boolean);
             this.items.push(...validFresh);
             await this._persistCards(this.activeSourceId, this.items);
 
@@ -521,7 +513,7 @@ export class DataControl {
         // Chỉ lưu danh sách các object sạch vào appData
         // Không lưu chuỗi `blob:` vào IndexedDB vì object URL sẽ bị hủy sau khi reload trang!
         const cleanCards = cards
-            .filter((c) => c && c.kind !== "more")
+            .filter(Boolean)
             .map((c) => {
                 const item = { ...c };
                 if (typeof item.thumbnailUrl === "string" && item.thumbnailUrl.startsWith("blob:")) {

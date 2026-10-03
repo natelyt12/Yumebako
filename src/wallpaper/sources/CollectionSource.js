@@ -51,9 +51,9 @@ function pickMediaFiles() {
  * (`WallpaperSwitcher.requestUpload`), which opens the file picker inside a real
  * user gesture — the thing browsers require to show a file dialog.
  *
- * That is why this source reports `showsMoreItem = false`: the trailing "+" of
- * the carousel would just be a second, weaker door to the same room, taking a
- * card's worth of room to say what the bar already says.
+ * That is why the bottom bar shows this source's upload button instead of the
+ * "get more" control: only a real user gesture may open a file dialog, and a
+ * card slot cannot provide one.
  */
 export class CollectionSource extends BaseSource {
   static id = "collection";
@@ -72,11 +72,6 @@ export class CollectionSource extends BaseSource {
 
   get canGrow() {
     return true;
-  }
-
-  /** The upload button owns this verb; there is no "+" card to label. */
-  get showsMoreItem() {
-    return false;
   }
 
   /** Uploads land in the collection from anywhere in the app, not just here. */

@@ -10,7 +10,8 @@
     "build": "node scripts/sort_locales.cjs && vite build",
     "sort-locales": "node scripts/sort_locales.cjs",
     "sync-locales": "node scripts/sync_locales.cjs",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test \"tests/**/*.test.js\"",
+    "test:jitter": "node --test \"tests/carousel-jitter/**/*.test.js\""
   },
   "bugs": {
     "url": "https://github.com/natelyt12/Yumebako/issues"
@@ -18,6 +19,7 @@
   "homepage": "https://github.com/natelyt12/Yumebako#readme",
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.0.0-beta.33",
+    "jsdom": "^30.1.1",
     "vite": "^8.1.0"
   },
   "dependencies": {

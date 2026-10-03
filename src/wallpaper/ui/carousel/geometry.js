@@ -28,13 +28,6 @@ export const DEFAULT_GEOMETRY = Object.freeze({
   minWidth: 40,
 });
 
-/** Cấu hình độ mờ giảm dần theo khoảng cách tới tâm. */
-export const OPACITY_CONFIG = Object.freeze({
-  /** Mỗi đơn vị offset làm khung thẻ mờ đi bấy nhiêu. */
-  cardFadeRate: 0.18,
-  /** Sàn độ mờ của khung thẻ ở hai rìa. */
-  minCardOpacity: 0.3,
-});
 
 /**
  * Lớp class của thẻ trong DOM. Tách ra thành biến để khi ghép vào hệ wallpaper
@@ -43,8 +36,6 @@ export const OPACITY_CONFIG = Object.freeze({
 export const DEFAULT_SELECTORS = Object.freeze({
   overlay: ".carousel-overlay",
   frame: ".card-frame",
-  plusIcon: ".card-plus-icon",
-  spinner: ".card-loading-spinner",
   deletingClass: "deleting",
 });
 
@@ -55,7 +46,7 @@ export const DEFAULT_SELECTORS = Object.freeze({
  * @param {Object} [options]
  * @param {Partial<typeof DEFAULT_SELECTORS>} [options.selectors]
  * @param {(cardEl: HTMLElement, offset: number, width: number, index: number) => void} [options.onCardInfo]
- *   Ghi đè hoàn toàn hàm cập nhật thông tin thẻ (mặc định: xem `_defaultCardInfo`).
+ *   Ghi đè hoàn toàn hàm cập nhật thông tin thẻ (mặc định: xem `defaultCardInfo`).
  */
 export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
   const config = { ...DEFAULT_GEOMETRY, ...overrides };
@@ -64,9 +55,6 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
 
   const innerWidth = config.baseWidth - config.cardMargin * 2;
   const innerHeight = config.containerHeight - config.cardMargin * 2;
-  /** Offset mà từ đó mọi thẻ đều đã nằm ở bề rộng sàn. */
-  const curveHorizon = Math.max(0, curve.length - 1);
-
   /** Bề rộng của slot cách tâm `k` bậc (k là số nguyên ≥ 0). */
   const widthForOffset = (k) =>
     k < curve.length
@@ -74,42 +62,45 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
       : config.minWidth;
 
   /**
-   * Hàm mặc định cập nhật thông tin thẻ — chạy trong vòng lặp layout, nên phải
-   * rẻ: chỉ ghi style, không đo DOM.
+   * Helper to cache child DOM elements directly on the card element,
+   * avoiding expensive querySelector traversals on every animation frame.
    *
    * @param {HTMLElement} cardEl
-   * @param {number} offset - Khoảng cách (số thực) từ thẻ tới tâm dải.
+   */
+  const getCardElements = (cardEl) => {
+    let cached = cardEl._cachedNodes;
+    if (!cached) {
+      cached = {
+        overlay: cardEl.querySelector(selectors_.overlay),
+        frame: cardEl.querySelector(selectors_.frame),
+      };
+      cardEl._cachedNodes = cached;
+    }
+    return cached;
+  };
+
+  /**
+   * Default card info and opacity update callback running in the layout loop.
+   *
+   * @param {HTMLElement} cardEl
+   * @param {number} offset - Distance (float) from the card to the continuous center.
    */
   const defaultCardInfo = (cardEl, offset) => {
-    // Khối thông tin chỉ hiện ở thẻ tâm: tuyến tính 1 → 0 trong một bước.
-    const overlay = cardEl.querySelector(selectors_.overlay);
-    if (overlay) overlay.style.opacity = Math.max(0, 1 - offset).toFixed(3);
+    const nodes = getCardElements(cardEl);
 
-    // Mờ dần khung thẻ theo khoảng cách để tạo chiều sâu. Thẻ đang bị xóa được
-    // bỏ qua: độ mờ của nó do hiệu ứng rơi điều khiển.
-    if (!cardEl.classList.contains(selectors_.deletingClass)) {
-      const frame = cardEl.querySelector(selectors_.frame);
-      if (frame) {
-        const opacity = Math.max(
-          OPACITY_CONFIG.minCardOpacity,
-          1 - offset * OPACITY_CONFIG.cardFadeRate,
-        );
-        frame.style.opacity = opacity.toFixed(3);
+    // Overlay is only visible near center: linear 1 -> 0 within 1 step
+    if (nodes.overlay) {
+      const overlayOpacity = Math.max(0, 1 - offset).toFixed(3);
+      if (nodes.overlay.style.opacity !== overlayOpacity) {
+        nodes.overlay.style.opacity = overlayOpacity;
       }
-    }
-
-    // Icon "+" và vòng xoay tắt dần sớm hơn khung, tránh thấy dấu cộng méo ở rìa.
-    const actionOpacity = clamp(1 - offset / curveHorizon, 0, 1).toFixed(3);
-    for (const selector of [selectors_.plusIcon, selectors_.spinner]) {
-      const el = cardEl.querySelector(selector);
-      if (el) el.style.opacity = actionOpacity;
     }
   };
 
   let cardInfoListener = onCardInfo || defaultCardInfo;
 
   /**
-   * Layout lý thuyết cho `count` thẻ khi thẻ `centerIndex` nằm ở tâm màn hình.
+   * Theoretical layout for `count` cards with `centerIndex` centered on screen.
    * @returns {{ widths: number[], lefts: number[], count: number, centerIndex: number }}
    */
   const computeLayout = (centerIndex, count, screenCenter) => {
@@ -122,7 +113,7 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
       widths[i] = widthForOffset(Math.abs(i - center));
     }
 
-    // Dựng từ tâm ra hai phía, mỗi slot đặt sát slot trước đó.
+    // Build from center outwards
     lefts[center] = screenCenter - widths[center] / 2;
     for (let i = center + 1; i < count; i += 1) {
       lefts[i] = lefts[i - 1] + widths[i - 1];
@@ -135,51 +126,60 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
   };
 
   /**
-   * Đọc layout đang thực sự nằm trên DOM — dùng làm điểm xuất phát cho một cú
-   * lướt mới (carousel có thể bị ngắt giữa chừng nên không thể giả định nó đang
-   * ở đúng một layout nguyên).
-   *
-   * @param {HTMLElement[]} cards
-   * @param {number} screenCenter
+   * Compute interpolated layout mathematically at continuous index without touching DOM styles.
    */
-  const readLayout = (cards, screenCenter) => {
-    const count = cards.length;
-    const widths = new Array(count);
-    const lefts = new Array(count);
-    let centerIndex = 0;
-    let minDistance = Infinity;
+  const computeInterpolatedLayout = (continuousIndex, count, screenCenter) => {
+    const fromIdx = Math.max(0, Math.min(Math.floor(continuousIndex), count - 1));
+    const toIdx = Math.max(0, Math.min(Math.ceil(continuousIndex), count - 1));
+    const t = continuousIndex - fromIdx;
 
-    for (let i = 0; i < count; i += 1) {
-      const el = cards[i];
-      widths[i] = Number.parseFloat(el.style.width) || config.baseWidth;
-
-      const match = /translateX\((-?[\d.]+)px\)/.exec(el.style.transform || "");
-      lefts[i] = match ? Number.parseFloat(match[1]) : 0;
-
-      const distance = Math.abs(lefts[i] + widths[i] / 2 - screenCenter);
-      if (distance < minDistance) {
-        minDistance = distance;
-        centerIndex = i;
-      }
+    if (fromIdx === toIdx || t <= 0) {
+      return computeLayout(fromIdx, count, screenCenter);
     }
 
-    return { widths, lefts, count, centerIndex };
+    const layoutA = computeLayout(fromIdx, count, screenCenter);
+    const layoutB = computeLayout(toIdx, count, screenCenter);
+    const widths = new Array(count);
+    const lefts = new Array(count);
+
+    for (let i = 0; i < count; i += 1) {
+      widths[i] = (1 - t) * layoutA.widths[i] + t * layoutB.widths[i];
+      lefts[i] = (1 - t) * layoutA.lefts[i] + t * layoutB.lefts[i];
+    }
+
+    return { widths, lefts, count, centerIndex: continuousIndex };
   };
 
   /**
-   * Nội suy hai layout theo `t` rồi ghi kết quả ra DOM.
+   * Layout của dải tại vị trí ảo `continuousIndex`.
    *
-   * Trả về index của thẻ đang gần tâm nhất — đây chính là "soft index" mà tầng
-   * trên dùng để cập nhật preview trong lúc lướt.
+   * Tính thuần trong JS từ `continuousIndex` — không đọc style trên DOM, nên
+   * không cần parse chuỗi `translateX(...)` và không gây layout thrash.
    *
-   * @returns {number} Chỉ số thẻ gần tâm, hoặc -1 khi danh sách rỗng.
+   * @param {HTMLElement[]} cards
+   * @param {number} screenCenter
+   * @param {number} continuousIndex - Vị trí ảo (có thể lẻ) của thẻ ở tâm.
+   */
+  const readLayout = (cards, screenCenter, continuousIndex) => {
+    const count = cards.length;
+    if (count === 0) return { widths: [], lefts: [], count: 0, centerIndex: 0 };
+
+    const index = Number.isFinite(continuousIndex) ? continuousIndex : 0;
+    return computeInterpolatedLayout(index, count, screenCenter);
+  };
+
+  /**
+   * Interpolate between two layouts by `t` and write the result to DOM in a single pass.
+   *
+   * Trả về cả layout vừa ghi: bên gọi cần biết chính xác dải đang nằm ở đâu để
+   * dùng làm điểm xuất phát cho cú lướt kế tiếp (xem `_currentLayout` bên engine).
+   *
+   * @returns {{ closestIndex: number, layout: { widths: number[], lefts: number[], count: number, centerIndex: number }|null }}
    */
   const applyLayout = (cards, layoutA, layoutB, t, screenCenter) => {
     const count = cards.length;
-    if (count === 0) return -1;
+    if (count === 0) return { closestIndex: -1, layout: null };
 
-    // Tâm ảo di động: nội suy giữa tâm của hai layout, nhờ đó offset của từng
-    // thẻ là một số thực và độ mờ biến thiên liên tục thay vì nhảy bậc.
     const centerA = Number.isFinite(layoutA?.centerIndex)
       ? layoutA.centerIndex
       : 0;
@@ -191,16 +191,20 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
     let closestIndex = -1;
     let minDistance = Infinity;
 
+    // First pass: compute positions, widths, and find closestIndex
+    const widths = new Array(count);
+    const lefts = new Array(count);
+
     for (let i = 0; i < count; i += 1) {
       const width = (1 - t) * layoutA.widths[i] + t * layoutB.widths[i];
       const left = (1 - t) * layoutA.lefts[i] + t * layoutB.lefts[i];
       const safeWidth = Math.max(0, width);
+      widths[i] = safeWidth;
+      lefts[i] = left;
 
       cards[i].style.width = `${safeWidth}px`;
       cards[i].style.transform = `translateX(${left}px)`;
 
-      // Thẻ đang rơi (đang bị xóa) không được tranh vị trí "gần tâm" sau khi đã
-      // đi được một quãng — nếu không, highlight sẽ dính vào tấm ảnh đang rơi.
       const isDeleting = cards[i].classList.contains(selectors_.deletingClass);
       if (!isDeleting || t < 0.2) {
         const distance = Math.abs(left + safeWidth / 2 - screenCenter);
@@ -211,15 +215,16 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
       }
     }
 
+    // Apply active class and update card info
     for (let i = 0; i < count; i += 1) {
-      const width = (1 - t) * layoutA.widths[i] + t * layoutB.widths[i];
-      const left = (1 - t) * layoutA.lefts[i] + t * layoutB.lefts[i];
-
       cards[i].classList.toggle("active", i === closestIndex);
-      cardInfoListener?.(cards[i], Math.abs(i - continuousCenter), width, i);
+      cardInfoListener?.(cards[i], Math.abs(i - continuousCenter), widths[i], i);
     }
 
-    return closestIndex;
+    return {
+      closestIndex,
+      layout: { widths, lefts, count, centerIndex: continuousCenter },
+    };
   };
 
   return {
@@ -228,9 +233,9 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
     innerHeight,
     widthForOffset,
     computeLayout,
+    computeInterpolatedLayout,
     readLayout,
     applyLayout,
-    /** Ghi đè hàm cập nhật thông tin thẻ (nhận `null` để quay về mặc định). */
     setCardInfoListener: (fn) => {
       cardInfoListener = typeof fn === "function" ? fn : defaultCardInfo;
     },

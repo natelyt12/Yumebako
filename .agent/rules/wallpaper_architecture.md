@@ -13,7 +13,7 @@ Tài liệu này quy định kiến trúc 4 tầng chuẩn của hệ thống Wa
 ```
 ┌──────────────────────────────────────────────────────────┐
 │  TẦNG 1: UI LAYER (CarouselEngine, SwitcherBar, CSS)     │
-│  - Render danh sách thẻ & card '+' ảo                    │
+│  - Render danh sách thẻ ảnh thật (không còn thẻ '+' ảo)  │
 │  - Bắt gesture drag / scroll / keyboard                   │
 │  - Phát sinh Soft Select & Hard Select sang Tầng 2       │
 └──────────────────────────┬───────────────────────────────┘
@@ -22,7 +22,7 @@ Tài liệu này quy định kiến trúc 4 tầng chuẩn của hệ thống Wa
 ┌──────────────────────────────────────────────────────────┐
 │  TẦNG 2: DATA CONTROL (DataControl.js - SSOT)            │
 │  - Single Source of Truth, Pub/Sub Event Emitter         │
-│  - Giữ mảng cards SẠCH (không chứa thẻ ảo kind: 'more')  │
+│  - Quản lý danh sách thẻ wallpaper sạch                  │
 │  - Quản lý currentIndex (Hard) & softIndex (Soft)         │
 │  - Tự động nhớ/khôi phục index cho từng tab (sourceIndices)│
 │  - Giao tiếp với IndexedDB (BakoDB / appData)            │
@@ -47,13 +47,13 @@ Tài liệu này quy định kiến trúc 4 tầng chuẩn của hệ thống Wa
 - **Vai trò:** Trình diễn giao diện, hiệu ứng chuyển động carousel và thanh điều khiển bottom bar.
 - **Quy tắc:**
   - **Không gọi trực tiếp DB hay fetch API bên ngoài:** Mọi yêu cầu lấy ảnh, xóa ảnh, đổi nguồn đều phải thông qua các phương thức của `dataControl` (`requestMore()`, `deleteCard()`, `switchSource()`).
-  - **Thẻ '+' (Action Card) là thẻ ảo:** Tầng 1 tự chèn thẻ Action Card vào mảng hiển thị nếu `source.showsMoreItem !== false && source.canGrow`.
+  - **Thẻ "+" (Action Card) đã bị loại bỏ:** danh sách carousel chỉ chứa thẻ ảnh thật; việc lấy thêm ảnh do nút "Lấy ảnh mới" trên bottom bar (`dataControl.requestMore()`) đảm nhiệm.
   - Khi cuộn dừng hẳn (settled), CarouselEngine phát tín hiệu `onHardSelect` -> chuyển sang `dataControl.setHardIndex(index)`.
 
 ### Tầng 2: Data Control (`src/wallpaper/core/DataControl.js`)
 - **Vai trò:** Bộ não điều phối dữ liệu tập trung duy nhất (Single Source of Truth).
 - **Quy tắc:**
-  - **Mảng dữ liệu sạch (Clean Items):** `dataControl.items` và key `carousel:{sourceId}` trong IndexedDB **TUYỆT ĐỐI KHÔNG ĐƯỢC CHỨA** thẻ ảo `{ kind: "more" }`.
+  - **Mảng dữ liệu sạch (Clean Items):** `dataControl.items` và key `carousel:{sourceId}` trong IndexedDB chỉ chứa dữ liệu thẻ wallpaper thật từ source adapters, không chứa các thẻ hành động hoặc thẻ ảo của UI.
   - **Quản lý vị trí index:**
     - Khi đổi tab hoặc khởi động (`switchSource`): Tự động khôi phục index theo ảnh đang active trên desktop hoặc đọc từ `settings.wallpaperSwitcher.sourceIndices[sourceId]`.
     - Khi cuộn dừng (`setHardIndex`): Tự động lưu index vào `wallpaperSwitcher.sourceIndices[activeSourceId]`.
@@ -84,7 +84,7 @@ Tài liệu này quy định kiến trúc 4 tầng chuẩn của hệ thống Wa
 
 ## 3. Cấm kỵ (Anti-Patterns)
 1. **NGHIÊM CẤM** tạo lại `SwitcherStore.js` hoặc bất kỳ Store phân mảnh nào. Mọi state phải nằm trong `DataControl.js`.
-2. **NGHIÊM CẤM** nhét thẻ `{ kind: 'more' }` vào DB hoặc `dataControl.items`.
+2. **NGHIÊM CẤM** nhét thẻ hành động / thẻ ảo UI vào DB hoặc `dataControl.items`.
 3. **NGHIÊM CẤM** gọi thẳng `saveToStore('carousel:...')` ngoài phạm vi của `DataControl`.
 4. **NGHIÊM CẤM** Tầng 1 (Carousel/SwitcherBar) tự gọi API tải ảnh hoặc tự xóa IndexedDB.
 5. Khi thêm nguồn Wallpaper mới: Bắt buộc kế thừa từ `BaseSource` (hoặc `RemoteSource`), khai báo vào `src/wallpaper/sources/registry.js`, và cấu hình defaultSettings trong `src/core/storageHandler.js`.

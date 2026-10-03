@@ -1,7 +1,6 @@
 import { renderIcons } from "/src/core/icon.js";
 import { t } from "/src/core/i18n.js";
 import { showConfirm, showNotification } from "/src/core/ui.js";
-import { isActionItem } from "../carousel/items.js";
 
 /**
  * SwitcherBar.js
@@ -30,6 +29,7 @@ export class SwitcherBar {
         this.tabsContainer = container.querySelector("#wallpaper_source_tabs");
         this.counterEl = container.querySelector("#wallpaper_switcher_counter");
         this.actionsContainer = container.querySelector("#wallpaper_switcher_actions");
+        this.fetchBtn = container.querySelector("#wallpaper_fetch_btn");
         this.uploadBtn = container.querySelector("#wallpaper_upload_btn");
         this.settingsBtn = container.querySelector("#wallpaper_source_settings");
 
@@ -39,14 +39,15 @@ export class SwitcherBar {
     }
 
     /**
-     * Khởi tạo và đăng ký lắng nghe DataControl.
+     * Initialize and subscribe to DataControl.
      */
     init() {
         this._bindEvents();
         this.renderTabs();
         this.syncState(this.dataControl.getState());
+        renderIcons(this.container);
 
-        // Lắng nghe sự kiện từ DataControl
+        // Subscribe to DataControl events
         this.dataControl.on("state:change", (state) => this.syncState(state));
         this.dataControl.on("source:change", ({ sourceId }) => {
             this.renderTabs();
@@ -54,6 +55,7 @@ export class SwitcherBar {
             this.renderActions(null);
         });
         this.dataControl.on("cards:loaded", () => {
+            this.syncRightSlot(this.dataControl.activeSourceId);
             this.renderActions(this.dataControl.activeCard);
         });
         this.dataControl.on("card:hard", ({ card }) => this.renderActions(card));
@@ -62,12 +64,23 @@ export class SwitcherBar {
     }
 
     _bindEvents() {
-        // Upload button (cho Collection)
+        // Fetch button (for sources that support fetching more)
+        this.fetchBtn?.addEventListener("click", async () => {
+            if (this.dataControl.isBusy) return;
+            this.fetchBtn.classList.add("is-loading");
+            try {
+                await this.dataControl.requestMore();
+            } finally {
+                this.fetchBtn.classList.remove("is-loading");
+            }
+        });
+
+        // Upload button (for Collection)
         this.uploadBtn?.addEventListener("click", () => {
             this.switcher?.requestUpload?.();
         });
 
-        // Settings button (cho nguồn có setting riêng như Wallhaven)
+        // Settings button (for sources with custom settings like Wallhaven)
         this.settingsBtn?.addEventListener("click", () => {
             showNotification(t("wallpaper_switcher.extra_settings_hint", "Cài đặt của nguồn"), "info");
         });
@@ -155,21 +168,20 @@ export class SwitcherBar {
         if (!this.counterEl) return;
 
         const total = state.total ?? state.cardCount ?? this.dataControl.items.length;
-        if (!total || total === 0) {
-            this.counterEl.textContent = "0 / 0";
-            return;
-        }
+        const text =
+            !total || total === 0
+                ? "0 / 0"
+                : `${state.softIndex + 1} / ${total}`;
 
-        const isAction = state.softIndex >= total;
-        const position = isAction ? null : state.softIndex + 1;
-
-        this.counterEl.textContent = position ? `${position} / ${total}` : `— / ${total}`;
+        // `state:change` bắn rất thường, mà gán `textContent` là một lần ghi DOM
+        // (thay text node) — chỉ ghi khi chuỗi thật sự đổi.
+        if (this.counterEl.textContent !== text) this.counterEl.textContent = text;
     }
 
     /* ── Action Buttons ────────────────────────────────────────────────────── */
 
     /**
-     * Vẽ các nút thao tác tương ứng với thẻ đang được chốt.
+     * Render action buttons for active settled card.
      * @param {Object|null} card
      */
     async renderActions(card = this.dataControl.activeCard) {
@@ -179,7 +191,7 @@ export class SwitcherBar {
         const source = this.switcher?.activeSource;
         const actions = source?.actions || [];
 
-        if (!card || isActionItem(card) || actions.length === 0) {
+        if (!card || actions.length === 0) {
             this.actionsContainer.innerHTML = "";
             this.actionsContainer.classList.add("hidden");
             return;
@@ -213,7 +225,7 @@ export class SwitcherBar {
 
             btn.addEventListener("click", (e) => {
                 e.stopPropagation();
-                this._executeAction(action, card);
+                this._executeAction(action, card, btn);
             });
 
             this.actionsContainer.appendChild(btn);
@@ -232,15 +244,15 @@ export class SwitcherBar {
     /**
      * Thực thi một hành động trên thẻ.
      */
-    async _executeAction(action, card) {
+    async _executeAction(action, card, triggerBtn = null) {
         const source = this.switcher?.activeSource;
         const context = { source, dataControl: this.dataControl, switcher: this.switcher };
 
         try {
             if (action.id === "remove") {
-                await this._handleDeleteCard(card, true);
+                await this._handleDeleteCard(card, true, triggerBtn);
             } else if (action.id === "removeFromCarousel") {
-                await this._handleDeleteCard(card, false);
+                await this._handleDeleteCard(card, false, triggerBtn);
             } else if (typeof action.run === "function") {
                 await action.run(card, context);
                 // Sau khi thêm vào BST, cập nhật lại trạng thái nút
@@ -257,8 +269,9 @@ export class SwitcherBar {
      * Xóa / Gỡ thẻ khỏi danh sách thông qua DataControl.
      * @param {Object} card
      * @param {boolean} isPermanent - true: xóa vĩnh viễn khỏi Collection, false: gỡ khỏi carousel
+     * @param {HTMLElement|null} [triggerBtn=null]
      */
-    async _handleDeleteCard(card, isPermanent) {
+    async _handleDeleteCard(card, isPermanent, triggerBtn = null) {
         if (isPermanent) {
             const confirmed = await showConfirm(
                 t("sp.api.collection.delete_msg", "Bạn có chắc chắn muốn xóa hình nền này khỏi bộ sưu tập?"),
@@ -266,6 +279,8 @@ export class SwitcherBar {
                     title: t("sp.api.collection.delete_title", "Xác nhận xóa"),
                     okText: t("sp.api.collection.delete_btn", "Xóa"),
                     isDanger: true,
+                    anchor: triggerBtn || this.actionsContainer,
+                    placement: "top-right"
                 }
             );
             if (!confirmed) return;
@@ -277,12 +292,26 @@ export class SwitcherBar {
 
         this.setBusy(true);
         try {
-            // 1. Xóa trong DataControl (cập nhật mảng items sạch & IndexedDB)
+            // 1. Chạy animation rơi thẻ trên Carousel (tự thu hẹp DOM và chốt sang thẻ kế cận)
+            const removed = this.switcher?.carousel
+                ? await this.switcher.carousel.deleteActiveCard()
+                : true;
+
+            // Thẻ chưa rời DOM thì không được xóa dữ liệu: làm vậy sẽ để lại một
+            // thẻ "ma" trên dải trong khi store đã mất bản ghi.
+            if (!removed) {
+                console.warn("[SwitcherBar] Carousel từ chối xóa thẻ đang chốt; bỏ qua.");
+                return;
+            }
+
+            // 2. Xóa trong DataControl (cập nhật mảng items sạch & IndexedDB)
             await this.dataControl.deleteCard(targetIndex);
 
-            // 2. Chạy animation rơi thẻ trên Carousel (tự thu hẹp DOM và chốt sang thẻ kế cận)
-            if (this.switcher?.carousel) {
-                await this.switcher.carousel.deleteActiveCard();
+            // 3. Lượt hard-select trong lúc carousel dọn thẻ chạy khi store còn giữ
+            // bản ghi cũ, nên nó không đưa thẻ kế cận lên desktop. Chốt lại theo
+            // mảng đã xóa để desktop và carousel khớp nhau.
+            if (this.dataControl.items.length > 0) {
+                this.dataControl.setHardIndex(this.dataControl.currentIndex);
             }
         } finally {
             this.setBusy(false);
@@ -295,20 +324,32 @@ export class SwitcherBar {
     /* ── Right Slot (Upload & Extra Settings) ───────────────────────────────── */
 
     /**
-     * Tự động đồng bộ slot bên phải theo thuộc tính của nguồn hiện tại:
-     * - collection: hiện Upload + Extra Settings
-     * - wallhaven: chỉ hiện Extra Settings (ẩn Upload)
-     * - picre (và các nguồn khác): ẩn cả hai nút
+     * Synchronize right slot controls according to current source capabilities:
+     * - Fetch button: visible when source.canGrow is true (for remote sources)
+     * - Upload button: visible for Collection
+     * - Settings button: visible when source has provider settings
      *
      * @param {string} [sourceId]
      */
     syncRightSlot(sourceId = this.dataControl.activeSourceId) {
-        const id = sourceId || this.dataControl.activeSourceId;
-        const source = this.switcher?.sources?.find((s) => s.id === id) || this.switcher?.activeSource;
+        const id = sourceId || this.dataControl.activeSourceId || this.switcher?.activeSourceId;
+        const source = (this.switcher?.sources && this.switcher.sources.find((s) => s.id === id))
+            || this.dataControl.sources.get(id)
+            || this.switcher?.activeSource;
 
         const isCollection = id === "collection";
+        const canGrow = !isCollection && Boolean(source?.canGrow);
         const hasExtraSettings = isCollection || id === "wallhaven" || Boolean(source?.hasProviderSettings);
 
+        if (this.fetchBtn) {
+            this.fetchBtn.classList.toggle("hidden", !canGrow);
+            const labelSpan = this.fetchBtn.querySelector("span");
+            const label = source?.moreLabel || t("wallpaper_switcher.get_new_image", "Lấy ảnh mới");
+            // Cùng lý do như `syncCounter`: đừng thay text node khi chuỗi không đổi.
+            if (labelSpan && labelSpan.textContent !== label) {
+                labelSpan.textContent = label;
+            }
+        }
         if (this.uploadBtn) {
             this.uploadBtn.classList.toggle("hidden", !isCollection);
         }
@@ -320,11 +361,16 @@ export class SwitcherBar {
     /* ── Busy State ────────────────────────────────────────────────────────── */
 
     /**
-     * Bật/tắt trạng thái bận cho toàn bộ thanh bar khi carousel di chuyển hoặc fetch.
+     * Set busy state across the switcher bar.
      * @param {boolean} busy
      */
     setBusy(busy) {
         this._isBusy = Boolean(busy);
+        if (this.fetchBtn) {
+            const isFetching = this.dataControl.status === "fetching";
+            this.fetchBtn.classList.toggle("is-loading", isFetching);
+            this.fetchBtn.disabled = this._isBusy;
+        }
         this._applyBusyToActions();
     }
 
@@ -332,10 +378,15 @@ export class SwitcherBar {
         if (!this.actionsContainer) return;
         this.actionsContainer.querySelectorAll("button").forEach((btn) => {
             const blocked = btn.dataset.blocked === "1";
-            btn.disabled = this._isBusy || blocked;
-            if (!blocked) {
-                if (this._isBusy) btn.title = t("wallpaper_switcher.wait_for_wallpaper", "Đang tải hình nền…");
-                else btn.removeAttribute("title");
+            const disabled = this._isBusy || blocked;
+            if (btn.disabled !== disabled) btn.disabled = disabled;
+            if (blocked) return;
+
+            if (this._isBusy) {
+                const title = t("wallpaper_switcher.wait_for_wallpaper", "Đang tải hình nền…");
+                if (btn.title !== title) btn.title = title;
+            } else if (btn.hasAttribute("title")) {
+                btn.removeAttribute("title");
             }
         });
     }

@@ -50,32 +50,9 @@ export class BaseSource {
     return false;
   }
 
-  /** Label printed on the trailing "+" item, telling what it will do. */
+  /** Label of the "get more" control in the bottom bar, telling what it will do. */
   get moreLabel() {
     return "";
-  }
-
-  /**
-   * Whether the "+" item must be clicked to produce anything. Sources that
-   * open a native file picker need this: settling on the item stays inert and
-   * only a real click (a user gesture) may open the dialog.
-   */
-  get moreNeedsGesture() {
-    return false;
-  }
-
-  /**
-   * Whether the carousel should render the trailing "+" item at all.
-   *
-   * A source that produces items through its own control — the collection's
-   * upload button in the bottom bar — gains nothing from the slot: it would
-   * only take a card's worth of room to advertise an action the bar already
-   * does better. The flag lives on the source, next to the other capability
-   * flags; the Switcher enforces it while building the carousel's list, so the
-   * engine never has to learn about provider quirks.
-   */
-  get showsMoreItem() {
-    return true;
   }
 
   /**

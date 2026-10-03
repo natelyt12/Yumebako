@@ -7,7 +7,6 @@ import {
   getDefaultWallpaperEffects,
 } from "/src/core/storageHandler.js";
 import { createSources } from "../sources/index.js";
-import { isActionItem, createActionItem } from "../ui/carousel/items.js";
 import { resolveCardMeta } from "../sources/cardMeta.js";
 import { SwitcherBar } from "../ui/bar/SwitcherBar.js";
 import { CarouselEngine } from "../ui/carousel/CarouselEngine.js";
@@ -52,11 +51,6 @@ export class WallpaperSwitcher {
      * reach the desktop.
      */
     this._silentRender = false;
-    /**
-     * True trong lúc một thẻ đang bị gỡ. Thẻ kế cận có thể chính là ô "+", và
-     * lượt chốt đó không được hiểu thành "người dùng muốn nạp thêm ảnh".
-     */
-    this._suppressAutoGrow = false;
 
     // Source adapters (Collection, Wallhaven, Unsplash, Picre...) — see ./sources/registry.js
     this.sources = createSources();
@@ -86,11 +80,8 @@ export class WallpaperSwitcher {
       guide: this.container.querySelector(".carousel-guide"),
       viewfinder: this.container.querySelector(".carousel-viewfinder"),
       duration: CAROUSEL_DURATION,
-      onAction: () => this.growSource(),
       onThumbError: (item, cardEl) =>
         this.recoverThumbnail(item.card ?? item, cardEl),
-      onCardClick: (index, item) =>
-        isActionItem(item) && Boolean(this.activeSource?.moreNeedsGesture),
     });
 
     this.carousel.onHardSelect((index, cardEl, item) => {
@@ -116,8 +107,13 @@ export class WallpaperSwitcher {
 
     const initialSourceId = dataControl.activeSourceId || this.resolveInitialSourceId();
     this.activeSourceId = initialSourceId;
+    if (!dataControl.activeSourceId) {
+      dataControl.activeSourceId = initialSourceId;
+    }
+    this.bar?.syncActiveTab(initialSourceId);
+    this.bar?.syncRightSlot(initialSourceId);
 
-    // Lắng nghe các sự kiện từ DataControl để cập nhật Carousel
+    // Subscribe to DataControl events to update Carousel
     dataControl.on("cards:loaded", () => this.renderFromDataControl());
     dataControl.on("card:deleted", () => {
       if (dataControl.items.length === 0) {
@@ -125,39 +121,33 @@ export class WallpaperSwitcher {
       }
     });
     dataControl.on("card:added", ({ addedCards, allCards }) => {
-      // For Collection (no '+' card) or batch uploads, sync the carousel
-      // using syncItems so only genuinely new cards receive the enter animation.
-      // setItems / renderFromDataControl would rebuild the whole DOM and fire
-      // the animation on every existing card too.
-      if (!this.activeSource?.showsMoreItem || (addedCards && addedCards.length > 1)) {
-        const source = this.activeSource;
-        const engineItems = (dataControl.items || []).map((item) => {
-          const meta = resolveCardMeta(this.activeSourceId, item);
-          return {
-            id: item.id,
-            name: item.title || item.id,
-            sub: item.category || source?.name || "",
-            url: item.thumbnailUrl || item.url || "",
-            card: item,
-            metaLeft: meta.leftHtml,
-            metaRight: meta.rightHtml,
-          };
-        });
+      // Sync the carousel using syncItems so only genuinely fresh cards receive the enter animation
+      const source = this.activeSource;
+      const engineItems = (dataControl.items || []).map((item) => {
+        const meta = resolveCardMeta(this.activeSourceId, item);
+        return {
+          id: item.id,
+          name: item.title || item.id,
+          sub: item.category || source?.name || "",
+          url: item.thumbnailUrl || item.url || "",
+          card: item,
+          metaLeft: meta.leftHtml,
+          metaRight: meta.rightHtml,
+        };
+      });
 
-        if (source?.showsMoreItem !== false && source?.canGrow) {
-          engineItems.push(createActionItem(this.carousel.actionConfig));
-        }
+      this.carousel.syncItems(engineItems, dataControl.currentIndex, { silent: true });
+      this.bar?.syncCounter();
 
-        this.carousel.syncItems(engineItems, dataControl.currentIndex, { silent: true });
-        this.bar?.syncCounter();
-      }
-
-      // Khi Collection tải lên từ 0 ảnh lên có ảnh: tự động chọn ảnh đầu tiên và áp dụng làm hình nền
+      // When Collection uploads initial wallpapers from empty state, auto-select the first card
       const wasEmpty = Array.isArray(allCards) && Array.isArray(addedCards) && allCards.length === addedCards.length;
       if (this.activeSourceId === "collection" && wasEmpty && allCards.length > 0) {
         dataControl.setHardIndex(0);
         this.carousel?.scrollToCard(0);
         this.bar?.renderActions(dataControl.activeCard);
+      } else if (addedCards && addedCards.length > 0 && this.carousel.count > 0) {
+        // Smoothly scroll to the latest added card
+        this.carousel.scrollToCard(this.carousel.count - 1);
       }
     });
 
@@ -232,19 +222,6 @@ export class WallpaperSwitcher {
       };
     });
 
-    if (source?.showsMoreItem !== false && source?.canGrow) {
-      const actionConfig = {
-        name: source.moreLabel || t("wallpaper_switcher.get_new_image", "Lấy ảnh mới"),
-        subLabel: source.name,
-        loadingText: t(
-          "wallpaper_switcher.wait_for_wallpaper",
-          "Đang tải hình nền…",
-        ),
-      };
-      this.carousel.setActionCardConfig(actionConfig);
-      engineItems.push(createActionItem(actionConfig));
-    }
-
     this._silentRender = true;
     try {
       this.carousel.setItems(engineItems, dataControl.currentIndex, { animate });
@@ -303,62 +280,20 @@ export class WallpaperSwitcher {
    * Bar's right-hand button: ask the current source for items.
    */
   async requestUpload() {
-    if (this.activeSourceId === "collection") {
-      await dataControl.requestMore();
-    } else {
-      await this.carousel?.requestAction(this.carousel.actionIndex);
-    }
+    await dataControl.requestMore();
   }
 
   /**
-   * The carousel came to rest: sync the chrome, materialize the next item when
-   * the "+" is centered, or apply the centered wallpaper to the desktop.
+   * The carousel came to rest: apply the centered wallpaper to the desktop.
    */
   async handleHardSelect(index, item) {
     if (this._silentRender || this._isSwapping || dataControl.status === "deleting" || this.carousel?.isDeleting) return;
-
-    if (isActionItem(item)) {
-      if (!this._suppressAutoGrow && !this.activeSource?.moreNeedsGesture) {
-        this.carousel.requestAction(index);
-      }
-      return;
-    }
-
+    // Xóa thẻ chạy carousel trước rồi store sau, nên giữa hai bước mảng `items`
+    // của store còn giữ bản ghi cũ: một lượt chốt lệch thẻ là chốt của pha dọn
+    // dẹp, không phải lựa chọn của người dùng. Bỏ qua ở đây — SwitcherBar chốt
+    // lại thẻ kế cận sau khi store xóa xong.
+    if (item ? dataControl.items[index]?.id !== item.id : dataControl.items.length > 0) return;
     dataControl.setHardIndex(index);
-  }
-
-  /**
-   * Materialize the trailing "+" card: fetch via DataControl.
-   */
-  async growSource() {
-    const source = this.activeSource;
-    if (!source?.canGrow) return null;
-
-    try {
-      const addedItem = await dataControl.requestMore();
-      if (!addedItem) return null;
-
-      const meta = resolveCardMeta(this.activeSourceId, addedItem);
-      return {
-        id: addedItem.id,
-        name: addedItem.title || addedItem.id,
-        sub: addedItem.category || source.name,
-        url: addedItem.thumbnailUrl || addedItem.url || "",
-        card: addedItem,
-        metaLeft: meta.leftHtml,
-        metaRight: meta.rightHtml,
-      };
-    } catch (error) {
-      console.error(
-        `[WallpaperSwitcher] Failed to grow source [${source.id}]:`,
-        error,
-      );
-      showNotification(
-        error?.message || t("sp.api.error", { provider: source.name }),
-        "error",
-      );
-      throw error;
-    }
   }
 
   /**

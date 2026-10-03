@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <title>Carousel jitter harness</title>
+  </head>
+  <body>
+    <div class="harness">
+      <header class="harness__bar">
+        <h1>Carousel jitter harness</h1>
+        <p class="harness__hint">
+          Đo <strong>từng frame</strong> của từng thẻ: vị trí (translateX), width,
+          opacity. Bấm một nút để chạy kịch bản vuốt, hoặc lăn chuột trong sân khấu
+          rồi bấm “Phân tích”. Tab phải đang hiển thị — rAF bị treo khi tab ẩn.
+        </p>
+        <div class="harness__actions">
+          <label>Thẻ <input id="count" type="number" min="2" max="60" value="12" /></label>
+          <label>Notch mỗi <input id="gap" type="number" min="1" max="120" value="4" /> frame</label>
+          <button id="run-fast" type="button">Vuốt nhanh (retarget liên tục)</button>
+          <button id="run-slow" type="button">Vuốt chậm (snap chạy trọn)</button>
+          <button id="rebuild" type="button">Dựng lại</button>
+          <button id="analyze" type="button">Phân tích</button>
+          <button id="csv" type="button">Tải CSV</button>
+        </div>
+        <p class="harness__legend">
+          Cột cần soi: <code>ΔvMax</code> so với <code>vMax</code> (vận tốc là biến
+          trạng thái nên một frame không được đổi nó quá ~0.9 đỉnh — tween dựng lại
+          chạm đúng 1.0), <code>xRev</code> (đảo hướng — phải 0 khi vuốt một chiều),
+          <code>jump@retarget</code> (nhảy ở frame đầu của một lượt chuyển động mới;
+          với lò xo, lượt mới chỉ đổi đích nên frame đó đi đúng quãng mà vận tốc cho
+          phép — chỉ ≈ 0 khi lượt mới bắt đầu từ trạng thái đứng yên, tức nhịp thưa),
+          và <code>frame dt</code> (p95/max, <code>longFrames</code> — jank do paint).
+          Tự kéo bằng chuột thì frame không đều (tay người + nhịp 16ms), nên cột
+          <code>ΔvMax</code> lúc đó phản ánh tay kéo chứ không phải engine — muốn đo
+          chuyển động thì dùng hai nút vuốt.
+        </p>
+      </header>
+      <main class="harness__stage" id="stage"></main>
+      <section class="harness__report">
+        <pre id="report">Đang khởi động…</pre>
+      </section>
+    </div>
+    <script type="module" src="./harness.js"></script>
+  </body>
+</html>

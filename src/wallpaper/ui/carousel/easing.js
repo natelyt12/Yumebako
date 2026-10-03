@@ -7,17 +7,20 @@
  * Không phụ thuộc DOM — thuần toán học, nên test/bench được độc lập.
  *
  * Quy ước: mọi hàm nhận `t` trong [0, 1] và trả về tiến độ đã biến đổi.
- * `easeOutExpo` là đường cong snap chính của carousel; `easeInQuad` /
- * `easeInSine` dùng cho pha rơi của hiệu ứng "bong đinh" khi xóa thẻ.
+ * Snap của carousel KHÔNG dùng file này: nó chạy bằng lò xo tới hạn trong
+ * `CarouselEngine` (trạng thái là vị trí + vận tốc, không phải một `t` cho trước).
+ * Ở đây còn lại các đường cong cho những đoạn có thời lượng cố định — pha thu cột
+ * khi xoá (`easeOutExpo`) và pha rơi của hiệu ứng "bong đinh" (`easeInQuad` /
+ * `easeInSine`, pha bật lên dùng `easeOutCubic`).
  */
 
-/** Snap chính: lao nhanh rồi hãm êm ở cuối (mặc định cho mọi cú cuộn). */
+/** Bung ra rất nhanh rồi hãm dài ở cuối — dùng cho pha thu cột khi xoá thẻ. */
 export const easeOutExpo = (t) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t));
 
 /** Vào chậm, ra nhanh — dùng cho pha bật lên của "bong đinh". */
 export const easeInCubic = (t) => t * t * t;
 
-/** Hãm êm vừa phải, rẻ hơn expo — dùng cho các đoạn phụ trợ. */
+/** Hãm êm vừa phải, rẻ hơn expo — dùng cho pha bật lên của "bong đinh" và các đoạn phụ trợ. */
 export const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 
 /** Gia tốc rơi tự do (t²) — quỹ đạo Y của thẻ bị xóa. */

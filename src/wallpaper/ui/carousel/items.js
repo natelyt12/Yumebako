@@ -3,46 +3,16 @@
  * ---------------------------------------------------------------------------
  * Mô hình dữ liệu mà động cơ carousel hiểu.
  *
- * Hai loại phần tử:
- *   - Thẻ ảnh  : `{ id, name, sub, url }` — `url` đã là ảnh hiển thị được.
- *     Video cũng chỉ là một tấm thumbnail, nên không có nhánh media riêng.
- *   - Thẻ hành động: `{ isAddCard: true, name, subLabel, loadingText, icon }`
- *     — "ô trống" ở cuối dải, cắm một handler vào để lấy thêm nội dung.
+ * Một loại phần tử duy nhất — thẻ ảnh `{ id, name, sub, url, card, metaLeft,
+ * metaRight }`: `url` đã là ảnh hiển thị được, video cũng chỉ là một tấm
+ * thumbnail nên không có nhánh media riêng.
  *
  * Tầng này không biết gì về store/source; việc ánh xạ từ card của store sang
  * item là của adapter (xem `WallpaperSwitcher`).
  */
 
-/** Ảnh thay thế khi thẻ chưa có thumbnail dùng được. */
+/** Fallback image when thumbnail is missing. */
 export const FALLBACK_THUMBNAIL = "/image/fallback.jpg";
-
-/** Cấu hình mặc định cho thẻ hành động, khi owner không truyền gì. */
-export const DEFAULT_ACTION_ITEM = Object.freeze({
-  name: "Lấy ảnh mới",
-  subLabel: "Thêm mới",
-  loadingText: "Đang tải ảnh...",
-  icon: null,
-});
-
-/** `true` nếu item là thẻ hành động (ô "lấy thêm"). */
-export function isActionItem(item) {
-  return Boolean(item && item.isAddCard);
-}
-
-/**
- * Dựng thẻ hành động. `icon` nhận thẳng chuỗi `<svg>…</svg>`; để trống thì
- * template dùng dấu cộng mặc định.
- */
-export function createActionItem(overrides = {}) {
-  return {
-    id: overrides.id || `action:${Date.now()}`,
-    isAddCard: true,
-    name: overrides.name || overrides.label || DEFAULT_ACTION_ITEM.name,
-    subLabel: overrides.subLabel || DEFAULT_ACTION_ITEM.subLabel,
-    loadingText: overrides.loadingText || DEFAULT_ACTION_ITEM.loadingText,
-    icon: overrides.icon ?? DEFAULT_ACTION_ITEM.icon,
-  };
-}
 
 /**
  * Ảnh sẽ vẽ lên thẻ. Ưu tiên thumbnail (nhẹ, đã sinh sẵn) rồi mới tới media gốc.
