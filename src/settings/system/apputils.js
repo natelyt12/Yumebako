@@ -43,11 +43,12 @@ function initBackup() {
 
     const setupExportButton = (btn, type, msgKey, originalTextKey) => {
         if (!btn) return;
-        btn.addEventListener("mousedown", async (e) => {
+        btn.addEventListener("mousedown", async () => {
             const confirmed = await showConfirm(t(msgKey), {
                 title: t("sp.backup.export_title"),
                 okText: t("common.confirm"),
-                anchor: e
+                anchor: btn,
+                placement: "bottom-right"
             });
             if (!confirmed) return;
 
@@ -78,7 +79,9 @@ function initBackup() {
                     await showConfirm(t("sp.backup.import_success"), {
                         title: t("sp.backup.import_title"),
                         okText: t("common.reload", "Tải lại"),
-                        cancelText: t("common.cancel", "Hủy")
+                        cancelText: t("common.cancel", "Hủy"),
+                        anchor: importBtn,
+                        placement: "bottom-right"
                     });
                     location.reload();
                 } else {
@@ -123,12 +126,13 @@ function initDebug() {
     const resetSettingsBtn = document.getElementById("reset_settings_btn");
 
     if (resetSettingsBtn) {
-        resetSettingsBtn.addEventListener("click", async (e) => {
+        resetSettingsBtn.addEventListener("click", async () => {
             const confirmed = await showConfirm(t("sp.danger_zone.reset_msg"), {
                 title: t("sp.danger_zone.reset_title"),
                 okText: t("sp.danger_zone.reset_settings", "Đặt lại cài đặt"),
                 isDanger: true,
-                anchor: e
+                anchor: resetSettingsBtn,
+                placement: "top-right"
             });
 
             if (confirmed) {

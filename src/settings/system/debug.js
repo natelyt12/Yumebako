@@ -61,36 +61,41 @@ function initPopupTest() {
         return div;
     };
 
-    document.getElementById("test_popup_normal")?.addEventListener("click", (e) => {
-        openCustomPopup("Normal Popup", createContent("This is a standard popup for testing cursor anchoring."), "400px", { anchorEvent: e });
+    const normalBtn = document.getElementById("test_popup_normal");
+    normalBtn?.addEventListener("click", () => {
+        openCustomPopup("Normal Popup", createContent("This is a standard popup for testing edge anchoring."), "400px", { anchor: normalBtn, placement: "bottom-right" });
     });
 
-    document.getElementById("test_popup_alert")?.addEventListener("click", async (e) => {
+    const alertBtn = document.getElementById("test_popup_alert");
+    alertBtn?.addEventListener("click", async () => {
         const confirmed = await showConfirm("This is a danger confirmation dialog with standardized button.", {
             title: "Danger Confirm Test",
             okText: "Delete",
             isDanger: true,
-            anchor: e
+            anchor: alertBtn,
+            placement: "bottom-right"
         });
         showNotification(`Confirmed: ${confirmed}`, confirmed ? "success" : "info");
     });
 
-    document.getElementById("test_popup_noclose")?.addEventListener("mousedown", () => {
+    const noCloseBtn = document.getElementById("test_popup_noclose");
+    noCloseBtn?.addEventListener("mousedown", () => {
         const div = document.createElement("div");
         div.className = "popup_body";
         div.innerHTML = `
             <p>This popup has no close button. You must click backdrop (if allowed) or use the button below.</p>
             <button id="manual_close_btn" style="background: var(--accent_2); color: white; margin-top: 10px;">Close this Popup</button>
         `;
-        const result = openCustomPopup("No X Button", div, "400px", { canClose: false });
+        const result = openCustomPopup("No X Button", div, "400px", { canClose: false, anchor: noCloseBtn, placement: "bottom-right" });
 
         div.querySelector("#manual_close_btn").addEventListener("mousedown", () => {
             result.closePopup();
         });
     });
 
-    document.getElementById("test_popup_large")?.addEventListener("click", (e) => {
-        openCustomPopup("Large Popup", createContent("This is a wide popup (600px) for testing layout responsiveness."), "600px", { anchor: e });
+    const largeBtn = document.getElementById("test_popup_large");
+    largeBtn?.addEventListener("click", () => {
+        openCustomPopup("Large Popup", createContent("This is a wide popup (600px) for testing layout responsiveness."), "600px", { anchor: largeBtn, placement: "bottom-right" });
     });
 }
 

@@ -1,6 +1,6 @@
 import { initI18n } from "./i18n.js";
 import { getSettings } from "./storageHandler.js";
-import { initializeWavySettings, initializeParticles } from "../wallpaper/index.js";
+import { initializeWavySettings, initializeParticles, applyWallpaperFilters, applyWallpaperPosition } from "../wallpaper/index.js";
 import { initWidget } from "../widgets/handler.js";
 import { initAppUtils } from "../settings/system/apputils.js";
 import { renderIcons } from "./icon.js";
@@ -46,6 +46,8 @@ export async function start() {
 
     // Apply saved visual settings immediately on startup
     initAppUtils();
+    applyWallpaperFilters();
+    applyWallpaperPosition();
     initializeWavySettings();
     initializeParticles();
     renderIcons();

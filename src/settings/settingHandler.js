@@ -93,11 +93,14 @@ export async function initSettingsLauncher() {
             if (id === "language") {
                 const current = getSettings().language || "vi";
                 if (current !== value && !firstRun) {
+                    const langBtn = document.getElementById("language");
                     const msg = t("sp.language.reload_msg") || "Thay đổi ngôn ngữ yêu cầu tải lại trang";
                     const confirmed = await showConfirm(msg, {
                         title: t("sp.language.reload_title") || "Thay đổi ngôn ngữ",
                         okText: t("common.reload") || "Tải lại trang",
-                        width: "340px"
+                        width: "340px",
+                        anchor: langBtn,
+                        placement: "bottom-right"
                     });
 
                     if (confirmed) {

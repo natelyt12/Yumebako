@@ -4,8 +4,8 @@
     position: fixed;
     top: 0;
     left: 0;
-    width: 100vw;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
     visibility: hidden;
     background-color: transparent;
     z-index: var(--z-modal);
@@ -42,10 +42,7 @@
     color: var(--text-primary);
     background-color: var(--bg-panel);
     border: var(--alert-border) solid var(--glass-border);
-    box-shadow:
-        0 12px 40px rgba(0, 0, 0, 0.45),
-        0 4px 12px rgba(0, 0, 0, 0.25),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);
     -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
     backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
     animation: popup_enter 0.35s var(--expo_out) both;
@@ -85,7 +82,7 @@
 
 .popup_opened {
     visibility: visible;
-    background-color: rgba(0, 0, 0, 0.65) !important;
+    background-color: rgba(0, 0, 0, 0.45) !important;
 }
 
 .popup_closing {
@@ -166,6 +163,7 @@
         opacity: 0;
         transform: translate(-50%, 24px) scale(0.95);
     }
+
     to {
         opacity: 1;
         transform: translate(-50%, 0) scale(1);
@@ -177,6 +175,7 @@
         opacity: 1;
         transform: translate(-50%, 0) scale(1);
     }
+
     to {
         opacity: 0;
         transform: translate(-50%, 20px) scale(0.95);
@@ -186,22 +185,24 @@
 @keyframes popup_enter {
     from {
         opacity: 0;
-        transform: scale(0.94) translateY(8px);
+        transform: scale(0.94);
     }
+
     to {
         opacity: 1;
-        transform: scale(1) translateY(0);
+        transform: scale(1);
     }
 }
 
 @keyframes popup_exit {
     from {
         opacity: 1;
-        transform: scale(1) translateY(0);
+        transform: scale(1);
     }
+
     to {
         opacity: 0;
-        transform: scale(0.96) translateY(6px);
+        transform: scale(0.96);
     }
 }
 
@@ -291,6 +292,7 @@
         opacity: 0;
         transform: translateY(20px) scale(0.96);
     }
+
     to {
         opacity: 1;
         transform: translateY(0) scale(1);
@@ -312,6 +314,7 @@
         opacity: 1;
         transform: translateY(0) scale(1);
     }
+
     to {
         opacity: 0;
         transform: translateY(-24px) scale(0.95);
@@ -349,6 +352,7 @@
     from {
         transform: scaleX(1);
     }
+
     to {
         transform: scaleX(0);
     }
