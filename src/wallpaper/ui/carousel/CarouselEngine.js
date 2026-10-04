@@ -47,7 +47,7 @@ import { escapeHtml, resolveImageUrl } from "./items.js";
  * Xuất ra ngoài để test/harness bắn nấc đủ lớn — nấc nhỏ hơn ngưỡng sẽ bị cộng dồn
  * chứ không nhảy bậc, và ngưỡng này chỉnh theo cảm giác tay nên đổi là chuyện thường.
  */
-export const WHEEL_THRESHOLD = 150;
+export const WHEEL_THRESHOLD = 40;
 /** Không có bánh xe nào trong ngần này thì bộ gom được xoá. */
 const WHEEL_RESET_MS = 250;
 /** Khoảng cách tối thiểu giữa hai lần bấm phím liên tiếp. */
