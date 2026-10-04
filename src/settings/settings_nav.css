@@ -9,8 +9,8 @@
     pointer-events: auto;
     overflow: visible;
     flex-shrink: 0;
-    /* Shared sizing of the card and its buttons: the submenu-state card height
-       is derived from these, so the buttons can never outgrow the card. */
+    /* Shared sizing of the card and its buttons: both lists keep the same
+       rhythm and the card hugs whichever one is shown. */
     --nav_item_size: 40px;
     --nav_gap: 4px;
     --nav_pad: 4px;
@@ -19,33 +19,20 @@
 .nav_group {
     position: relative;
     width: 100%;
-    /* Both button lists share the card's single cell, so they sit on the same top
-       edge and cross-fade in place. minmax(0, 1fr) keeps the row from being
-       forced open by the tall list while the card is shorter than it. */
-    display: grid;
-    grid-template-columns: 1fr;
-    grid-template-rows: minmax(0, 1fr);
-    /* Padding lives on the card, not on the lists: a hidden list would otherwise
-       still show its own padding as an empty strip. */
+    /* Only one list is ever in the flow (see `.nav_actions_visible` below), so
+       the card simply hugs whichever list is shown: no height animation and no
+       stacked layers. The swap is a plain fade the controller drives - fade the
+       card out, flip the list, fade it back in. */
     padding: var(--nav_pad) 0;
-    /* The card morphs by animating its own height: `auto` (the tab list) in the
-       sidebar state, the exact height of the actions list in the submenu state.
-       `interpolate-size` lets `auto` take part, so the height is a single easing
-       curve between two endpoints. Animating the two rows instead made the card
-       the max() of two opposite curves, which dipped below the target and came
-       back on the way out, and stopped dead the moment the fast row arrived on
-       the way in. */
-    height: auto;
-    interpolate-size: allow-keywords;
     background-color: var(--bg-panel);
-    -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
-    backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
+    -webkit-backdrop-filter: blur(15px) saturate(180%) brightness(1.15);
+    backdrop-filter: blur(15px) saturate(180%) brightness(1.15);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 12px;
     box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);
-    /* The glass properties are transitioned for the hold-to-preview dissolve. */
+    /* Glass properties dissolve for hold-to-preview; opacity is the swap fade. */
     transition:
-        height var(--settings-motion) var(--expo_out),
+        opacity 0.3s ease,
         background-color var(--settings-motion) var(--expo_out),
         -webkit-backdrop-filter var(--settings-motion) var(--expo_out),
         backdrop-filter var(--settings-motion) var(--expo_out),
@@ -53,53 +40,37 @@
         box-shadow var(--settings-motion) var(--expo_out);
 }
 
-/* Submenu state: as tall as the back button, plus the eye button when the
-   submenu opted into hold-to-preview. */
-#setting_wrapper.submenu_active .nav_group {
-    height: calc(var(--nav_item_size) * 2 + var(--nav_gap) + var(--nav_pad) * 2);
+/* Mid-swap: the controller flips `.nav_actions_visible` while the card is
+   invisible, so the new height is never seen snapping. */
+.nav_group.nav_fading {
+    opacity: 0;
 }
 
-#setting_wrapper.submenu_active:not(.can_preview) .nav_group {
-    height: calc(var(--nav_item_size) + var(--nav_pad) * 2);
-}
-
-/* The layers stay stretched to the card, so the tab layer's box always matches
-   the card's inner box - including while the card is morphing. */
 .nav_layer {
-    grid-area: 1 / 1;
     min-width: 0;
-    /* Áp dụng pointer-events: none cho thẻ bọc ngoài cùng để nó không "chắn" click của lớp bên dưới */
-    pointer-events: none;
 }
 
-/* The tab list is far taller than the card whenever a submenu is open, so it is
-   clipped to the card's inner box and wiped away in step with it. The clip
-   region is widened way past the card because the tooltips pop out to the left. */
-.nav_layer_tabs {
-    clip-path: polygon(-400% 0, 500% 0, 500% 100%, -400% 100%);
+/* Show exactly one list: the submenu actions while a submenu is open, otherwise
+   the tab list. The card height follows automatically. */
+.nav_layer_actions {
+    display: none;
 }
 
-/* Both lists keep their natural height and share the same 8px rhythm; only one is
-   ever visible, so the swap is a plain fade. The outgoing list leaves first so
-   the two can never be seen blended on top of each other. */
+.nav_group.nav_actions_visible .nav_layer_actions {
+    display: block;
+}
+
+.nav_group.nav_actions_visible .nav_layer_tabs {
+    display: none;
+}
+
+/* Both lists share the same vertical rhythm. */
 .settings_nav_inner,
 .submenu_nav_actions {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: var(--nav_gap);
-    opacity: 1;
-    visibility: visible;
-    pointer-events: auto; /* Khôi phục lại click cho nội dung thực sự */
-    transition: opacity 0.3s var(--expo_out), visibility 0s linear 0s;
-}
-
-#setting_wrapper.submenu_active .settings_nav_inner,
-#setting_wrapper:not(.submenu_active) .submenu_nav_actions {
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transition: opacity 0.15s var(--expo_out), visibility 0s linear 0.15s;
 }
 
 .nav_item {

@@ -27,8 +27,8 @@
         border-color var(--settings-motion) var(--expo_out),
         box-shadow var(--settings-motion) var(--expo_out);
     background-color: var(--bg-panel);
-    -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
-    backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
+    -webkit-backdrop-filter: blur(15px) saturate(180%) brightness(1.15);
+    backdrop-filter: blur(15px) saturate(180%) brightness(1.15);
     border: var(--settings-card-border, 1px) solid rgba(255, 255, 255, 0.12);
     border-radius: 12px;
     box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);

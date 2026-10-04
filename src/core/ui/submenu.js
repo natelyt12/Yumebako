@@ -7,6 +7,12 @@ import { initSubsectionSvg } from "/src/core/ui/dropdown.js";
 /** Must stay in sync with `--settings-motion` (styles/settings_wrapper.css). */
 const SUBMENU_TRANSITION_MS = 800;
 
+/** Must stay in sync with the `.nav_group` opacity transition (settings_nav.css). */
+const NAV_SWAP_FADE_MS = 300;
+
+/** Pending timer for the sidebar list swap fade. */
+let navSwapTimer = null;
+
 let activeSubmenuState = {
     isDirty: false,
     canExit: false,
@@ -90,6 +96,30 @@ export function initToggleSettingBtn() {
             setOpenState(false);
         });
     }
+}
+
+/**
+ * Swap the sidebar between the tab list and the submenu actions with a simple
+ * fade: fade the card out, flip which list is shown (so the new height is never
+ * seen snapping), then fade it back in.
+ * @param {boolean} showActions - True to show the submenu actions, false for tabs.
+ */
+function swapNavList(showActions) {
+    const navGroup = document.querySelector(".nav_group");
+    if (!navGroup) return;
+
+    clearTimeout(navSwapTimer);
+
+    // Already showing the requested list: nothing to do. This is what makes a
+    // submenu -> submenu switch a no-op instead of a needless re-fade.
+    if (navGroup.classList.contains("nav_actions_visible") === showActions) return;
+
+    navGroup.classList.add("nav_fading");
+    navSwapTimer = setTimeout(() => {
+        navGroup.classList.toggle("nav_actions_visible", showActions);
+        navGroup.classList.remove("nav_fading");
+        navSwapTimer = null;
+    }, NAV_SWAP_FADE_MS);
 }
 
 /**
@@ -181,6 +211,7 @@ export function openSidebarSubmenu(title, contentNode, options = {}) {
 
     wrapper.classList.toggle("can_preview", canPreview);
     wrapper.classList.add("submenu_active");
+    swapNavList(true);
 
     // Replay the content fade-out / fade-in even when one submenu replaces
     // another one while the panel is already open.
@@ -310,6 +341,7 @@ function performCloseSubmenu() {
     if (submenuView) {
         submenuView.classList.remove("show_content");
     }
+    swapNavList(false);
 
     // Release the mounted content once the panel has finished sliding out, so
     // heavy submenus (collection grid, editors) drop their DOM again.
