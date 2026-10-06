@@ -168,7 +168,6 @@ export class BaseSource {
   toCarouselItem(raw, overrides = {}) {
     return {
       id: String(raw?.id ?? ""),
-      kind: "item",
       source: this.id,
       url: "",
       sourceUrl: "",

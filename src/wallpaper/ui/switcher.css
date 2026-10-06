@@ -68,43 +68,6 @@
         opacity 0.45s var(--expo_out);
 }
 
-/* ── Source swap choreography ──────────────────────────── */
-
-/* Switching source: drop away with cubic-in, then come back with expo-out once
-   the new content is in place. Keep the duration in sync with
-   WallpaperSwitcher.SWAP_OUT_MS. The stage clips *only* while this plays, so the
-   cards can travel far enough to feel like they left the stage without ever
-   overlapping the bar below. */
-.wallpaper_switcher .carousel-container.is_swapping {
-    overflow: visible;
-}
-
-.wallpaper_switcher .carousel-container.is_swapping .carousel-track {
-    opacity: 0;
-    transform: translateY(96px);
-    pointer-events: none;
-    transition:
-        transform 0.26s var(--cubic_in),
-        opacity 0.22s var(--cubic_in);
-}
-
-/* Slide-in phase: pin the track at the displaced position first (no transition),
-   then a JS-triggered reflow kicks off the return trip with expo-out. */
-.wallpaper_switcher .carousel-container.is_swapping_in .carousel-track {
-    opacity: 0;
-    transform: translateY(96px);
-    pointer-events: none;
-    transition: none;
-}
-
-.wallpaper_switcher .carousel-container.is_swapping_in.is_animating_in .carousel-track {
-    opacity: 1;
-    transform: translateY(0);
-    transition:
-        transform 0.38s var(--expo_out),
-        opacity 0.28s var(--expo_out);
-}
-
 /* ── Bottom Bar ────────────────────────────────────────────
    Row 1: meta (tabs + position) · actions (centre) · source settings / upload
    Row 2: navigation hint, full width                                             */

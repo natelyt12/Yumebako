@@ -112,7 +112,7 @@ body.wp-carousel-dragging * {
     box-shadow: 0 0 16px rgba(255, 255, 255, 0.12);
     /* Fade in 0.5s với expo-out, transform chuyển đổi mượt mà khi lướt chọn thẻ */
     transition: opacity 0.5s var(--expo_out),
-        transform 0.45s cubic-bezier(0.34, 1.45, 0.64, 1),
+        transform 0.45s var(--expo_out),
         border-color 0.2s ease,
         box-shadow 0.25s ease;
 }
@@ -121,18 +121,6 @@ body.wp-carousel-dragging * {
 .wallpaper_switcher .carousel-viewfinder.is-hidden {
     opacity: 0 !important;
     transition: 0s !important;
-}
-
-.wallpaper_switcher .carousel-container.is_swapping .carousel-viewfinder,
-.wallpaper_switcher .carousel-container.is_swapping_in:not(.is_animating_in) .carousel-viewfinder {
-    opacity: 0;
-    pointer-events: none;
-    transition: 0s !important;
-}
-
-.wallpaper_switcher .carousel-container.is_swapping_in.is_animating_in .carousel-viewfinder {
-    opacity: 1;
-    transition: opacity 0.5s var(--expo_out);
 }
 
 /* Vòng thở: đứng yên thì ẩn, chỉ bật khi đang lướt/kéo */

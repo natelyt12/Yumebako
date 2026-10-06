@@ -36,8 +36,6 @@ import "../ui/carousel/carousel.css";
 
 /** Duration of one carousel snap, in ms. */
 const CAROUSEL_DURATION = 600;
-/** Must match the `.is_swapping` transition duration in switcher.css. */
-const SWAP_OUT_MS = 260;
 
 export class WallpaperSwitcher {
   constructor() {
@@ -201,10 +199,9 @@ export class WallpaperSwitcher {
   /**
    * Render carousel items directly from DataControl.
    * @param {boolean} [animate=false] - Whether to play the card-enter-slot animation.
-   *   Pass true only when genuinely new cards are being introduced (e.g. source
-   *   seed on very first open). Most callers should leave this false.
+   *   Pass true to play the card-enter-slot animation.
    */
-  renderFromDataControl(animate = false) {
+  renderFromDataControl(animate = true) {
     if (!this.carousel) return;
     const source = this.activeSource;
     const items = dataControl.items || [];
@@ -335,11 +332,7 @@ export class WallpaperSwitcher {
     await this.swapToSource(sourceId);
   }
 
-  /**
-   * Slide the carousel down and out, swap the content while it is hidden, then
-   * let it glide back up (cubic-in going down, expo-out coming back).
-   * @param {string} sourceId
-   */
+  /** Swap the content immediately. */
   async swapToSource(sourceId) {
     if (!this.carouselEl) {
       await this.loadSource(sourceId);
@@ -349,12 +342,9 @@ export class WallpaperSwitcher {
     this._isSwapping = true;
     this.bar?.setBusy(true);
 
-    try {
-      // ── Phase 1: slide down (cubic-in) ──────────────────────────────────
-      this.carouselEl.classList.add("is_swapping");
-      await new Promise((resolve) => setTimeout(resolve, SWAP_OUT_MS));
+    const startTime = Date.now();
 
-      // ── Phase 2: swap content while track is off-screen ─────────────────
+    try {
       await this.loadSource(sourceId);
 
       const activeCard = dataControl.activeCard;
@@ -367,32 +357,16 @@ export class WallpaperSwitcher {
       } else {
         this.bar?.renderActions(null);
       }
-
-      // ── Phase 3: slide back up (expo-out) ───────────────────────────────
-      // Switch to is_swapping_in first (no transition) to pin the track at
-      // the displaced position, then force a reflow so the browser registers
-      // the starting state before we kick off the return transition.
-      this.carouselEl.classList.remove("is_swapping");
-      this.carouselEl.classList.add("is_swapping_in");
-      void this.carouselEl.offsetWidth; // force reflow
-      this.carouselEl.classList.add("is_animating_in");
-
-      await new Promise((resolve) => {
-        const track = this.carouselEl.querySelector(".carousel-track");
-        const onEnd = () => {
-          track?.removeEventListener("transitionend", onEnd);
-          resolve();
-        };
-        track?.addEventListener("transitionend", onEnd, { once: true });
-        // Safety fallback in case transitionend never fires (e.g. reduced-motion).
-        setTimeout(resolve, 420);
-      });
     } finally {
-      this.carouselEl.classList.remove("is_swapping", "is_swapping_in", "is_animating_in");
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 400) {
+        await new Promise((r) => setTimeout(r, 400 - elapsed));
+      }
       this._isSwapping = false;
       this.bar?.setBusy(false);
     }
   }
+
 
   /**
    * Synchronize collection items with the per-wallpaper profiles stored in LocalStorage.

@@ -8,7 +8,6 @@ import { getSettings, saveSettings } from "/src/core/storageHandler.js";
  *
  * @typedef {Object} CardItem
  * @property {string}  id           - Unique identifier for the card.
- * @property {"item"}  kind         - Discriminant: always "item" for real cards.
  * @property {string}  source       - The source id that owns this card.
  * @property {string}  url          - Direct URL of the full-size media.
  * @property {string}  sourceUrl    - Canonical page URL (shown by "view source").
@@ -466,6 +465,18 @@ export class DataControl {
             // 3. Xóa khỏi mảng dữ liệu
             this.items.splice(targetIndex, 1);
             await this._persistCards(this.activeSourceId, this.items);
+
+            // Xóa "bóng ma": Nếu dải thẻ đã rỗng, xóa luôn record current ở Data queue
+            if (this.items.length === 0) {
+                const storageKey = this.activeSource?.constructor?.storageKey;
+                if (storageKey) {
+                    const storeData = await getFromStore(storageKey);
+                    if (storeData && storeData.current) {
+                        storeData.current = null;
+                        await saveToStore(storageKey, storeData);
+                    }
+                }
+            }
 
             // 4. Tính toán index kế cận (ưu tiên thẻ bên trái, khớp chuẩn xác với CarouselEngine)
             const nextIndex = Math.max(0, Math.min(targetIndex > 0 ? targetIndex - 1 : 0, this.items.length - 1));
