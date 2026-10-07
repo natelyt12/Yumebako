@@ -5,13 +5,13 @@
     position: absolute;
     top: 0;
     right: 0;
-    padding: var(--settings-pad);
+    padding: 0;
     /* Exactly nav + gap + the widest view the card can hold, which is the main
        menu while no submenu is open. */
     width: calc(var(--nav-width) + var(--settings-gap) + var(--main-view-width));
-    /* content-box: keep the padding inside the viewport, otherwise the floating
-       cards overflow the bottom edge by twice the padding. */
-    height: calc(100vh - var(--settings-pad) * 2);
+    /* content-box: the content card fills top-to-bottom flush; no vertical
+       padding on the right side so height is simply the full viewport. */
+    height: 100vh;
     box-sizing: content-box;
     color: white;
     background-color: transparent;
@@ -31,27 +31,23 @@
        (keep it in sync with SUBMENU_TRANSITION_MS in core/ui/submenu.js). */
     --settings-motion: 0.8s;
 
-    /* Layout rhythm of the panel: the padding around the cards, the gap between
-       the nav and the content card, and the width of the three columns.
-       Everything below is derived from these, so resizing the sidebar is a
-       one-line change here (the nav reads --nav-width as well). */
-    --settings-pad: 10px;
+    /* Layout rhythm of the panel: the gap between the nav and the content card,
+       and the width of the three columns. Resizing the sidebar is a one-line
+       change here (the nav reads --nav-width as well). */
     --settings-gap: 8px;
     --nav-width: 52px;
     --main-view-width: 320px;
-    --settings-card-border: 1px;
 
-    /* Width requested by the open submenu panel, clamped so the nav, the gap and
-       the padding always fit inside the viewport. */
+    /* Width requested by the open submenu panel, clamped so the nav and the gap
+       always fit inside the viewport. */
     --submenu-width: min(
         var(--submenu-requested-width, 320px),
-        calc(100vw - var(--nav-width) - var(--settings-gap) - var(--settings-pad) * 2)
+        calc(100vw - var(--nav-width) - var(--settings-gap))
     );
 
-    /* Inner widths of the content card (minus 1px border on each side) to prevent
-       content overflow and ensure sections fit flush against the card borders. */
-    --settings-inner-main-width: calc(var(--main-view-width) - var(--settings-card-border) * 2);
-    --settings-inner-submenu-width: calc(var(--submenu-width) - var(--settings-card-border) * 2);
+    /* Inner widths of the content card (no border on the content card). */
+    --settings-inner-main-width: var(--main-view-width);
+    --settings-inner-submenu-width: var(--submenu-width);
 }
 
 /* The submenu lives inside the content card, so the wrapper grows to fit the

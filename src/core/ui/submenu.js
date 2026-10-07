@@ -8,7 +8,7 @@ import { initSubsectionSvg } from "/src/core/ui/dropdown.js";
 const SUBMENU_TRANSITION_MS = 800;
 
 /** Must stay in sync with the `.nav_group` opacity transition (settings_nav.css). */
-const NAV_SWAP_FADE_MS = 300;
+const NAV_SWAP_FADE_MS = 150;
 
 /** Pending timer for the sidebar list swap fade. */
 let navSwapTimer = null;

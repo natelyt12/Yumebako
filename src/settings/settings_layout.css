@@ -29,8 +29,9 @@
     background-color: var(--bg-panel);
     -webkit-backdrop-filter: blur(15px) saturate(180%) brightness(1.15);
     backdrop-filter: blur(15px) saturate(180%) brightness(1.15);
-    border: var(--settings-card-border, 1px) solid rgba(255, 255, 255, 0.12);
-    border-radius: 12px;
+    border: none;
+    border-left: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0;
     box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);
     pointer-events: auto;
     z-index: 1;
