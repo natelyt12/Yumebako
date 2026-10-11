@@ -1,0 +1,259 @@
+/* ============================================================================
+   CUSTOM DROPDOWN — single source of truth
+   ============================================================================
+   A custom dropdown is a value picker that replaces a native <select>, styled
+   to look and behave exactly like one. Everything that defines its appearance
+   lives in THIS file — edit here, not in buttons.css / submenus.css.
+
+   Markup contract (all three parts are required):
+
+     <div class="dropdown_wrapper">                 wrapper (positioning context)
+       <button class="btn" data-action="dropdown">  trigger, mirrors <select>
+         <span class="selected_value">…</span>       current label (optional)
+         <div class="sbsctsvg"></div>                chevron (auto-rendered by JS)
+       </button>
+       <div class="dropdown">                       panel (the "option list")
+         <div class="dropdown_item" data-value="x">Label</div>
+         …
+       </div>
+     </div>
+
+   State classes / attributes:
+     .dropdown.opening            panel is open (wipe swept top -> bottom)
+     .dropdown.closing            panel wiping back out in reverse (bottom -> top)
+     .dropdown.open_upwards       panel flipped above the trigger
+     .btn[data-action="dropdown"].btn_active  trigger squared off while open
+     .dropdown_item[data-value]   a value row (gets the checkmark gutter)
+     .dropdown_item[data-selected="true"]  currently selected row (checkmark)
+
+   Action menus (rows WITHOUT data-value, e.g. "Add effect") are supported:
+   they get no checkmark and no gutter.
+   ============================================================================ */
+
+/* --- Wrapper ------------------------------------------------------------- */
+.dropdown_wrapper {
+    position: relative;
+    width: 100%;
+}
+
+/* --- Trigger (mirrors `select, .native_select` in controls.css) ---------- */
+.btn[data-action="dropdown"] {
+    /* Layout: label left, chevron pinned right. */
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: left;
+    width: 100%;
+    /* Same field chrome as `.native_select`. */
+    background-color: var(--button);
+    border: none;
+    border-radius: 10px;
+    box-shadow: none;
+    color: var(--text-primary);
+    height: 40px;
+    box-sizing: border-box;
+    font-size: 1em;
+    font-family: inherit;
+    line-height: normal;
+    cursor: default;
+    /* Horizontal padding only: the right side reserves room for the chevron,
+       like the select's `0 36px 0 14px`, while the vertical padding stays a
+       concern of `.btn` so a two-line trigger keeps its own spacing. */
+    padding-left: 14px;
+    padding-right: 36px;
+    transition:
+        background-color 0.2s var(--smooth),
+        /* Radius squares off on open and rounds back on close. */
+        border-radius 0.2s var(--expo_out);
+}
+
+.btn[data-action="dropdown"]:hover {
+    background-color: var(--button-hov);
+}
+
+/* While the panel is open the trigger squares off, so it reads as the panel's
+   top edge rather than a floating pill. */
+.btn[data-action="dropdown"].btn_active {
+    border-radius: 0;
+}
+
+/* The label fills the trigger; the chevron is out of flow so it never shifts it. */
+.btn[data-action="dropdown"] > .selected_value {
+    margin-right: auto;
+}
+
+/* Chevron pinned at `right 12px`, matching the select's background SVG. */
+.btn[data-action="dropdown"] > .sbsctsvg {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+}
+
+.btn[data-action="dropdown"] > .sbsctsvg svg {
+    width: 18px;
+    height: 18px;
+    opacity: 0.7;
+}
+
+/* Optional leading icon inside a trigger (e.g. the "Add effect" action menu). */
+.btn[data-action="dropdown"] > i[data-icon]:first-child,
+.btn[data-action="dropdown"] > svg:first-child {
+    flex-shrink: 0;
+}
+
+/* --- Panel (mirrors the native option list) ------------------------------ */
+.dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    width: 100%;
+    z-index: var(--z-dropdown);
+
+    /* Solid dark surface, like the native `select option` background.
+       `clip-path` (below) also clips `box-shadow`, so the panel separates from
+       the page with a hairline border instead of a drop shadow. */
+    background-color: #12121c;
+    border: 1px solid var(--glass-border-sm);
+    pointer-events: none;
+
+    display: flex;
+    flex-direction: column;
+    max-height: min(440px, 65vh);
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    /* Wipe reveal driven by `clip-path`. Two independent axes:
+         - direction: which edge the content is revealed from
+         - easing:    --expo_out on open, --cubic_in on close
+       The closed state collapses the panel toward the TOP edge (bottom inset
+       100%), so opening grows top -> bottom; closing shrinks bottom -> top,
+       i.e. the exact reverse of the opening sweep. */
+    clip-path: inset(0 0 100% 0);
+    transition: clip-path 0.2s var(--cubic_in);
+}
+
+/* Open: fully revealed. --expo_out gives the "curtain pulled down" feel. */
+.dropdown.opening {
+    clip-path: inset(0 0 0 0);
+    transition-timing-function: var(--expo_out);
+    pointer-events: auto;
+}
+
+/* Closing: push back toward the top edge, so the panel is eaten bottom -> top
+   (the reverse of opening) with --cubic_in for an accelerating exit. */
+.dropdown.closing {
+    clip-path: inset(0 0 100% 0);
+    transition-timing-function: var(--cubic_in);
+}
+
+/* Upward panel: reveal from the bottom edge, so it grows bottom -> top. The
+   `open_upwards` modifier simply swaps the collapsed edge. */
+.dropdown.open_upwards {
+    top: auto;
+    bottom: calc(100% + 6px);
+    clip-path: inset(100% 0 0 0);
+}
+
+.dropdown.open_upwards.opening {
+    clip-path: inset(0 0 0 0);
+    transition-timing-function: var(--expo_out);
+}
+
+/* Closing an upward panel reverses it: eaten top -> bottom. */
+.dropdown.open_upwards.closing {
+    clip-path: inset(100% 0 0 0);
+    transition-timing-function: var(--cubic_in);
+}
+
+/* --- Items (mirror `select option` rows) --------------------------------- */
+/* An item may be a <div> (static markup) or a <button> (built in JS). Reset the
+   shared `button` chrome (see buttons.css) so both render as a flat list row
+   instead of a raised button. Scoped under `.dropdown` so the reset also
+   out-specifies `button:hover` for non-hover properties. */
+.dropdown .dropdown_item {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    justify-content: flex-start;
+    text-align: left;
+    /* Reset the base button box so a <button> item matches a <div> item. */
+    width: auto;
+    height: auto;
+    min-height: 0;
+    margin: 0;
+    background-color: transparent;
+    border: none;
+    border-color: transparent;
+    box-shadow: none;
+    font-size: inherit;
+    font-family: inherit;
+    line-height: normal;
+    font-weight: 400;
+    color: var(--text-primary);
+    cursor: default;
+    gap: 0;
+    padding: 6px 12px;
+    transition:
+        background-color 0.15s var(--smooth),
+        color 0.15s var(--smooth);
+}
+
+.dropdown .dropdown_item:hover {
+    background-color: var(--button-hov);
+}
+
+.dropdown .dropdown_item:active {
+    background-color: var(--button-act);
+}
+
+/* Only value rows reserve the checkmark gutter; action rows stay flush. */
+.dropdown_item[data-value] {
+    padding-right: 34px;
+    position: relative;
+}
+
+/* Selected row: a subtle lift, dimmer than hover so hover still reads as the
+   active state. Uses --input-bg-focus (0.12) between base (0.08) and hover (0.14). */
+.dropdown_item[data-selected="true"] {
+    background-color: var(--input-bg-focus);
+}
+
+.dropdown_item[data-selected="true"]:hover {
+    background-color: var(--button-hov);
+}
+
+/* Checkmark marks the selected row, pinned to the right edge. Masked SVG so it
+   inherits `currentColor` (same technique as the select's chevron). */
+.dropdown_item[data-selected="true"]::before {
+    content: "";
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    width: 14px;
+    height: 14px;
+    transform: translateY(-50%);
+    background-color: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* --- Optional group divider inside the panel ----------------------------- */
+.dropdown .section_divider {
+    flex-shrink: 0;
+    margin: 6px 0 2px 0;
+    padding: 2px 4px;
+    pointer-events: none;
+}
+
+.dropdown .section_divider:first-child {
+    margin-top: 2px;
+}
+
+.dropdown .section_divider:empty {
+    padding: 0;
+    margin: 4px 0;
+}
