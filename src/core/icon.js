@@ -1,78 +1,95 @@
-import { X, Settings, ChevronDown, ChevronRight, ChevronLeft, EyeOff, RotateCcw, Minus, Plus, Trash, Download, Link, Image, Layout, Layers, Clock, Cloud, Info, Bug, Upload, CheckSquare, Trash2, ImageOff, ArrowUp, ArrowDown, RefreshCcw, Globe, GalleryVerticalEnd, MirrorRectangular, Move, Palette, Waves, Sparkles, PlayCircle, Film , Check} from 'lucide';
+import checkIcon from "@phosphor-icons/core/assets/regular/check.svg?raw";
+import xIcon from "@phosphor-icons/core/assets/regular/x.svg?raw";
+import plusIcon from "@phosphor-icons/core/assets/regular/plus.svg?raw";
+import gearIcon from "@phosphor-icons/core/assets/regular/gear.svg?raw";
+import caretDownIcon from "@phosphor-icons/core/assets/regular/caret-down.svg?raw";
+import caretRightIcon from "@phosphor-icons/core/assets/regular/caret-right.svg?raw";
+import caretLeftIcon from "@phosphor-icons/core/assets/regular/caret-left.svg?raw";
+import imageIcon from "@phosphor-icons/core/assets/regular/image.svg?raw";
+import eyeIcon from "@phosphor-icons/core/assets/regular/eye.svg?raw";
+import arrowCounterClockwiseIcon from "@phosphor-icons/core/assets/regular/arrow-counter-clockwise.svg?raw";
+import minusIcon from "@phosphor-icons/core/assets/regular/minus.svg?raw";
+import trashIcon from "@phosphor-icons/core/assets/regular/trash.svg?raw";
+import downloadSimpleIcon from "@phosphor-icons/core/assets/regular/download-simple.svg?raw";
+import linkSimpleIcon from "@phosphor-icons/core/assets/regular/link-simple.svg?raw";
+import squaresFourIcon from "@phosphor-icons/core/assets/regular/squares-four.svg?raw";
+import clockIcon from "@phosphor-icons/core/assets/regular/clock.svg?raw";
+import cloudIcon from "@phosphor-icons/core/assets/regular/cloud.svg?raw";
+import infoIcon from "@phosphor-icons/core/assets/regular/info.svg?raw";
+import bugIcon from "@phosphor-icons/core/assets/regular/bug.svg?raw";
+import uploadSimpleIcon from "@phosphor-icons/core/assets/regular/upload-simple.svg?raw";
+import checkSquareIcon from "@phosphor-icons/core/assets/regular/check-square.svg?raw";
+import imageBrokenIcon from "@phosphor-icons/core/assets/regular/image-broken.svg?raw";
+import arrowUpIcon from "@phosphor-icons/core/assets/regular/arrow-up.svg?raw";
+import arrowDownIcon from "@phosphor-icons/core/assets/regular/arrow-down.svg?raw";
+import arrowsClockwiseIcon from "@phosphor-icons/core/assets/regular/arrows-clockwise.svg?raw";
+import globeIcon from "@phosphor-icons/core/assets/regular/globe.svg?raw";
+import stackSimpleIcon from "@phosphor-icons/core/assets/regular/stack-simple.svg?raw";
+import arrowsOutCardinalIcon from "@phosphor-icons/core/assets/regular/arrows-out-cardinal.svg?raw";
+import paletteIcon from "@phosphor-icons/core/assets/regular/palette.svg?raw";
+import paintBrushIcon from "@phosphor-icons/core/assets/regular/paint-brush.svg?raw";
+import wavesIcon from "@phosphor-icons/core/assets/regular/waves.svg?raw";
+import sparkleIcon from "@phosphor-icons/core/assets/regular/sparkle.svg?raw";
+import playCircleIcon from "@phosphor-icons/core/assets/regular/play-circle.svg?raw";
+import filmStripIcon from "@phosphor-icons/core/assets/regular/film-strip.svg?raw";
 
-function toSvgString(iconNode, attrs = {}) {
-    const defaultAttrs = {
-        xmlns: 'http://www.w3.org/2000/svg',
-        width: 24,
-        height: 24,
-        viewBox: '0 0 24 24',
-        fill: 'none',
-        stroke: 'currentColor',
-        'stroke-width': 2,
-        'stroke-linecap': 'round',
-        'stroke-linejoin': 'round',
-        ...attrs
-    };
-    const attrString = Object.entries(defaultAttrs).map(([k, v]) => `${k}="${v}"`).join(' ');
-    const childrenString = iconNode.map(([tag, childAttrs]) => {
-        const childAttrString = Object.entries(childAttrs).map(([k, v]) => `${k}="${v}"`).join(' ');
-        return `<${tag} ${childAttrString} />`;
-    }).join('');
-    return `<svg ${attrString}>${childrenString}</svg>`;
+function withSize(svg, size = 24, style = "") {
+    return svg.replace("<svg ", `<svg width="${size}" height="${size}"${style ? ` style="${style}"` : ""} `);
 }
 
 export const Icons = {
-    particleCheck: toSvgString(Check, { width: 14, height: 14 }),
-    particleX: toSvgString(X, { width: 14, height: 14 }),
-    plus: toSvgString(Plus, { width: 16, height: 16 }),
-    close: toSvgString(X),
-    settings: toSvgString(Settings),
-    chevronDown: toSvgString(ChevronDown),
-    chevronRight: toSvgString(ChevronRight, { width: 32, height: 32 }),
-    chevronLeft: toSvgString(ChevronLeft, { width: 18, height: 18 }),
-    preview: toSvgString(Image, { width: 18, height: 18 }),
-    eye: toSvgString(Image, { width: 18, height: 18 }),
-    reset: toSvgString(RotateCcw),
-    sliderDec: toSvgString(Minus),
-    sliderInc: toSvgString(Plus),
-    collectionRemove: toSvgString(Trash, { width: 16, height: 16 }),
-    collectionDownload: toSvgString(Download, { width: 16, height: 16 }),
-    collectionSource: toSvgString(Link, { width: 16, height: 16 }),
-    manageCollection: toSvgString(GalleryVerticalEnd),
-    sidebar_wallpaper: toSvgString(Image),
-    sidebar_appearance: toSvgString(Layout),
-    sidebar_widgets: toSvgString(MirrorRectangular),
-    sidebar_time: toSvgString(Clock),
-    sidebar_weather: toSvgString(Cloud),
-    sidebar_info: toSvgString(Info),
-    sidebar_debug: toSvgString(Bug),
-    upload: toSvgString(Upload, { width: 20, height: 20 }),
-    selectMode: toSvgString(CheckSquare, { width: 20, height: 20 }),
-    bulkDelete: toSvgString(Trash2, { width: 20, height: 20 }),
-    emptyCollection: toSvgString(ImageOff, { width: 32, height: 32 }),
-    particleUp: toSvgString(ArrowUp, { width: 14, height: 14 }),
-    particleDown: toSvgString(ArrowDown, { width: 14, height: 14 }),
-    particleSettings: toSvgString(Settings, { width: 14, height: 14 }),
-    particleDelete: toSvgString(Trash, { width: 14, height: 14 }),
-    weather: toSvgString(Cloud, { width: 16, height: 16 }),
-    changeWallpaper: toSvgString(RefreshCcw, { width: 20, height: 20 }),
-    viewSource: toSvgString(Link, { width: 32, height: 32 }),
-    addToCollection: toSvgString(Plus, { width: 20, height: 20 }),
-    manageWallpaper: toSvgString(GalleryVerticalEnd, { width: 32, height: 32 }),
-    language: toSvgString(Globe, { style: 'transform: scale(1.2)' }),
-    exportSettings: toSvgString(Upload, { width: 32, height: 32 }),
-    importSettings: toSvgString(Download, { width: 32, height: 32 }),
-    resetSettings: toSvgString(RotateCcw, { width: 32, height: 32 }),
-    arrangeWallpaper: toSvgString(Move, { width: 18, height: 18 }),
-    filterSettings: toSvgString(Palette, { width: 18, height: 18 }),
-    wavySettings: toSvgString(Waves, { width: 18, height: 18 }),
-    parallaxSettings: toSvgString(Move, { width: 18, height: 18 }),
-    particlesSettings: toSvgString(Sparkles, { width: 18, height: 18 }),
-    onloadSettings: toSvgString(PlayCircle, { width: 18, height: 18 }),
-    videoBadge: toSvgString(Film, { width: 16, height: 16 }),
-    imageBadge: toSvgString(Image, { width: 16, height: 16 }),
-    // Wallpaper Switcher: trailing "load one more" card
-    addMore: toSvgString(Plus, { width: 40, height: 40 })
+    particleCheck: withSize(checkIcon, 14),
+    particleX: withSize(xIcon, 14),
+    plus: withSize(plusIcon, 16),
+    close: withSize(xIcon),
+    settings: withSize(gearIcon),
+    chevronDown: withSize(caretDownIcon),
+    chevronRight: withSize(caretRightIcon, 32),
+    chevronLeft: withSize(caretLeftIcon, 18),
+    preview: withSize(eyeIcon, 18),
+    eye: withSize(eyeIcon, 18),
+    reset: withSize(arrowCounterClockwiseIcon),
+    sliderDec: withSize(minusIcon),
+    sliderInc: withSize(plusIcon),
+    collectionRemove: withSize(trashIcon, 16),
+    collectionDownload: withSize(downloadSimpleIcon, 16),
+    collectionSource: withSize(linkSimpleIcon, 16),
+    manageCollection: withSize(stackSimpleIcon),
+    sidebar_wallpaper: withSize(imageIcon),
+    sidebar_appearance: withSize(paintBrushIcon),
+    sidebar_widgets: withSize(squaresFourIcon),
+    sidebar_time: withSize(clockIcon),
+    sidebar_weather: withSize(cloudIcon),
+    sidebar_info: withSize(infoIcon),
+    sidebar_debug: withSize(bugIcon),
+    upload: withSize(uploadSimpleIcon, 20),
+    selectMode: withSize(checkSquareIcon, 20),
+    bulkDelete: withSize(trashIcon, 20),
+    emptyCollection: withSize(imageBrokenIcon, 32),
+    particleUp: withSize(arrowUpIcon, 14),
+    particleDown: withSize(arrowDownIcon, 14),
+    particleSettings: withSize(gearIcon, 14),
+    particleDelete: withSize(trashIcon, 14),
+    weather: withSize(cloudIcon, 16),
+    changeWallpaper: withSize(arrowsClockwiseIcon, 20),
+    viewSource: withSize(linkSimpleIcon, 32),
+    addToCollection: withSize(plusIcon, 20),
+    manageWallpaper: withSize(stackSimpleIcon, 32),
+    language: withSize(globeIcon, 24, "transform: scale(1.2)"),
+    exportSettings: withSize(uploadSimpleIcon, 32),
+    importSettings: withSize(downloadSimpleIcon, 32),
+    resetSettings: withSize(arrowCounterClockwiseIcon, 32),
+    arrangeWallpaper: withSize(arrowsOutCardinalIcon, 18),
+    filterSettings: withSize(paletteIcon, 18),
+    wavySettings: withSize(wavesIcon, 18),
+    parallaxSettings: withSize(arrowsOutCardinalIcon, 18),
+    particlesSettings: withSize(sparkleIcon, 18),
+    onloadSettings: withSize(playCircleIcon, 18),
+    videoBadge: withSize(filmStripIcon, 16),
+    imageBadge: withSize(imageIcon, 16),
+    addMore: withSize(plusIcon, 40),
+    image: withSize(imageIcon),
+    collection: withSize(stackSimpleIcon)
 };
 
 export function renderIcons(rootNode = document) {
