@@ -75,7 +75,7 @@ body {
   color: inherit;
   font: inherit;
   font-weight: 600;
-  cursor: pointer;
+  cursor: default;
 }
 
 .harness__actions button:hover:not(:disabled) {

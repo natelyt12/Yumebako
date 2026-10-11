@@ -35,8 +35,8 @@
        and the width of the three columns. Resizing the sidebar is a one-line
        change here (the nav reads --nav-width as well). */
     --settings-gap: 8px;
-    --nav-width: 52px;
-    --main-view-width: 320px;
+    --nav-width: 60px;
+    --main-view-width: 340px;
 
     /* Width requested by the open submenu panel, clamped so the nav and the gap
        always fit inside the viewport. */
@@ -129,7 +129,7 @@
     height: 40px !important;
     padding: 12px !important;
     border-radius: 50px !important;
-    cursor: pointer !important;
+    cursor: default !important;
     box-shadow: none !important;
     margin: 0 !important;
     color: var(--text-primary);

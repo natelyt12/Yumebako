@@ -12,28 +12,40 @@
     flex-shrink: 0;
     /* Shared sizing of the card and its buttons: both lists keep the same
        rhythm and the card hugs whichever one is shown. */
-    --nav_item_size: 40px;
-    --nav_gap: 4px;
-    --nav_pad: 4px;
+    --nav_item_size: 44px;
+    --nav_gap: 2px;
+    --nav_pad: 7px;
+    --nav_item_radius: 8px;
 }
 
 .nav_group {
     position: relative;
-    width: 100%;
+    /* Hug the item column exactly (item + both paddings) and centre it in the
+       slot, so the card border sits a uniform `--nav_pad` away from every item
+       edge and the corner stays concentric with the item's 8px corner. */
+    width: calc(var(--nav_item_size) + var(--nav_pad) * 2);
+    margin-inline: auto;
     /* Only one list is ever in the flow (see `.nav_actions_visible` below), so
        the card simply hugs whichever list is shown: no height animation and no
        stacked layers. The swap is a plain fade the controller drives - fade the
        card out, flip the list, fade it back in. */
-    padding: var(--nav_pad) 0;
+    padding: var(--nav_pad);
+    box-sizing: border-box;
+    transition: opacity 0.15s ease;
+}
+
+.nav_group::before {
+    content: "";
+    position: absolute;
+    inset: 0;
     background-color: var(--bg-panel);
     -webkit-backdrop-filter: blur(15px) saturate(180%) brightness(1.15);
     backdrop-filter: blur(15px) saturate(180%) brightness(1.15);
     border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 12px;
+    border-radius: calc(var(--nav_pad) + var(--nav_item_radius));
     box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);
-    /* Glass properties dissolve for hold-to-preview; opacity is the swap fade. */
+    pointer-events: none;
     transition:
-        opacity 0.15s ease,
         background-color var(--settings-motion) var(--expo_out),
         -webkit-backdrop-filter var(--settings-motion) var(--expo_out),
         backdrop-filter var(--settings-motion) var(--expo_out),
@@ -48,6 +60,8 @@
 }
 
 .nav_layer {
+    position: relative;
+    z-index: 1;
     min-width: 0;
 }
 
@@ -81,7 +95,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 8px;
+    border-radius: var(--nav_item_radius);
     transition: all 0.3s var(--expo_out);
     color: rgba(255, 255, 255, 0.4);
     position: relative;
@@ -115,9 +129,8 @@
     height: 20px;
 }
 
-/* Nav item tooltips pop out to the left of the sidebar. Kept as a plain dark
-   chip: adding `backdrop-filter` here made the label flicker while clicking
-   through the tabs. */
+/* Nav item tooltips sit outside the nav glass layer so they can blur the page
+   backdrop independently. */
 .nav_tooltip {
     position: absolute;
     right: calc(100% + 14px);
@@ -125,7 +138,9 @@
     transform: translateY(-50%) translateX(10px);
     opacity: 0;
     pointer-events: none;
-    background-color: rgba(14, 14, 22, 0.5);
+    background-color: rgba(14, 14, 22, 0.28);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    backdrop-filter: blur(12px) saturate(160%);
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow:
         0 6px 20px rgba(0, 0, 0, 0.15),
