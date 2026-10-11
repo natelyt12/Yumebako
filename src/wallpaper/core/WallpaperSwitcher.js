@@ -134,6 +134,9 @@ export class WallpaperSwitcher {
         };
       });
 
+      const previousCount = (allCards?.length || 0) - (addedCards?.length || 0);
+      const isAtLast = previousCount > 0 && (dataControl.currentIndex === previousCount - 1 || this.carousel.hardIndex === previousCount - 1);
+
       this.carousel.syncItems(engineItems, dataControl.currentIndex, { silent: true });
       this.bar?.syncCounter();
 
@@ -143,9 +146,10 @@ export class WallpaperSwitcher {
         dataControl.setHardIndex(0);
         this.carousel?.scrollToCard(0);
         this.bar?.renderActions(dataControl.activeCard);
-      } else if (addedCards && addedCards.length > 0 && this.carousel.count > 0) {
-        // Smoothly scroll to the latest added card
-        this.carousel.scrollToCard(this.carousel.count - 1);
+      } else if (isAtLast && addedCards && addedCards.length > 0) {
+        // Người dùng đang đứng ở ảnh cuối cùng trước khi thêm -> tự động cuộn sang ảnh tiếp theo
+        const nextIndex = dataControl.currentIndex + 1;
+        this.carousel.scrollToCard(nextIndex);
       }
     });
 
@@ -401,7 +405,7 @@ export class WallpaperSwitcher {
 
   bindEvents() {
     // Toggle button click
-    this.toggleBtn.addEventListener("mousedown", (e) => {
+    this.toggleBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       this.toggle();
     });
@@ -450,7 +454,7 @@ export class WallpaperSwitcher {
     if (settingsWrapper?.classList.contains("setting_wrapper_opened")) {
       const closeBtn = document.getElementById("setting_close_btn");
       if (closeBtn) {
-        closeBtn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+        closeBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       }
     }
 

@@ -4,6 +4,7 @@ import { initializeWavySettings, initializeParticles, applyWallpaperFilters, app
 import { initWidget } from "../widgets/handler.js";
 import { initAppUtils } from "../settings/system/apputils.js";
 import { renderIcons } from "./icon.js";
+import { initButtons } from "./ui/button.js";
 import { wallpaperSwitcher } from "../wallpaper/core/WallpaperSwitcher.js";
 import { dataControl } from "../wallpaper/core/DataControl.js";
 
@@ -27,11 +28,11 @@ async function loadSettingsPanel() {
         wrapper.classList.remove("preload");
     }
 
-    // Re-dispatch a mousedown event on the toggle button so the newly registered
+    // Re-dispatch a click event on the toggle button so the newly registered
     // event listener inside ui.js opens the settings panel immediately on first click.
     const toggleBtn = document.getElementById("setting_toggle_btn");
     if (toggleBtn) {
-        toggleBtn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+        toggleBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     }
 }
 
@@ -50,6 +51,7 @@ export async function start() {
     applyWallpaperPosition();
     initializeWavySettings();
     initializeParticles();
+    initButtons();
     renderIcons();
 
     // 2. Load core components (i18n and widgets)
@@ -81,7 +83,7 @@ export async function start() {
     // 5. Register Lazy Loading settings listeners
     const toggleBtn = document.getElementById("setting_toggle_btn");
     if (toggleBtn) {
-        toggleBtn.addEventListener("mousedown", () => {
+        toggleBtn.addEventListener("click", () => {
             wallpaperSwitcher.close();
             loadSettingsPanel();
         });
@@ -104,11 +106,11 @@ export async function start() {
                     loadSettingsPanel();
                 } else {
                     const btn = document.getElementById("setting_toggle_btn");
-                    if (btn) btn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+                    if (btn) btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
                 }
             } else {
                 const closeBtn = document.getElementById("setting_close_btn");
-                if (closeBtn) closeBtn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+                if (closeBtn) closeBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
             }
         }
     });

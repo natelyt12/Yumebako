@@ -255,6 +255,9 @@ export class CollectionSource extends BaseSource {
     const sourceUrl = /^https?:\/\//i.test(metadata.source || "")
       ? metadata.source
       : "";
+    const isLocal = metadata.provider
+      ? metadata.provider === "local"
+      : metadata.source === "local" || !sourceUrl;
 
     return this.toCarouselItem(raw, {
       id: String(raw.id),
@@ -262,7 +265,8 @@ export class CollectionSource extends BaseSource {
       title: this._buildTitle(raw),
       mediaType: this.isVideo(raw) ? "video" : "image",
       thumbnailUrl: this._resolveThumb(raw),
-      local: true,
+      local: isLocal,
+      metadata,
       width: metadata.width || 0,
       height: metadata.height || 0,
       size: metadata.size || (raw.blob instanceof Blob ? raw.blob.size : 0),
@@ -327,6 +331,11 @@ export class CollectionSource extends BaseSource {
       rawSource.includes("wallhaven.cc")
     ) {
       srcVal = "Wallhaven";
+    } else if (
+      providerKey === "unsplash" ||
+      rawSource.includes("unsplash.com")
+    ) {
+      srcVal = "Unsplash";
     } else if (providerKey === "picre" || rawSource.includes("pic.re")) {
       srcVal = "Picre";
     } else if (rawSource && /^https?:\/\//i.test(rawSource)) {

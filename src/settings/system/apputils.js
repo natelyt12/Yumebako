@@ -43,7 +43,7 @@ function initBackup() {
 
     const setupExportButton = (btn, type, msgKey, originalTextKey) => {
         if (!btn) return;
-        btn.addEventListener("mousedown", async () => {
+        btn.addEventListener("click", async () => {
             const confirmed = await showConfirm(t(msgKey), {
                 title: t("sp.backup.export_title"),
                 okText: t("common.confirm"),
@@ -93,7 +93,7 @@ function initBackup() {
     };
 
     if (importBtn && importFile) {
-        importBtn.addEventListener("mousedown", () => {
+        importBtn.addEventListener("click", () => {
             importFile.click();
         });
         handleImportFile(importFile, importSettings);

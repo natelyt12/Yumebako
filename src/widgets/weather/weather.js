@@ -86,7 +86,7 @@ export function initWeatherSettings() {
                                     <span class="tooltip">lat: ${result.latitude}, lng: ${result.longitude}</span>
                                 `;
 
-                                div.addEventListener("mousedown", async () => {
+                                div.addEventListener("click", async () => {
                                     if (isFetching) return;
                                     isFetching = true;
                                     location_input.value = result.name;

@@ -62,8 +62,7 @@ export function showNotification(message, type = "info") {
     });
     
     // Dismiss on click
-    notification.addEventListener("mousedown", (e) => {
-        // use mousedown to prevent text selection issues, or just click
+    notification.addEventListener("click", () => {
         removeNotification();
     });
 

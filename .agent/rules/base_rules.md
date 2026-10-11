@@ -28,18 +28,34 @@ These are the rules the agent must always keep in mind when coding a new feature
 ## 3. Interface (UI/UX)
 When working on the UI, follow the structure of the project, keep nested `div`s to an absolute minimum and strictly limit inline styles.
 - **Core UI components:**
-  - The project already ships a component library. For dropdowns, use `core/ui/dropdown.js`. The same applies to `notification`, `popup`, `slider` and `submenu`. **Read and study each of these JS files carefully** before using them, so you pass the right params.
+  - The project already ships a component library. For dropdowns, use `core/ui/dropdown.js` and restyle through `styles/dropdown.css` (the single source of truth for dropdown UI). The same applies to `notification`, `popup`, `slider` and `submenu`. **Read and study each of these JS files carefully** before using them, so you pass the right params.
 - **Tooltip:** Write in-app tooltips using an element with the `.tooltip` class.
-- **Button:**
-  - Just use a plain `<button>` element, the system styles it automatically.
-  - Button that contains an icon: use the `.icon_button` class.
-  - Button that opens a menu/picker (dropdown): use the `.dropdown_button` class.
-- **Checkbox/Toggle:** Do not use a bare checkbox input, use a label with the `.checkbox` class:
+- **Button:** Every bar-style button (settings + app UI) uses the single `.btn`
+  component. It follows a three-zone slot layout, and Zone 3 is always rendered by
+  JS from `data-action` — never write the chevron or the switch track by hand.
+  - Zone 1 (optional): leading icon `<i data-icon="...">`.
+  - Zone 2: `<div class="btn_body">` holding `.btn_title` and an optional `.btn_desc`
+    (use a plain `<span>` for a one-line label without a description).
+  - Zone 3 (auto-rendered by `core/ui/button.js`):
+
+    | `data-action` | Zone 3 | Purpose |
+    | :--- | :--- | :--- |
+    | *(none)* | – | Plain action (Save, Reset, Export, Close) |
+    | `submenu` | right chevron | Opens a right-hand submenu panel |
+    | `dropdown` | down chevron (`.sbsctsvg`) | Opens a dropdown — see `styles/dropdown.css` |
+    | `toggle` | switch track (`.ts-track`) | Binary on/off — use a `<label class="btn">` |
+
+  - Colour variants: default glass, or `data-variant="danger"` for destructive actions.
+  - After injecting markup dynamically, call `initButtons(rootNode)` (exported from `core/ui.js`).
+  - The legacy `.btn_liked`, `.icon_button`, `.submenu_button`, `.btn_warning` and
+    `.danger_btn` classes were removed — do not use them.
+  - Icon-only controls (slider steppers, the floating settings/wallpaper buttons,
+    transparent tabs) are intentionally **outside** this spec: keep their own class and CSS.
+- **Toggle:** a toggle is a `.btn` with `data-action="toggle"`; JS injects the track:
   ```html
-  <label class="checkbox">
-      <span>Option name</span>
+  <label class="btn" data-action="toggle">
+      <span data-i18n="...">Option name</span>
       <input type="checkbox" />
-      <div class="ts-track"><div class="ts-thumb"></div></div>
   </label>
   ```
 - **Settings Layout:**

@@ -37,144 +37,23 @@
     flex-direction: column;
     scroll-behavior: smooth;
     opacity: 0;
-    transform: translateY(8px);
-    transition: opacity var(--settings-motion) var(--expo_out), transform var(--settings-motion) var(--expo_out);
+    transition: opacity var(--settings-motion) var(--expo_out);
 }
 
 .settings_submenu_view.show_content .submenu_body {
     opacity: 1;
-    transform: none;
 }
 
-/* Hold-to-preview: dissolve the glass and fade the content instead of fading the
-   whole stack. Fading an ancestor disables backdrop-filter for the whole fade,
-   which made the blur pop back in the moment the fade finished. */
+/* Hold-to-preview: ẩn tức thì toàn bộ panel cài đặt khi nhấn giữ xem trước, không có hiệu ứng fade */
 #setting_wrapper.preview_eye_active {
-    pointer-events: none;
-}
-
-/* !important so the preview also hides content that the submenu state shows. */
-#setting_wrapper.preview_eye_active .settings_nav_inner,
-#setting_wrapper.preview_eye_active .submenu_nav_actions,
-#setting_wrapper.preview_eye_active .settings_main_view,
-#setting_wrapper.preview_eye_active .settings_submenu_view > * {
     opacity: 0 !important;
-    transition: opacity 0.3s ease !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transition: none !important;
 }
 
-#setting_wrapper.preview_eye_active .nav_group,
-#setting_wrapper.preview_eye_active #settings_content {
-    background-color: transparent;
-    -webkit-backdrop-filter: blur(0) saturate(100%) brightness(1);
-    backdrop-filter: blur(0) saturate(100%) brightness(1);
-    border-color: transparent;
-    box-shadow: none;
-    transition:
-        background-color 0.3s ease,
-        -webkit-backdrop-filter 0.3s ease,
-        backdrop-filter 0.3s ease,
-        border-color 0.3s ease,
-        box-shadow 0.3s ease !important;
-}
-
-/* Subsection Dropdown Modern UI */
-/* Dropdown Modern UI */
-.dropdown_wrapper {
-    position: relative;
-    width: 100%;
-}
-
-.dropdown_button {
-    text-align: left;
-    width: 100%;
-}
-
-.dropdown {
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 0;
-    width: 100%;
-    z-index: var(--z-dropdown);
-
-    background-color: rgba(10, 10, 18, 0.9);
-    border: 1px solid var(--glass-border-sm);
-    border-radius: 12px;
-    opacity: 0;
-    pointer-events: none;
-    will-change: transform, opacity;
-    transform: translateY(-10px) scale(1);
-    transition:
-        opacity 0.2s var(--smooth),
-        transform 0.2s var(--smooth);
-    transform-origin: top center;
-
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 6px;
-    max-height: min(440px, 65vh);
-    overflow-y: auto;
-    overflow-x: hidden;
-}
-
-.dropdown:not(.active) {
-    display: none !important;
-}
-
-.dropdown.opening {
-    opacity: 1;
-    transform: translateY(0);
-    pointer-events: auto;
-}
-
-.dropdown.open_upwards {
-    top: auto;
-    bottom: calc(100% + 6px);
-    transform-origin: bottom center;
-    transform: translateY(6px) scale(0.97);
-}
-
-.dropdown.open_upwards.opening {
-    transform: translateY(0);
-}
-
-/* Dropdown items */
-.dropdown_item {
-    flex-shrink: 0;
-    justify-content: flex-start;
-    text-align: left;
-    border-radius: 2px;
-    border-radius: 6px;
-    transition:
-        background-color 0.15s var(--smooth),
-        color 0.15s var(--smooth);
-}
-
-.dropdown_item:hover {
-    background-color: var(--button-hov) !important;
-    border-color: var(--glass-border) !important;
-}
-
-.dropdown_item:active {
-    background-color: var(--button-act) !important;
-}
-
-/* Dropdown section divider */
-.dropdown .section_divider {
-    flex-shrink: 0;
-    margin: 6px 0 2px 0;
-    padding: 2px 4px;
-    pointer-events: none;
-}
-
-.dropdown .section_divider:first-child {
-    margin-top: 2px;
-}
-
-.dropdown .section_divider:empty {
-    padding: 0;
-    margin: 4px 0;
-}
+/* The custom dropdown component lives in `styles/dropdown.css` — see that file
+   to restyle triggers, panels, items and the selection checkmark. */
 
 .grid_2col {
     display: grid !important;
@@ -182,7 +61,7 @@
     gap: 6px !important;
 }
 
-.grid_2col>*:not(.dropdown_item):not(.btn_liked) {
+.grid_2col>*:not(.dropdown_item):not([data-action="toggle"]) {
     grid-column: span 2;
 }
 

@@ -2,6 +2,7 @@
 @import "./settings_nav.css";
 @import "./settings_layout.css";
 @import "/src/styles/submenus.css";
+@import "/src/styles/dropdown.css";
 @import "/src/wallpaper/particles/effects.css";
 @import "./weather_settings.css";
 @import "/src/wallpaper/bgEditor.css";

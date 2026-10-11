@@ -8,6 +8,7 @@ export function initDebugSettings() {
     initNotifTest();
     initSubmenuTest();
     initUnsplashDebug();
+    initDropdownTest();
 }
 
 export function updateUnsplashVisibility() {
@@ -17,16 +18,6 @@ export function updateUnsplashVisibility() {
     unsplashItems.forEach((item) => {
         item.style.display = key ? "" : "none";
     });
-
-    // Nếu không có key mà source đang là unsplash, tự động fallback sang wallhaven
-    if (!key && settings.wallpaperConfig?.source === "unsplash") {
-        const apiSelector = document.getElementById("API_selector");
-        if (apiSelector) {
-            document.dispatchEvent(new CustomEvent("dropdownChange", {
-                detail: { id: "API_selector", value: "wallhaven" }
-            }));
-        }
-    }
 }
 
 function initUnsplashDebug() {
@@ -79,7 +70,7 @@ function initPopupTest() {
     });
 
     const noCloseBtn = document.getElementById("test_popup_noclose");
-    noCloseBtn?.addEventListener("mousedown", () => {
+    noCloseBtn?.addEventListener("click", () => {
         const div = document.createElement("div");
         div.className = "popup_body";
         div.innerHTML = `
@@ -88,7 +79,7 @@ function initPopupTest() {
         `;
         const result = openCustomPopup("No X Button", div, "400px", { canClose: false, anchor: noCloseBtn, placement: "bottom-right" });
 
-        div.querySelector("#manual_close_btn").addEventListener("mousedown", () => {
+        div.querySelector("#manual_close_btn").addEventListener("click", () => {
             result.closePopup();
         });
     });
@@ -100,19 +91,19 @@ function initPopupTest() {
 }
 
 function initNotifTest() {
-    document.getElementById("test_notif_info")?.addEventListener("mousedown", () => {
+    document.getElementById("test_notif_info")?.addEventListener("click", () => {
         showNotification("Info Notification: Just a friendly update.", "info");
     });
 
-    document.getElementById("test_notif_success")?.addEventListener("mousedown", () => {
+    document.getElementById("test_notif_success")?.addEventListener("click", () => {
         showNotification("Success Notification: Task completed successfully!", "success");
     });
 
-    document.getElementById("test_notif_error")?.addEventListener("mousedown", () => {
+    document.getElementById("test_notif_error")?.addEventListener("click", () => {
         showNotification("Error Notification: Something went wrong!", "error");
     });
 
-    document.getElementById("test_notif_warning")?.addEventListener("mousedown", () => {
+    document.getElementById("test_notif_warning")?.addEventListener("click", () => {
         showNotification("Warning Notification: Please check your settings.", "warning");
     });
 }
@@ -129,22 +120,31 @@ function initSubmenuTest() {
                 <button id="sub_action_2">Test action 2</button>
             </div>
         `;
-        div.querySelector("#sub_action_1")?.addEventListener("mousedown", () => {
+        div.querySelector("#sub_action_1")?.addEventListener("click", () => {
             showNotification("Test action 1 clicked inside the submenu", "success");
         });
-        div.querySelector("#sub_action_2")?.addEventListener("mousedown", () => {
+        div.querySelector("#sub_action_2")?.addEventListener("click", () => {
             showNotification("Test action 2 clicked inside the submenu", "info");
         });
         return div;
     };
 
-    document.getElementById("test_sidebar_submenu")?.addEventListener("mousedown", () => {
+    document.getElementById("test_sidebar_submenu")?.addEventListener("click", () => {
         const inputVal = document.getElementById("test_submenu_width")?.value.trim();
         const title = inputVal ? `Submenu (${inputVal})` : "Advanced Settings";
         openSidebarSubmenu(title, createSubmenuContent("Advanced Submenu Details"), { width: inputVal, canPreview: true });
     });
 
-    document.getElementById("test_sidebar_submenu_fullscreen")?.addEventListener("mousedown", () => {
+    document.getElementById("test_sidebar_submenu_fullscreen")?.addEventListener("click", () => {
         openSidebarSubmenu("Fullscreen Submenu", createSubmenuContent("Fullscreen Submenu Details"), { isFullScreen: true });
     });
 }
+
+function initDropdownTest() {
+    document.addEventListener("dropdownChange", (e) => {
+        if (e.detail?.id === "test_custom_dropdown") {
+            showNotification(`Custom Dropdown: Đã chọn ${e.detail.value}`, "info");
+        }
+    });
+}
+

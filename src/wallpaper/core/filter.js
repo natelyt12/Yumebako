@@ -1,4 +1,4 @@
-import { openSidebarSubmenu, closeSidebarSubmenu, setSubmenuDirty, showNotification, createSlider, initSubsectionSvg } from "/src/core/ui.js";
+import { openSidebarSubmenu, closeSidebarSubmenu, setSubmenuDirty, showNotification, createSlider, initButtons } from "/src/core/ui.js";
 import { t, translateDOM } from "/src/core/i18n.js";
 import { getSettings, saveSettings } from "/src/core/storageHandler.js";
 
@@ -40,7 +40,7 @@ class FilterSettingsEditor {
     initialize() {
         const editBtn = document.getElementById("edit_filter_settings");
         if (editBtn) {
-            editBtn.addEventListener("mousedown", () => this.openEditor());
+            editBtn.addEventListener("click", () => this.openEditor());
         }
     }
 
@@ -68,7 +68,7 @@ class FilterSettingsEditor {
             }
         });
 
-        initSubsectionSvg();
+        initButtons();
     }
 
     bindElements() {
@@ -125,11 +125,11 @@ class FilterSettingsEditor {
 
     setupBindings() {
         if (this.btnReset) {
-            this.btnReset.addEventListener("mousedown", () => this.handleReset());
+            this.btnReset.addEventListener("click", () => this.handleReset());
         }
 
         if (this.btnSave) {
-            this.btnSave.addEventListener("mousedown", () => this.handleSave());
+            this.btnSave.addEventListener("click", () => this.handleSave());
         }
     }
 

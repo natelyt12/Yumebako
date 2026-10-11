@@ -367,7 +367,7 @@ export function initClockSettings() {
             }
         };
 
-        clockApplyFontBtn.addEventListener("mousedown", saveFont);
+        clockApplyFontBtn.addEventListener("click", saveFont);
         clockFontInput.addEventListener("keydown", (e) => {
             if (e.key === "Enter") saveFont();
         });

@@ -72,7 +72,7 @@
 
 .popup_close:hover {
     opacity: 1;
-    background-color: transparent !important;
+    background-color: transparent;
 }
 
 .popup_close svg {
@@ -80,19 +80,19 @@
     height: 20px;
 }
 
-.popup_opened {
+.popup_opened:not(.popup_closing) {
     visibility: visible;
-    background-color: rgba(0, 0, 0, 0.45) !important;
+    background-color: rgba(0, 0, 0, 0.45);
 }
 
 .popup_closing {
-    visibility: visible !important;
-    pointer-events: none !important;
-    background-color: transparent !important;
+    visibility: visible;
+    pointer-events: none;
+    background-color: transparent;
 }
 
 .popup_closing .popup_section {
-    animation: popup_exit 0.25s var(--smooth) both !important;
+    animation: popup_exit 0.25s var(--smooth) both;
 }
 
 /* Floating Action Bar for Edit Mode - follows Yumebako design language */
@@ -300,6 +300,8 @@
 }
 
 .notification.exit {
+    /* popups.css is imported before controls.css (base button transition) and
+       buttons.css, so the collapsing values must out-rank those base rules. */
     animation: notification_exit 0.35s var(--smooth) forwards;
     max-height: 0 !important;
     padding-top: 0 !important;

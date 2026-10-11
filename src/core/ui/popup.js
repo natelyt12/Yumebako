@@ -1,5 +1,6 @@
 import { renderIcons } from "/src/core/icon.js";
 import { t, translateDOM } from "/src/core/i18n.js";
+import { initButtons } from "/src/core/ui/button.js";
 
 let currentZIndex = 50;
 
@@ -87,14 +88,14 @@ export function openCustomPopup(title, contentNode, width = "400px", options = {
 
     let anchorEl = null;
     if (rawAnchor instanceof Element || (rawAnchor && rawAnchor.nodeType === 1)) {
-        anchorEl = rawAnchor.closest("button, [role='button'], .icon_button, .dropdown_button, .submenu_button, a, label, .setting_section") || rawAnchor;
+        anchorEl = rawAnchor.closest("button, [role='button'], .btn, a, label, .setting_section") || rawAnchor;
     } else if (typeof rawAnchor === "string" && rawAnchor.trim().length > 0) {
         anchorEl = document.querySelector(rawAnchor);
     } else if (rawAnchor && (rawAnchor.currentTarget || rawAnchor.target)) {
         const rawTarget = (rawAnchor.currentTarget instanceof Element ? rawAnchor.currentTarget : null) || 
                           (rawAnchor.target instanceof Element ? rawAnchor.target : null);
         if (rawTarget) {
-            anchorEl = rawTarget.closest("button, [role='button'], .icon_button, .dropdown_button, .submenu_button, a, label, .setting_section") || rawTarget;
+            anchorEl = rawTarget.closest("button, [role='button'], .btn, a, label, .setting_section") || rawTarget;
         }
     }
 
@@ -216,6 +217,7 @@ export function openCustomPopup(title, contentNode, width = "400px", options = {
     }
 
     translateDOM(popupSection);
+    initButtons(popupSection);
     renderIcons(popupSection);
 
     requestAnimationFrame(() => {
@@ -233,7 +235,7 @@ export function openCustomPopup(title, contentNode, width = "400px", options = {
  * @param {string} [options.title] - Dialog title.
  * @param {string} [options.okText] - Confirm button label.
  * @param {string} [options.cancelText] - Cancel button label.
- * @param {boolean} [options.isDanger=false] - Whether this is a destructive action (styles confirm button with .danger_btn).
+ * @param {boolean} [options.isDanger=false] - Whether this is a destructive action (styles the confirm button with `data-variant="danger"`).
  * @param {string} [options.width="380px"] - Dialog width.
  * @param {HTMLElement|string|Event|{x: number, y: number}} [options.anchor=null] - Anchor button/element or coordinates.
  * @param {"top-left"|"top-right"|"bottom-left"|"bottom-right"} [options.placement="bottom-left"] - Placement relative to anchor element.
@@ -258,8 +260,8 @@ export function showConfirm(msg, options = {}) {
         body.innerHTML = `
             <p class="popup_desc">${msg}</p>
             <div class="actions">
-                <button id="confirm_cancel_btn" class="secondary">${cancelText}</button>
-                <button id="confirm_ok_btn" class="${isDanger ? "danger_btn" : "primary"}">${okText}</button>
+                <button id="confirm_cancel_btn" class="btn">${cancelText}</button>
+                <button id="confirm_ok_btn" class="btn"${isDanger ? ' data-variant="danger"' : ""}>${okText}</button>
             </div>
         `;
 
@@ -294,7 +296,7 @@ export function showConfirm(msg, options = {}) {
  * 
  * @param {string} msg - The message to display.
  * @param {Function} onConfirm - Callback executed when the OK button is clicked.
- * @param {Object} [options={}] - Options: okText, cancelText, isDanger, okClass, cancelClass, hideCancel, onCancel.
+ * @param {Object} [options={}] - Options: okText, cancelText, isDanger, okClass, okVariant, cancelClass, hideCancel, onCancel.
  * @returns {{ container: HTMLElement, setCloseHandler: Function }}
  */
 export function createConfirmDialog(msg, onConfirm, options = {}) {
@@ -302,8 +304,9 @@ export function createConfirmDialog(msg, onConfirm, options = {}) {
         okText = t("common.confirm", "Đồng ý"),
         cancelText = t("common.cancel", "Hủy"),
         isDanger = false,
-        okClass = isDanger ? "danger_btn" : "primary",
-        cancelClass = "secondary",
+        okClass = "btn",
+        cancelClass = "btn",
+        okVariant = isDanger ? "danger" : "",
         hideCancel = false,
         onCancel = null
     } = options;
@@ -314,7 +317,7 @@ export function createConfirmDialog(msg, onConfirm, options = {}) {
         <p class="popup_desc">${msg}</p>
         <div class="actions">
             ${hideCancel ? "" : `<button id="confirm_cancel_btn" class="${cancelClass}">${cancelText}</button>`}
-            <button id="confirm_ok_btn" class="${okClass}">${okText}</button>
+            <button id="confirm_ok_btn" class="${okClass}"${okVariant ? ` data-variant="${okVariant}"` : ""}>${okText}</button>
         </div>
     `;
 

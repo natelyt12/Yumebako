@@ -4,37 +4,25 @@
         <p data-i18n="sp.time.google_font">Google Font</p>
         <div style="display: flex; gap: 8px;">
             <input type="text" id="clock_google_font" data-i18n-placeholder="sp.time.google_font_placeholder" placeholder="Nhập tên font (vd: Inter)" style="flex: 5; margin: 0;" />
-            <button id="clock_apply_font" class="primary" style="flex: 3; margin: 0;" data-i18n="sp.time.apply_font">Áp dụng</button>
+            <button id="clock_apply_font" class="btn" style="flex: 3; margin: 0;" data-i18n="sp.time.apply_font">Áp dụng</button>
         </div>
         <span class="tooltip" data-i18n-html="sp.time.google_font_tooltip" data-i18n-link="https://fonts.google.com/?preview.text=09:41"></span>
         <div id="clock_font_weight_slider_container" style="margin-top: 12px; margin-bottom: 12px; display: none;"></div>
-        <label class="checkbox btn_liked">
+        <label class="btn" data-action="toggle">
             <span data-i18n="sp.time.add_zero_hour">Hiển thị số 0 trong giờ</span>
             <input type="checkbox" id="add_zero_hour" />
-            <div class="ts-track">
-                <div class="ts-thumb"></div>
-            </div>
         </label>
-        <label class="checkbox btn_liked">
+        <label class="btn" data-action="toggle">
             <span data-i18n="sp.time.show_seconds">Hiển thị giây</span>
             <input type="checkbox" id="show_seconds" />
-            <div class="ts-track">
-                <div class="ts-thumb"></div>
-            </div>
         </label>
-        <label class="checkbox btn_liked">
+        <label class="btn" data-action="toggle">
             <span data-i18n="sp.time.clock_format_12h">Sử dụng định dạng 12h</span>
             <input type="checkbox" id="clock_format_12h" />
-            <div class="ts-track">
-                <div class="ts-thumb"></div>
-            </div>
         </label>
-        <label class="checkbox btn_liked">
+        <label class="btn" data-action="toggle">
             <span data-i18n="sp.time.show_ampm">Hiển thị AM/PM</span>
             <input type="checkbox" id="show_ampm" />
-            <div class="ts-track">
-                <div class="ts-thumb"></div>
-            </div>
         </label>
     </div>
 </div>

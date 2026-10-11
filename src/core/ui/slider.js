@@ -74,12 +74,12 @@ export function createSlider(options) {
 
     const decBtn = document.createElement("button");
     decBtn.type = "button";
-    decBtn.className = "slider_step_btn btn_liked";
+    decBtn.className = "slider_step_btn";
     decBtn.innerHTML = Icons.sliderDec;
 
     const incBtn = document.createElement("button");
     incBtn.type = "button";
-    incBtn.className = "slider_step_btn btn_liked";
+    incBtn.className = "slider_step_btn";
     incBtn.innerHTML = Icons.sliderInc;
 
     const trackContainer = document.createElement("div");
@@ -211,19 +211,19 @@ export function createSlider(options) {
         }
     });
 
-    resetBtn.addEventListener("mousedown", (e) => {
+    resetBtn.addEventListener("click", (e) => {
         if (isDisabled) return;
         e.preventDefault();
         updateValue(defaultValue, true, true);
     });
 
-    decBtn.addEventListener("mousedown", (e) => {
+    decBtn.addEventListener("click", (e) => {
         if (isDisabled) return;
         e.preventDefault();
         updateValue(currentValue - step, true, true);
     });
 
-    incBtn.addEventListener("mousedown", (e) => {
+    incBtn.addEventListener("click", (e) => {
         if (isDisabled) return;
         e.preventDefault();
         updateValue(currentValue + step, true, true);

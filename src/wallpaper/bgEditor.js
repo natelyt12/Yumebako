@@ -495,7 +495,7 @@ class BackgroundEditor {
                 const natH = videoLayer.videoHeight;
                 if (!natW || !natH) {
                     showNotification(t("bg_editor.video_not_ready", "Video chưa tải xong, vui lòng thử lại."), "warning");
-                    if (this.popup?.closeBtn) this.popup.closeBtn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+                    if (this.popup?.closeBtn) this.popup.closeBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
                     resolve(false);
                     return;
                 }
@@ -589,7 +589,7 @@ class BackgroundEditor {
     // ─── Button Events ───────────────────────────────────────────────────────
 
     setupEvents() {
-        this.ui.btnReset.onmousedown = () => {
+        this.ui.btnReset.onclick = () => {
             // Reset position & zoom but keep current mode
             this.currentState = {
                 ...this.DEFAULT_STATE,
@@ -612,7 +612,7 @@ class BackgroundEditor {
             this.updateVisuals();
         };
 
-        this.ui.btnApply.onmousedown = () => {
+        this.ui.btnApply.onclick = () => {
             this.isSaved = true;
             this.isDirty = false;
             setSubmenuDirty(false);
@@ -647,7 +647,7 @@ export function InitBGEditor() {
     const editor = new BackgroundEditor(realLayer, template);
     editor.init();
 
-    btn.onmousedown = () => editor.open();
+    btn.onclick = () => editor.open();
 }
 
 export function toggleBgEditorVisibility(state) {

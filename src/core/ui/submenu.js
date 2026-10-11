@@ -2,7 +2,7 @@ import { getSettings } from "/src/core/storageHandler.js";
 import { renderIcons } from "/src/core/icon.js";
 import { translateDOM, t } from "/src/core/i18n.js";
 import { showNotification } from "/src/core/ui/notification.js";
-import { initSubsectionSvg } from "/src/core/ui/dropdown.js";
+import { initButtons } from "/src/core/ui/button.js";
 
 /** Must stay in sync with `--settings-motion` (styles/settings_wrapper.css). */
 const SUBMENU_TRANSITION_MS = 800;
@@ -84,7 +84,7 @@ export function initToggleSettingBtn() {
         }
     };
 
-    settingToggleBtn.addEventListener("mousedown", () => {
+    settingToggleBtn.addEventListener("click", () => {
         const isOpen = settingWrapper.classList.contains("setting_wrapper_opened");
         if (!isOpen) {
             setOpenState(true);
@@ -92,7 +92,7 @@ export function initToggleSettingBtn() {
     });
 
     if (settingCloseBtn) {
-        settingCloseBtn.addEventListener("mousedown", () => {
+        settingCloseBtn.addEventListener("click", () => {
             setOpenState(false);
         });
     }
@@ -194,7 +194,7 @@ export function openSidebarSubmenu(title, contentNode, options = {}) {
     if (submenuView) {
         translateDOM(submenuView);
         renderIcons(submenuView);
-        initSubsectionSvg(submenuView);
+        initButtons(submenuView);
     }
 
     // Only declare the width the caller asked for: `--submenu-width` clamps it to
@@ -220,7 +220,7 @@ export function openSidebarSubmenu(title, contentNode, options = {}) {
     submenuView.classList.add("show_content");
 
     if (backBtn) {
-        backBtn.onmousedown = () => attemptCloseSubmenu();
+        backBtn.onclick = () => attemptCloseSubmenu();
     }
 }
 

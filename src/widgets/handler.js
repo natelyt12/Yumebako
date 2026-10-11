@@ -291,7 +291,7 @@ function syncWidgetToggle() {
                 if (activeTabId === "time" || activeTabId === "weather") {
                     const widgetsTab = document.querySelector('.nav_item[data-tab="widgets"]');
                     if (widgetsTab) {
-                        widgetsTab.dispatchEvent(new MouseEvent("mousedown"));
+                        widgetsTab.dispatchEvent(new MouseEvent("click", { bubbles: true }));
                     }
                 }
             }
@@ -311,7 +311,7 @@ function updateSidebarTabVisibility(tabId, isVisible) {
 
         if (!isVisible && tab.classList.contains("active")) {
             const widgetsTab = document.querySelector('.nav_item[data-tab="widgets"]');
-            if (widgetsTab) widgetsTab.dispatchEvent(new MouseEvent("mousedown"));
+            if (widgetsTab) widgetsTab.dispatchEvent(new MouseEvent("click", { bubbles: true }));
         }
     }
 }

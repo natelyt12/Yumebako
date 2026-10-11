@@ -43,7 +43,7 @@
     flex: 1;
 }
 
-.effects_column .checkbox {
+.effects_column .btn[data-action="toggle"] {
     height: auto !important;
     min-height: unset !important;
     padding: 0 !important;

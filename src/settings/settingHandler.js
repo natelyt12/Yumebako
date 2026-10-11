@@ -1,5 +1,5 @@
 
-import { initSubsectionSvg, initToggleSettingBtn, initSubToggle, showConfirm, closeSidebarSubmenu } from "/src/core/ui.js";
+import { initButtons, initToggleSettingBtn, initSubToggle, showConfirm, closeSidebarSubmenu } from "/src/core/ui.js";
 import { renderIcons } from "/src/core/icon.js";
 import { t, translateDOM } from "/src/core/i18n.js";
 import {
@@ -54,7 +54,7 @@ export async function initSettingsLauncher() {
 
         // --- 2. INIT UI & EVENTS ---
         initSubToggle();
-        initSubsectionSvg();
+        initButtons();
         renderIcons();
         initToggleSettingBtn();
         initSettingsNav();
@@ -128,7 +128,7 @@ function initSettingsNav() {
     const tabContents = document.querySelectorAll(".tab_content");
 
     navItems.forEach((item) => {
-        item.addEventListener("mousedown", () => {
+        item.addEventListener("click", () => {
             const tabId = item.getAttribute("data-tab");
             if (!tabId) return;
 

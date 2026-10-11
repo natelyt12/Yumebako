@@ -32,18 +32,22 @@
     gap: 6px;
 }
 
-.slider_num_input {
-    width: 70px !important;
-    height: 28px !important;
-    padding: 3px 8px !important;
-    font-size: 0.9em !important;
+/* The number input also matches the global `input[type="number"]` rule in
+   controls.css (0,1,1). Prefixing the id-bearing wrapper class raises this rule
+   to (0,2,0) so the compact size wins without `!important`. */
+.custom_slider_group .slider_num_input {
+    width: 70px;
+    height: 28px;
+    padding: 3px 8px;
+    font-size: 0.9em;
     text-align: left;
     flex-shrink: 0;
+    border-radius: 8px;
 }
 
 .slider_unit {
     opacity: 0.6;
-    width: 32px !important;
+    width: 32px;
     text-align: left;
     display: inline-block;
     flex-shrink: 0;
@@ -55,18 +59,19 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    width: 28px !important;
-    height: 28px !important;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
 }
 
 .slider_reset_btn svg {
-    width: 14px !important;
-    height: 14px !important;
-    opacity: 0.6;
+    width: 14px;
+    height: 14px;
+    opacity: 0.8;
 }
 
 .slider_reset_btn:hover {
-    opacity: 1 !important;
+    opacity: 1;
 }
 
 .slider_row_container {
@@ -78,26 +83,28 @@
 
 .slider_range_input {
     flex: 1;
-    height: 28px !important;
-    margin: 0 4px !important;
+    height: 28px;
+    margin: 0 4px;
 }
 
 .slider_step_btn {
-    width: 28px !important;
-    height: 28px !important;
-    padding: 0 !important;
-    font-size: 0.85em !important;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    font-size: 0.85em;
     font-weight: 700;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
+    border-radius: 8px;
+
 }
 
 .slider_step_btn svg {
-    width: 12px !important;
-    height: 12px !important;
-    opacity: 0.6;
+    width: 12px;
+    height: 12px;
+    opacity: 0.8;
     transition: opacity 0.2s ease;
 }
 

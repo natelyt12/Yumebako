@@ -25,7 +25,7 @@ export class OnloadEditorUI {
     initialize() {
         const editBtn = document.getElementById("edit_onload_settings");
         if (!editBtn) return;
-        editBtn.addEventListener("mousedown", () => this.openEditor());
+        editBtn.addEventListener("click", () => this.openEditor());
     }
 
     openEditor() {
@@ -70,10 +70,10 @@ export class OnloadEditorUI {
     bindElements() {
         this.bgContainer = this.clone.querySelector("#onload_bg_sliders");
         this.overlayContainer = this.clone.querySelector("#onload_overlay_sliders");
-        this.presetBtn = this.clone.querySelector("#onload_preset");
-        this.presetDropdown = this.clone.querySelector("#onload_preset_dropdown");
-        this.bgEasingBtn = this.clone.querySelector("#onload_bg_easing");
-        this.bgEasingDropdown = this.clone.querySelector("#onload_bg_easing_dropdown");
+        this.presetSelect = this.clone.querySelector("#onload_preset");
+        this.presetBtn = this.presetSelect;
+        this.bgEasingSelect = this.clone.querySelector("#onload_bg_easing");
+        this.bgEasingBtn = this.bgEasingSelect;
         this.advancedToggle = this.clone.querySelector("#onload_advanced_toggle");
         this.advancedSection = this.clone.querySelector("#onload_advanced_section");
         this.widgetImmediate = this.clone.querySelector("#widget_immediate");
@@ -88,10 +88,10 @@ export class OnloadEditorUI {
     buildDropdowns() {
         const presetOptions = PRESET_ORDER.map((id) => this._presetOption(id));
         presetOptions.push(this._presetOption(CUSTOM_PRESET));
-        this._fillDropdown(this.presetDropdown, presetOptions, { dividerBeforeIndex: PRESET_ORDER.length });
+        this._fillSelect(this.presetSelect, presetOptions);
 
         const easingOptions = EASING_ORDER.map((id) => ({ value: id, labelKey: `common.easing.${id}` }));
-        this._fillDropdown(this.bgEasingDropdown, easingOptions);
+        this._fillSelect(this.bgEasingSelect, easingOptions);
     }
 
     _presetOption(presetId) {
@@ -99,28 +99,16 @@ export class OnloadEditorUI {
         return { value: PresetClass.ID, labelKey: PresetClass.LABEL_KEY };
     }
 
-    /**
-     * Render `options` as dropdown items.
-     * `dividerBeforeIndex` inserts a `.section_divider` before that entry — used
-     * to separate the `custom` pseudo-preset from the named ones.
-     */
-    _fillDropdown(dropdown, options, { dividerBeforeIndex = -1 } = {}) {
-        if (!dropdown) return;
-        dropdown.innerHTML = "";
+    _fillSelect(selectEl, options) {
+        if (!selectEl) return;
+        selectEl.innerHTML = "";
 
-        options.forEach((option, index) => {
-            if (index === dividerBeforeIndex) {
-                const divider = document.createElement("div");
-                divider.className = "section_divider";
-                dropdown.appendChild(divider);
-            }
-
-            const item = document.createElement("div");
-            item.className = "dropdown_item btn_liked";
-            item.dataset.value = option.value;
-            item.setAttribute("data-i18n", option.labelKey);
-            item.textContent = t(option.labelKey);
-            dropdown.appendChild(item);
+        options.forEach((option) => {
+            const opt = document.createElement("option");
+            opt.value = option.value;
+            opt.setAttribute("data-i18n", option.labelKey);
+            opt.textContent = t(option.labelKey);
+            selectEl.appendChild(opt);
         });
     }
 
@@ -193,18 +181,11 @@ export class OnloadEditorUI {
 
         // Dropdown listeners are scoped to the cloned subtree, so they are disposed
         // together with the submenu content — no document-level cleanup needed.
-        this._onDropdownSelect(this.presetDropdown, (value) => this.selectPreset(value));
-        this._onDropdownSelect(this.bgEasingDropdown, (value) => this.selectEasing("bg_easing", value, this.bgEasingBtn));
+        this.presetSelect?.addEventListener("change", (e) => this.selectPreset(e.target.value));
+        this.bgEasingSelect?.addEventListener("change", (e) => this.selectEasing("bg_easing", e.target.value, this.bgEasingBtn));
 
-        this.btnPreview?.addEventListener("mousedown", () => this.togglePreview());
-        this.btnSave?.addEventListener("mousedown", () => this.handleSave());
-    }
-
-    _onDropdownSelect(dropdown, handler) {
-        dropdown?.addEventListener("mousedown", (e) => {
-            const item = e.target.closest(".dropdown_item");
-            if (item) handler(item.dataset.value);
-        });
+        this.btnPreview?.addEventListener("click", () => this.togglePreview());
+        this.btnSave?.addEventListener("click", () => this.handleSave());
     }
 
     /** Push the working state into the input controls (called once per open). */

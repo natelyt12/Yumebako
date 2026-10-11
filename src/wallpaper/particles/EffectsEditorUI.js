@@ -1,4 +1,4 @@
-import { openSidebarSubmenu, setSubmenuDirty, showNotification, createSlider } from "/src/core/ui.js";
+import { openSidebarSubmenu, setSubmenuDirty, showNotification, createSlider, toggleDropdown, closeAllDropdowns, initButtons } from "/src/core/ui.js";
 import { t, translateDOM } from "/src/core/i18n.js";
 import { getSettings, saveSettings } from "/src/core/storageHandler.js";
 import { Icons, renderIcons } from "/src/core/icon.js";
@@ -24,7 +24,7 @@ export class EffectsEditorUI {
     initialize() {
         const editBtn = document.getElementById("edit_particles_settings");
         if (editBtn) {
-            editBtn.addEventListener("mousedown", () => this.openEditor());
+            editBtn.addEventListener("click", () => this.openEditor());
         }
     }
 
@@ -58,12 +58,12 @@ export class EffectsEditorUI {
 
         const btnClearAll = this.clone.querySelector("#btn_clear_all");
         if (btnClearAll) {
-            btnClearAll.addEventListener("mousedown", () => this._handleReset());
+            btnClearAll.addEventListener("click", () => this._handleReset());
         }
 
         const btnSave = this.clone.querySelector("#btn_save");
         if (btnSave) {
-            btnSave.addEventListener("mousedown", () => this._handleSave());
+            btnSave.addEventListener("click", () => this._handleSave());
         }
 
         const windowTitle = t("sp.wallpaper_customization.particles_settings");
@@ -90,13 +90,7 @@ export class EffectsEditorUI {
         if (this._closeDropdown) document.removeEventListener("mousedown", this._closeDropdown);
         this._closeDropdown = (e) => {
             if (!e.target.closest(".dropdown_wrapper")) {
-                document.querySelectorAll(".dropdown.opening").forEach(d => {
-                    d.classList.remove("opening");
-                    setTimeout(() => {
-                        d.classList.remove("active", "open_upwards");
-                    }, 200);
-                });
-                document.querySelectorAll(".dropdown_button.btn_active").forEach(b => b.classList.remove("btn_active"));
+                closeAllDropdowns();
             }
         };
         document.addEventListener("mousedown", this._closeDropdown);
@@ -114,7 +108,8 @@ export class EffectsEditorUI {
         divider.textContent = t(i18nKey);
 
         const masterToggleLabel = document.createElement("label");
-        masterToggleLabel.className = "checkbox btn_liked";
+        masterToggleLabel.className = "btn";
+        masterToggleLabel.setAttribute("data-action", "toggle");
         masterToggleLabel.style.marginBottom = "8px";
         
         const toggleText = document.createElement("span");
@@ -124,13 +119,8 @@ export class EffectsEditorUI {
         masterToggleInput.type = "checkbox";
         masterToggleInput.checked = this.workingState[`${layer}Enabled`] !== false;
         
-        const mTrack = document.createElement("div");
-        mTrack.className = "ts-track";
-        const mThumb = document.createElement("div");
-        mThumb.className = "ts-thumb";
-        mTrack.appendChild(mThumb);
-        
-        masterToggleLabel.append(toggleText, masterToggleInput, mTrack);
+        masterToggleLabel.append(toggleText, masterToggleInput);
+        initButtons(masterToggleLabel);
 
         const list = document.createElement("div");
         list.className = "effects_list";
@@ -182,7 +172,8 @@ export class EffectsEditorUI {
         area.className = "dropdown_wrapper";
 
         const btn = document.createElement("button");
-        btn.className = "dropdown_button";
+        btn.className = "btn";
+        btn.setAttribute("data-action", "dropdown");
 
         const iconI = document.createElement("i");
         iconI.setAttribute("data-icon", "plus");
@@ -192,11 +183,8 @@ export class EffectsEditorUI {
         textSpan.setAttribute("data-i18n", "particles.add_effect");
         textSpan.textContent = t("particles.add_effect") || "Thêm hiệu ứng";
 
-        const svgDiv = document.createElement("div");
-        svgDiv.className = "sbsctsvg";
-        svgDiv.innerHTML = Icons.chevronDown;
-
-        btn.append(iconI, textSpan, svgDiv);
+        btn.append(iconI, textSpan);
+        initButtons(btn);
         renderIcons(btn);
 
         const dropdown = document.createElement("div");
@@ -207,43 +195,22 @@ export class EffectsEditorUI {
             const item = document.createElement("button");
             item.className = "dropdown_item";
             item.textContent = t(`particles.${type}.label`) || type;
-            item.onmousedown = (e) => {
+            item.onclick = (e) => {
                 e.stopPropagation();
                 this._addEffect(layer, type, list);
+                // Close the action menu (it reopens fresh on the next click).
                 dropdown.classList.remove("opening");
+                dropdown.classList.add("closing");
                 setTimeout(() => {
-                    dropdown.classList.remove("active", "open_upwards");
+                    dropdown.classList.remove("active", "open_upwards", "closing");
                 }, 200);
                 btn.classList.remove("btn_active");
-            };
-            dropdown.appendChild(item);
+            };            dropdown.appendChild(item);
         }
 
-        btn.onmousedown = (e) => {
+        btn.onclick = (e) => {
             e.stopPropagation();
-            const wasOpening = dropdown.classList.contains("opening");
-
-            document.querySelectorAll(".dropdown.opening").forEach((sub) => {
-                sub.classList.remove("opening");
-                setTimeout(() => {
-                    if (!sub.classList.contains("opening")) {
-                        sub.classList.remove("active", "open_upwards");
-                    }
-                }, 200);
-            });
-
-            if (!wasOpening) {
-                dropdown.classList.add("active");
-                dropdown.offsetHeight; // Force reflow to trigger opening transition
-                dropdown.classList.add("opening");
-                btn.classList.add("btn_active");
-            } else {
-                dropdown.classList.remove("opening");
-                setTimeout(() => {
-                    dropdown.classList.remove("active", "open_upwards");
-                }, 200);
-                btn.classList.remove("btn_active");
-            }
+            toggleDropdown(dropdown, btn);
         };
 
         area.append(btn, dropdown);
@@ -271,7 +238,7 @@ export class EffectsEditorUI {
         const makeBtn = (content, handler) => {
             const b = document.createElement("button");
             b.innerHTML = content;
-            b.onmousedown = (e) => {
+            b.onclick = (e) => {
                 e.stopPropagation();
                 handler(e);
             };
@@ -338,7 +305,7 @@ export class EffectsEditorUI {
 
         const btnResetEffect = document.createElement("button");
         btnResetEffect.textContent = t("particles.btn_reset_effect");
-        btnResetEffect.onmousedown = (e) => {
+        btnResetEffect.onclick = (e) => {
             e.stopPropagation();
             const defaults = { ...(EffectClass.DEFAULTS || {}) };
 

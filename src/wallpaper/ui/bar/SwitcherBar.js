@@ -212,7 +212,8 @@ export class SwitcherBar {
 
             const btn = document.createElement("button");
             btn.type = "button";
-            btn.className = `icon_button wallpaper_action${action.danger ? " danger_btn" : ""}`;
+            btn.className = "btn wallpaper_action";
+            if (action.danger) btn.setAttribute("data-variant", "danger");
             btn.innerHTML = `<i data-icon="${action.icon}"></i><span></span>`;
             btn.querySelector("span").textContent = t(action.labelKey, action.fallback);
 

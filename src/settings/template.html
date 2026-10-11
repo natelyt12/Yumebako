@@ -12,12 +12,9 @@
             </div>
         </div>
         <div class="editor_row">
-            <label class="checkbox btn_liked">
+            <label class="btn" data-action="toggle">
                 <span data-i18n="bg_editor.fit_mode_label">Hiển thị toàn bộ ảnh</span>
                 <input type="checkbox" id="fit_mode_checkbox" />
-                <div class="ts-track">
-                    <div class="ts-thumb"></div>
-                </div>
             </label>
         </div>
         <div class="editor_controls flex_col gap_8" id="manual_controls">
@@ -25,8 +22,8 @@
         </div>
         <div class="section_divider"></div>
         <div class="flex_row gap_8 w_full">
-            <button id="btn_reset" class="secondary flex_1" data-i18n="bg_editor.btn_reset">Đặt lại</button>
-            <button id="btn_apply" class="primary flex_1" data-i18n="bg_editor.btn_apply">Lưu</button>
+            <button id="btn_reset" class="btn flex_1" data-i18n="bg_editor.btn_reset">Đặt lại</button>
+            <button id="btn_apply" class="btn flex_1" data-i18n="bg_editor.btn_apply">Lưu</button>
         </div>
         <span class="tooltip" data-i18n="bg_editor.note_tooltip">Lưu ý: Zoom tại đây và Zoom trong Wavy Animation không
             liên quan đến nhau</span>
@@ -37,16 +34,16 @@
     <div class="bg_collection_popup">
         <!-- Header actions -->
         <div class="bg_collection_header">
-            <button id="coll_upload_btn" class="icon_button">
+            <button id="coll_upload_btn" class="btn">
                 <i data-icon="upload"></i>
                 <span data-i18n="sp.api.collection.upload_btn">Tải lên ảnh / video</span>
             </button>
             <input type="file" id="coll_file_input" multiple accept="image/*,video/*" style="display: none" />
-            <button id="coll_bulk_delete_btn" class="icon_button primary danger_btn" style="display: none">
+            <button id="coll_bulk_delete_btn" class="btn" data-variant="danger" style="display: none">
                 <i data-icon="bulkDelete"></i>
                 <span data-i18n="sp.api.collection.delete_selected">Xóa mục đã chọn</span>
             </button>
-            <button id="coll_select_mode_btn" class="icon_button secondary">
+            <button id="coll_select_mode_btn" class="btn">
                 <i data-icon="selectMode"></i>
                 <span data-i18n="sp.api.collection.select_mode">Chọn nhiều</span>
             </button>
@@ -66,20 +63,10 @@
     <!-- Section 1: Wavy Animation -->
     <div class="setting_section wavy_settings">
         <div class="section_divider" data-i18n="wavy.motion_type_label">Kiểu chuyển động</div>
-        <div class="dropdown_wrapper" id="wavy_motion_wrapper">
-            <button class="dropdown_button" id="wavy_motion_type">
-                <span class="selected_value">--</span>
-                <div class="sbsctsvg"></div>
-            </button>
-            <!-- Items injected from the motion registry -->
-            <div class="dropdown" id="wavy_motion_dropdown"></div>
-        </div>
-        <label class="checkbox btn_liked">
+        <select id="wavy_motion_type" class="native_select"></select>
+        <label class="btn" data-action="toggle">
             <span data-i18n="wavy.advanced_settings">Cài đặt nâng cao</span>
             <input type="checkbox" id="wavy_advanced_toggle" />
-            <div class="ts-track">
-                <div class="ts-thumb"></div>
-            </div>
         </label>
 
         <!-- Advanced: parameters of the selected motion type, rebuilt on mode change -->
@@ -94,7 +81,7 @@
 
             <!-- Only randomises the style parameters above, so it lives inside
                  the advanced section and hides together with it. -->
-            <button id="btn_wavy_random" class="secondary w_full" data-i18n="wavy.btn_random">Ngẫu nhiên</button>
+            <button id="btn_wavy_random" class="btn w_full" data-i18n="wavy.btn_random">Ngẫu nhiên</button>
         </div>
 
         <div class="section_divider" data-i18n="wavy.shared_section_label">Tùy chỉnh chung</div>
@@ -105,8 +92,8 @@
         <div class="section_divider"></div>
 
         <div class="flex_row gap_8 w_full">
-            <button id="btn_wavy_reset" class="secondary flex_1" data-i18n="wavy.btn_default">Mặc định</button>
-            <button id="btn_wavy_save" class="primary flex_1" data-i18n="wavy.btn_save">Lưu</button>
+            <button id="btn_wavy_reset" class="btn flex_1" data-i18n="wavy.btn_default">Mặc định</button>
+            <button id="btn_wavy_save" class="btn flex_1" data-i18n="wavy.btn_save">Lưu</button>
         </div>
         <span class="tooltip" data-i18n="wavy.note_tooltip">
             Cài đặt mặc định mang lại hiệu ứng tự nhiên nhất.
@@ -123,8 +110,8 @@
         <div class="section_divider"></div>
 
         <div class="flex_row gap_8 w_full">
-            <button id="btn_parallax_reset" class="secondary flex_1" data-i18n="wavy.btn_default">Mặc định</button>
-            <button id="btn_parallax_save" class="primary flex_1" data-i18n="wavy.btn_save">Lưu</button>
+            <button id="btn_parallax_reset" class="btn flex_1" data-i18n="wavy.btn_default">Mặc định</button>
+            <button id="btn_parallax_save" class="btn flex_1" data-i18n="wavy.btn_save">Lưu</button>
         </div>
         <span class="tooltip" data-i18n="wavy.parallax_tooltip">
             Biên độ âm di chuyển ngược hướng con trỏ chuột, biên độ dương di chuyển cùng hướng. Độ nặng càng nhỏ thì di
@@ -138,21 +125,11 @@
 <template id="tpl_onload_settings">
     <div class="setting_section onload_settings">
         <p class="popup_section_title" data-i18n="onload_anim.preset_label">Hiệu ứng có sẵn</p>
-        <div class="dropdown_wrapper">
-            <button class="dropdown_button" id="onload_preset">
-                <span class="selected_value">--</span>
-                <div class="sbsctsvg"></div>
-            </button>
-            <!-- Preset items are built from the registry (see OnloadEditorUI). -->
-            <div class="dropdown" id="onload_preset_dropdown"></div>
-        </div>
+        <select id="onload_preset" class="native_select"></select>
 
-        <label class="checkbox btn_liked">
+        <label class="btn" data-action="toggle">
             <span data-i18n="onload_anim.advanced_settings">Cài đặt nâng cao</span>
             <input type="checkbox" id="onload_advanced_toggle" />
-            <div class="ts-track">
-                <div class="ts-thumb"></div>
-            </div>
         </label>
 
         <div id="onload_advanced_section" class="flex_col gap_8 w_full">
@@ -160,31 +137,24 @@
             <div class="custom_onload_animation flex_col gap_12" id="onload_bg_sliders"></div>
 
             <p class="popup_section_title" data-i18n="onload_anim.bg_easing_label">Easing hình nền</p>
-            <div class="dropdown_wrapper">
-                <button class="dropdown_button" id="onload_bg_easing">
-                    <span class="selected_value">--</span>
-                    <div class="sbsctsvg"></div>
-                </button>
-                <div class="dropdown" id="onload_bg_easing_dropdown"></div>
-            </div>
+            <select id="onload_bg_easing" class="native_select"></select>
 
             <div class="section_divider" data-i18n="onload_anim.custom_overlay_label">Tùy chỉnh lớp phủ</div>
             <div class="custom_onload_animation flex_col gap_12" id="onload_overlay_sliders"></div>
         </div>
 
         <div class="section_divider" data-i18n="onload_anim.other_settings_label">Cài đặt khác</div>
-        <label class="checkbox btn_liked">
-            <span data-i18n="onload_anim.widget_immediate">Giao diện xuất hiện ngay lập tức</span>
-            <input type="checkbox" id="widget_immediate" />
-            <div class="ts-track">
-                <div class="ts-thumb"></div>
+        <label class="btn" data-action="toggle">
+            <div class="btn_body">
+                <span class="btn_title" data-i18n="onload_anim.widget_immediate">Giao diện xuất hiện ngay lập tức</span>
+                <span class="btn_desc" data-i18n="onload_anim.widget_immediate_tooltip">Nếu tắt, giao diện sẽ đợi hoạt
+                    ảnh mở trang chạy xong mới hiển thị.</span>
             </div>
+            <input type="checkbox" id="widget_immediate" />
         </label>
-        <span class="tooltip" data-i18n="onload_anim.widget_immediate_tooltip">Nếu tắt, giao diện sẽ đợi hoạt ảnh mở
-            trang chạy xong mới hiển thị.</span>
         <div class="flex_row gap_8 w_full">
-            <button id="btn_preview" class="secondary flex_1" data-i18n="onload_anim.btn_preview">Xem trước</button>
-            <button id="btn_save" class="primary flex_1" data-i18n="onload_anim.btn_save">Lưu</button>
+            <button id="btn_preview" class="btn flex_1" data-i18n="onload_anim.btn_preview">Xem trước</button>
+            <button id="btn_save" class="btn flex_1" data-i18n="onload_anim.btn_save">Lưu</button>
         </div>
     </div>
 </template>
@@ -196,8 +166,8 @@
         </div>
         <div class="section_divider"></div>
         <div class="actions">
-            <button id="btn_filter_reset" class="secondary" data-i18n="bg_editor.btn_reset">Đặt lại</button>
-            <button id="btn_filter_save" class="primary" data-i18n="wavy.btn_save">Lưu</button>
+            <button id="btn_filter_reset" class="btn" data-i18n="bg_editor.btn_reset">Đặt lại</button>
+            <button id="btn_filter_save" class="btn" data-i18n="wavy.btn_save">Lưu</button>
         </div>
     </div>
 </template>
@@ -210,9 +180,9 @@
         <span class="tooltip" data-i18n="particles.editor_tooltip">Lưu ý: Hiệu ứng càng nhiều sẽ đòi hỏi hiệu năng GPU
             càng cao.</span>
         <div class="flex_row gap_8 w_full">
-            <button id="btn_clear_all" class="secondary flex_1" data-i18n="particles.btn_clear_all">Xóa tất
+            <button id="btn_clear_all" class="btn flex_1" data-i18n="particles.btn_clear_all">Xóa tất
                 cả</button>
-            <button id="btn_save" class="primary flex_1" data-i18n="particles.btn_save">Lưu</button>
+            <button id="btn_save" class="btn flex_1" data-i18n="particles.btn_save">Lưu</button>
         </div>
     </div>
 </template>
@@ -234,47 +204,36 @@
     <div class="setting_section">
         <p class="setting_title" data-i18n="sp.api.wallhaven.categories">Thể loại</p>
         <div class="setting_options flex_col gap_8">
-            <label class="checkbox btn_liked">
-                <span data-i18n="sp.api.wallhaven.cat_general">General</span>
-                <input type="checkbox" id="wh_cat_general" />
-                <div class="ts-track">
-                    <div class="ts-thumb"></div>
-                </div>
-            </label>
-            <label class="checkbox btn_liked">
-                <span data-i18n="sp.api.wallhaven.cat_anime">Anime</span>
-                <input type="checkbox" id="wh_cat_anime" />
-                <div class="ts-track">
-                    <div class="ts-thumb"></div>
-                </div>
-            </label>
-            <label class="checkbox btn_liked">
-                <span data-i18n="sp.api.wallhaven.cat_people">People</span>
-                <input type="checkbox" id="wh_cat_people" />
-                <div class="ts-track">
-                    <div class="ts-thumb"></div>
-                </div>
-            </label>
-            <span class="tooltip" data-i18n="sp.api.wallhaven.category.tooltip">Lựa chọn các nhãn phân loại ảnh bạn muốn
-                hiển thị.</span>
+            <div class="checkbox_tooltip_group">
+                <label class="btn" data-action="toggle">
+                    <span data-i18n="sp.api.wallhaven.cat_general">General</span>
+                    <input type="checkbox" id="wh_cat_general" />
+                </label>
+                <label class="btn" data-action="toggle">
+                    <span data-i18n="sp.api.wallhaven.cat_anime">Anime</span>
+                    <input type="checkbox" id="wh_cat_anime" />
+                </label>
+                <label class="btn" data-action="toggle">
+                    <span data-i18n="sp.api.wallhaven.cat_people">People</span>
+                    <input type="checkbox" id="wh_cat_people" />
+                </label>
+                <span class="tooltip" data-i18n="sp.api.wallhaven.category.tooltip">Lựa chọn các nhãn phân loại ảnh bạn muốn
+                    hiển thị.</span>
+            </div>
         </div>
     </div>
+    <!-- Wallhaven resolution/sorting UI. Kept for the future Wallhaven settings
+         rebuild; these selects upgrade to the unified dropdown automatically via
+         initCustomSelects. -->
     <div class="setting_section">
         <p class="setting_title" data-i18n="sp.api.wallhaven.resolution">Độ phân giải tối thiểu</p>
         <div class="setting_options flex_col gap_8">
-            <div class="dropdown_wrapper">
-                <button class="dropdown_button" id="wh_resolution">
-                    <span class="selected_value">1920x1080</span>
-                    <div class="sbsctsvg"></div>
-                </button>
-                <div class="dropdown">
-                    <div class="dropdown_item btn_liked" data-value="any" data-i18n="sp.api.wallhaven.resolution_any">
-                        Tất cả</div>
-                    <div class="dropdown_item btn_liked" data-value="1920x1080">Full HD (1920x1080)</div>
-                    <div class="dropdown_item btn_liked" data-value="2560x1440">2K (2560x1440)</div>
-                    <div class="dropdown_item btn_liked" data-value="3840x2160">4K (3840x2160)</div>
-                </div>
-            </div>
+            <select id="wh_resolution" class="native_select">
+                <option value="any" data-i18n="sp.api.wallhaven.resolution_any">Tất cả</option>
+                <option value="1920x1080">Full HD (1920x1080)</option>
+                <option value="2560x1440">2K (2560x1440)</option>
+                <option value="3840x2160">4K (3840x2160)</option>
+            </select>
             <span class="tooltip" data-i18n="sp.api.wallhaven.resolution_tooltip">Chỉ tìm kiếm hình ảnh đạt hoặc vượt độ
                 phân giải được chọn.</span>
         </div>
@@ -282,46 +241,22 @@
     <div class="setting_section">
         <p class="setting_title" data-i18n="sp.api.wallhaven.sorting">Sắp xếp theo</p>
         <div class="setting_options flex_col gap_8">
-            <div class="dropdown_wrapper">
-                <button class="dropdown_button" id="wh_sorting">
-                    <span class="selected_value" data-i18n="sp.api.wallhaven.sort_random">Ngẫu nhiên</span>
-                    <div class="sbsctsvg"></div>
-                </button>
-                <div class="dropdown">
-                    <div class="dropdown_item btn_liked" data-value="random" data-i18n="sp.api.wallhaven.sort_random">
-                        Ngẫu nhiên</div>
-                    <div class="dropdown_item btn_liked" data-value="date_added" data-i18n="sp.api.wallhaven.sort_date">
-                        Mới nhất</div>
-                    <div class="dropdown_item btn_liked" data-value="views" data-i18n="sp.api.wallhaven.sort_views">Lượt
-                        xem</div>
-                    <div class="dropdown_item btn_liked" data-value="favorites"
-                        data-i18n="sp.api.wallhaven.sort_favorites">Yêu thích</div>
-                    <div class="dropdown_item btn_liked" data-value="toplist" data-i18n="sp.api.wallhaven.sort_toplist">
-                        Toplist</div>
-                </div>
-            </div>
-            <div class="dropdown_wrapper" id="wh_toprange_wrapper" style="display: none;">
-                <button class="dropdown_button" id="wh_topRange">
-                    <span class="selected_value" data-i18n="sp.api.wallhaven.toprange_1M">1 Tháng</span>
-                    <div class="sbsctsvg"></div>
-                </button>
-                <div class="dropdown">
-                    <div class="dropdown_item btn_liked" data-value="1d" data-i18n="sp.api.wallhaven.toprange_1d">1 Ngày
-                    </div>
-                    <div class="dropdown_item btn_liked" data-value="3d" data-i18n="sp.api.wallhaven.toprange_3d">3 Ngày
-                    </div>
-                    <div class="dropdown_item btn_liked" data-value="1w" data-i18n="sp.api.wallhaven.toprange_1w">1 Tuần
-                    </div>
-                    <div class="dropdown_item btn_liked" data-value="1M" data-i18n="sp.api.wallhaven.toprange_1M">1
-                        Tháng</div>
-                    <div class="dropdown_item btn_liked" data-value="3M" data-i18n="sp.api.wallhaven.toprange_3M">3
-                        Tháng</div>
-                    <div class="dropdown_item btn_liked" data-value="6M" data-i18n="sp.api.wallhaven.toprange_6M">6
-                        Tháng</div>
-                    <div class="dropdown_item btn_liked" data-value="1y" data-i18n="sp.api.wallhaven.toprange_1y">1 Năm
-                    </div>
-                </div>
-            </div>
+            <select id="wh_sorting" class="native_select">
+                <option value="random" data-i18n="sp.api.wallhaven.sort_random">Ngẫu nhiên</option>
+                <option value="date_added" data-i18n="sp.api.wallhaven.sort_date">Mới nhất</option>
+                <option value="views" data-i18n="sp.api.wallhaven.sort_views">Lượt xem</option>
+                <option value="favorites" data-i18n="sp.api.wallhaven.sort_favorites">Yêu thích</option>
+                <option value="toplist" data-i18n="sp.api.wallhaven.sort_toplist">Toplist</option>
+            </select>
+            <select id="wh_topRange" class="native_select" style="display: none;">
+                <option value="1d" data-i18n="sp.api.wallhaven.toprange_1d">1 Ngày</option>
+                <option value="3d" data-i18n="sp.api.wallhaven.toprange_3d">3 Ngày</option>
+                <option value="1w" data-i18n="sp.api.wallhaven.toprange_1w">1 Tuần</option>
+                <option value="1M" data-i18n="sp.api.wallhaven.toprange_1M">1 Tháng</option>
+                <option value="3M" data-i18n="sp.api.wallhaven.toprange_3M">3 Tháng</option>
+                <option value="6M" data-i18n="sp.api.wallhaven.toprange_6M">6 Tháng</option>
+                <option value="1y" data-i18n="sp.api.wallhaven.toprange_1y">1 Năm</option>
+            </select>
             <span class="tooltip" data-i18n="sp.api.wallhaven.sorting_tooltip">Phương thức sắp xếp kết quả tìm
                 kiếm.</span>
         </div>
@@ -332,7 +267,7 @@
 <template id="tpl_collection_settings">
     <div class="setting_section flex_col gap_8">
         <p class="setting_title" data-i18n="sp.api.collection.title">Quản lý Bộ sưu tập</p>
-        <button id="open_collection_btn_submenu" class="primary w_full">
+        <button id="open_collection_btn_submenu" class="btn w_full">
             <i data-icon="collection"></i>
             <span data-i18n="sp.api.collection.open_btn">Mở trình quản lý bộ sưu tập</span>
         </button>

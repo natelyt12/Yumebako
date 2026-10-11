@@ -115,16 +115,19 @@ export function resolveCardMeta(sourceId, card) {
 
     if (providerName && providerKey !== "local") {
       srcText = providerName;
-    } else if (rawSource === "local" || providerKey === "local" || card.local) {
-      srcText = t("sp.api.collection.sourceLocal", "Trên máy");
     } else if (
       providerKey === "wallhaven" ||
       rawSource.includes("wallhaven.cc")
     ) {
       srcText = "Wallhaven";
+    } else if (
+      providerKey === "unsplash" ||
+      rawSource.includes("unsplash.com")
+    ) {
+      srcText = "Unsplash";
     } else if (providerKey === "picre" || rawSource.includes("pic.re")) {
       srcText = "Picre";
-    } else if (/^https?:\/\//i.test(rawSource)) {
+    } else if (rawSource && /^https?:\/\//i.test(rawSource)) {
       try {
         srcText = new URL(rawSource).hostname.replace(/^www\./, "");
       } catch {

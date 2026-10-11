@@ -230,7 +230,7 @@
 }
 
 .tooltip:hover {
-    opacity: 0.95 !important;
+    opacity: 0.95;
     color: var(--text-primary, #ffffff);
 }
 
@@ -255,66 +255,91 @@
     width: 100%;
 }
 
-/* Toggle Checkbox Switch */
-.checkbox {
+.checkbox_tooltip_group {
     display: flex;
-    align-items: center;
-    justify-content: flex-start !important;
-    flex: 1;
-    user-select: none;
-    height: 40px !important;
-    min-height: 40px !important;
-    box-sizing: border-box !important;
-    padding: 0 14px !important;
-    font-weight: 400 !important;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    padding: 4px 10px 8px;
+    box-sizing: border-box;
+    background-color: transparent;
+    border: 1px solid var(--button);
+    border-radius: 10px;
+    transition: background-color 0.2s var(--smooth), border-color 0.2s var(--smooth);
 }
 
-.checkbox input {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
+.checkbox_tooltip_group:has(input:checked) {
+    background-color: var(--button);
+    border-color: var(--button);
+}
+
+.checkbox_tooltip_group > .btn {
+    width: 100%;
+    flex: none;
+    padding: 0;
+}
+
+.checkbox_tooltip_group > .tooltip {
+    padding: 0;
+}
+
+/* Toggle switch (`.btn[data-action="toggle"]`).
+   `flex: none` keeps the bar at its intrinsic height: toggles are always
+   column-stacked (options list, submenu section, checkbox group), and a `flex: 1`
+   basis of 0 made them stretch in the definite-height submenu column — one grew
+   tall, the two-line one got squeezed until its text clipped.
+   `height`/`min-height` stay `!important` so they remain the fallback for
+   `.effects_column .btn[data-action="toggle"]` (effects.css), which re-asserts
+   them; every other property comes from the shared `.btn` layout. */
+.btn[data-action="toggle"] {
+    flex: none;
+    user-select: none;
+}
+
+.btn[data-action="toggle"]:not(:has(.btn_desc)) {
+    height: 40px !important;
+    min-height: 40px !important;
 }
 
 .ts-track {
     width: 36px;
     height: 20px;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
     position: relative;
-    transition: background 0.3s var(--expo_out), border-color 0.3s var(--expo_out);
+    transition: background-color 0.2s var(--smooth);
     flex-shrink: 0;
-    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .ts-thumb {
     position: absolute;
-    top: 2px;
-    left: 2px;
+    top: 3px;
+    left: 3px;
     width: 14px;
     height: 14px;
-    background: rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.72);
     border-radius: 50%;
-    box-shadow: none;
-    transition: transform 0.4s var(--expo_out), background 0.2s var(--expo_out);
+    transition:
+        transform 0.2s var(--expo_out),
+        background-color 0.2s var(--smooth);
 }
 
-.checkbox input:checked+.ts-track {
-    background: rgba(255, 255, 255, 0.2);
-    border-color: rgba(255, 255, 255, 0.2);
+.btn[data-action="toggle"] input:checked+.ts-track {
+    background: rgba(255, 255, 255, 0.3);
 }
 
-.checkbox input:checked+.ts-track .ts-thumb {
+.btn[data-action="toggle"] input:checked+.ts-track .ts-thumb {
     transform: translateX(16px);
     background: #ffffff;
 }
 
-.checkbox:hover .ts-track {
-    border-color: rgba(255, 255, 255, 0.3);
+.btn[data-action="toggle"]:hover .ts-track {
+    background-color: rgba(255, 255, 255, 0.2);
 }
 
-.checkbox span {
-    font-weight: 400 !important;
+.btn[data-action="toggle"] input:focus-visible+.ts-track {
+    outline: 2px solid rgba(255, 255, 255, 0.55);
+    outline-offset: 3px;
 }
 
 #setting_info {

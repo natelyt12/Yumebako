@@ -117,8 +117,7 @@ function openWavyEditor() {
     const sharedContainer = clone.querySelector("#wavy_shared_sliders");
     const advancedSection = clone.querySelector("#wavy_advanced_section");
     const advancedToggle = clone.querySelector("#wavy_advanced_toggle");
-    const motionBtn = clone.querySelector("#wavy_motion_type");
-    const motionDropdown = clone.querySelector("#wavy_motion_dropdown");
+    const motionSelect = clone.querySelector("#wavy_motion_type");
     const btnWavyReset = clone.querySelector("#btn_wavy_reset");
     const btnWavyRandom = clone.querySelector("#btn_wavy_random");
     const btnWavySave = clone.querySelector("#btn_wavy_save");
@@ -134,16 +133,15 @@ function openWavyEditor() {
         motions: cloneData(startSnapshot.motions),
     };
 
-    // Build the mode list from the registry, so shipping a new generator is a
-    // registry-only change (same approach as the particles add-effect dropdown).
+    // Build the mode list from the registry
     MOTION_ORDER.forEach((motionId) => {
-        const item = document.createElement("div");
-        item.className = "dropdown_item btn_liked";
-        item.dataset.value = motionId;
-        item.textContent = t(`wavy.motion_${motionId}`);
-        motionDropdown.appendChild(item);
+        const opt = document.createElement("option");
+        opt.value = motionId;
+        opt.setAttribute("data-i18n", `wavy.motion_${motionId}`);
+        opt.textContent = t(`wavy.motion_${motionId}`);
+        motionSelect.appendChild(opt);
     });
-    setDropdownValue(motionBtn, workingState.motionType);
+    setDropdownValue(motionSelect, workingState.motionType);
 
     let motionSliders = {};
     let sharedSliders = {};
@@ -223,13 +221,8 @@ function openWavyEditor() {
     };
     applyAdvancedVisibility();
 
-    // Listener is scoped to the cloned subtree, so it is disposed together with
-    // the submenu content — no document-level listener to clean up.
-    motionDropdown.addEventListener("mousedown", (e) => {
-        const item = e.target.closest(".dropdown_item");
-        if (!item) return;
-        workingState.motionType = item.dataset.value || DEFAULT_MOTION;
-        setDropdownValue(motionBtn, workingState.motionType);
+    motionSelect.addEventListener("change", (e) => {
+        workingState.motionType = e.target.value || DEFAULT_MOTION;
         renderMotionControls();
         applyLivePreview();
     });
@@ -258,7 +251,7 @@ function openWavyEditor() {
     };
 
     if (btnWavyReset) {
-        btnWavyReset.onmousedown = () => {
+        btnWavyReset.onclick = () => {
             const { MotionClass, stored } = activeMotion();
             Object.entries(MotionClass.DEFAULTS).forEach(([key, value]) => {
                 stored[key] = value;
@@ -274,7 +267,7 @@ function openWavyEditor() {
     }
 
     if (btnWavyRandom) {
-        btnWavyRandom.onmousedown = () => {
+        btnWavyRandom.onclick = () => {
             // Randomise every exposed parameter of the active generator, so this
             // keeps working for any motion type registered later.
             const { MotionClass, stored } = activeMotion();
@@ -291,7 +284,7 @@ function openWavyEditor() {
     }
 
     if (btnWavySave) {
-        btnWavySave.onmousedown = saveCurrentConfig;
+        btnWavySave.onclick = saveCurrentConfig;
     }
 
     openSidebarSubmenu(t("wavy.window_title"), clone, {
@@ -374,7 +367,7 @@ function openParallaxEditor() {
     };
 
     if (btnParallaxReset) {
-        btnParallaxReset.onmousedown = () => {
+        btnParallaxReset.onclick = () => {
             const resetValues = {
                 parallaxInertia: defaults.parallaxInertia,
                 parallaxAmplitude: defaults.parallaxAmplitude,
@@ -391,7 +384,7 @@ function openParallaxEditor() {
     }
 
     if (btnParallaxSave) {
-        btnParallaxSave.onmousedown = saveCurrentConfig;
+        btnParallaxSave.onclick = saveCurrentConfig;
     }
 
     openSidebarSubmenu(t("sp.wallpaper_customization.parallax_settings_more") || "Cài đặt Parallax", clone, {
@@ -414,11 +407,11 @@ function openParallaxEditor() {
 export function initializeWavySettings() {
     const editWavyBtn = document.getElementById("edit_wavy_settings");
     if (editWavyBtn) {
-        editWavyBtn.onmousedown = () => openWavyEditor();
+        editWavyBtn.onclick = () => openWavyEditor();
     }
     const editParallaxBtn = document.getElementById("edit_parallax_settings");
     if (editParallaxBtn) {
-        editParallaxBtn.onmousedown = () => openParallaxEditor();
+        editParallaxBtn.onclick = () => openParallaxEditor();
     }
 
     const toggleWavy = document.getElementById("main_wavy_toggle");
