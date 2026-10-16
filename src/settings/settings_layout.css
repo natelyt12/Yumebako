@@ -27,12 +27,12 @@
         border-color var(--settings-motion) var(--expo_out),
         box-shadow var(--settings-motion) var(--expo_out);
     background-color: var(--bg-panel);
-    -webkit-backdrop-filter: blur(15px) saturate(180%) brightness(1.15);
-    backdrop-filter: blur(15px) saturate(180%) brightness(1.15);
+    -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+    backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
     border: none;
-    border-left: 1px solid rgba(255, 255, 255, 0.12);
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 0;
-    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);
+    box-shadow: -4px 0 8px rgba(0, 0, 0, 0.4);
     pointer-events: auto;
     z-index: 1;
 }
@@ -51,14 +51,10 @@
         box-shadow var(--settings-motion) var(--expo_out);
 }
 
-/* Both halves of the track shift left by exactly one main column: the main menu
-   leaves through the left edge while fading out, and the submenu arrives from the right. */
-#setting_wrapper.submenu_active .settings_main_view,
-#setting_wrapper.submenu_active .settings_submenu_view {
-    transform: translateX(calc(-1 * var(--settings-inner-main-width)));
-}
-
+/* When a submenu is active, the main menu recedes 50% to the left while fading out,
+   letting the submenu overlay smoothly into place. */
 #setting_wrapper.submenu_active .settings_main_view {
+    transform: translateX(-50%);
     opacity: 0;
     pointer-events: none;
 }
@@ -109,6 +105,7 @@
        the card widens for a submenu. Matches the inner width of the content card. */
     position: relative;
     flex: 0 0 var(--settings-inner-main-width);
+    width: var(--settings-inner-main-width);
     height: 100%;
     overflow-y: auto;
     overflow-x: hidden;
@@ -125,11 +122,14 @@
 
 .tab_content {
     display: none;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 16px;
     animation: fadeIn 0.4s var(--expo_out);
 }
 
 .tab_content.active {
-    display: block;
+    display: flex;
 }
 
 @keyframes fadeIn {
@@ -148,71 +148,70 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    padding: 12px 16px;
+    gap: 8px;
+    padding: 16px;
 }
 
 .submenu_body .setting_section {
-    padding: 12px 16px;
-}
-
-/* Submenu sections get the same gap-driven rhythm as `.setting_options` in the
-   main menu, so their children no longer need ad-hoc margins. Sections that
-   bring their own title/options layout are left untouched. */
-.submenu_body .setting_section:not(:has(.setting_title)) {
+    padding: 16px;
     gap: 8px;
-}
-
-.setting_section:hover .setting_title {
-    padding: 0px 12px 10px 12px;
-    color: rgba(255, 255, 255, 0.9);
-    text-shadow:
-        0 0 5px rgba(255, 255, 255, 0.5),
-        0 0 10px rgba(255, 255, 255, 0.1);
-}
-
-.setting_section:hover .setting_title::after {
-    opacity: 1;
-}
-
-.setting_section::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: transparent;
-    z-index: var(--z-below);
-    transition: 0.2s ease-in-out;
 }
 
 .setting_title {
     position: relative;
-    padding: 0 0 10px 0px;
-    text-align: left;
-    font-size: 1.25rem;
-    color: var(--text-primary);
-    transition: all 0.4s var(--expo_out);
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
+    margin: 18px 0 2px 0;
+    padding: 4px 2px;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    user-select: none;
+    transition: color 0.25s var(--smooth);
+}
+
+.setting_title:first-child {
+    margin-top: 0;
+    padding-top: 0;
 }
 
 .setting_title::after {
     content: "";
-    opacity: 0.2;
     height: 1px;
-    flex-grow: 1;
-    transition: 0.5s var(--expo_out);
-    background: linear-gradient(to right, var(--text-primary), transparent);
+    flex: 1;
+    background: linear-gradient(to right, var(--divider), transparent);
+    opacity: 0.45;
 }
 
-.setting_section svg {
+.setting_title:hover {
+    color: var(--text-secondary);
+}
+
+.setting_title i[data-icon],
+.setting_title svg {
+    width: 14px;
+    height: 14px;
+    opacity: 0.7;
+    flex-shrink: 0;
+    transition: opacity 0.25s var(--smooth);
+}
+
+.setting_title:hover i[data-icon],
+.setting_title:hover svg {
+    opacity: 1;
+}
+
+.setting_section svg,
+.tab_content svg {
     width: 18px;
     height: 18px;
 }
 
-.setting_section p {
+.setting_section p,
+.tab_content p {
     margin: 0;
 }
 
@@ -301,49 +300,10 @@
     min-height: 40px !important;
 }
 
-.ts-track {
-    width: 36px;
-    height: 20px;
-    background: rgba(255, 255, 255, 0.12);
-    border-radius: 999px;
-    position: relative;
-    transition: background-color 0.2s var(--smooth);
-    flex-shrink: 0;
-}
 
-.ts-thumb {
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 14px;
-    height: 14px;
-    background: rgba(255, 255, 255, 0.72);
-    border-radius: 50%;
-    transition:
-        transform 0.2s var(--expo_out),
-        background-color 0.2s var(--smooth);
-}
-
-.btn[data-action="toggle"] input:checked+.ts-track {
-    background: rgba(255, 255, 255, 0.3);
-}
-
-.btn[data-action="toggle"] input:checked+.ts-track .ts-thumb {
-    transform: translateX(16px);
-    background: #ffffff;
-}
-
-.btn[data-action="toggle"]:hover .ts-track {
-    background-color: rgba(255, 255, 255, 0.2);
-}
-
-.btn[data-action="toggle"] input:focus-visible+.ts-track {
-    outline: 2px solid rgba(255, 255, 255, 0.55);
-    outline-offset: 3px;
-}
 
 #setting_info {
-    padding: 12px 24px;
+    padding: 12px 8px;
     display: flex;
     flex-direction: column;
     align-items: flex-start;

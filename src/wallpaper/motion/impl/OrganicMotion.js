@@ -99,16 +99,16 @@ export class OrganicMotion extends BaseMotion {
 
     static getSettingsSpec() {
         return [
-            { key: "amplitudeX", label: t("wavy.amp_x"), min: 0, max: 10, step: 1, unit: "px", group: "x", tooltipKey: "wavy.tip_amp_x" },
-            { key: "speedX", label: t("wavy.speed_x"), min: 0.1, max: 4.0, step: 0.1, unit: "x", group: "x", tooltipKey: "wavy.tip_speed_x" },
-            { key: "amplitudeY", label: t("wavy.amp_y"), min: 0, max: 10, step: 1, unit: "px", group: "y", tooltipKey: "wavy.tip_amp_y" },
-            { key: "speedY", label: t("wavy.speed_y"), min: 0.1, max: 4.0, step: 0.1, unit: "x", group: "y", tooltipKey: "wavy.tip_speed_y" },
-            { key: "amplitudeRotate", label: t("wavy.rot_angle"), min: 0, max: 3, step: 0.1, unit: "deg", group: "rot", tooltipKey: "wavy.tip_rotate" },
-            { key: "speedRotate", label: t("wavy.rot_speed"), min: 0, max: 3.0, step: 0.1, unit: "x", group: "rot", tooltipKey: "wavy.tip_rotate_speed" },
-            { key: "stiffness", label: t("wavy.organic_stiffness"), min: 0.5, max: 8.0, step: 0.1, unit: "x", group: "spring", tooltipKey: "wavy.tip_stiffness" },
-            { key: "damping", label: t("wavy.organic_damping"), min: 0.3, max: 4.0, step: 0.1, unit: "x", group: "spring", tooltipKey: "wavy.tip_damping" },
-            { key: "detailScale", label: t("wavy.motion_detail_scale"), min: 0.05, max: 1.0, step: 0.01, unit: "x", group: "spring", tooltipKey: "wavy.tip_detail_scale" },
-            { key: "persistence", label: t("wavy.motion_persistence"), min: 0.2, max: 0.8, step: 0.05, unit: "x", group: "spring", tooltipKey: "wavy.tip_persistence" },
+            { key: "amplitudeX", dataI18n: "wavy.amp_x", label: t("wavy.amp_x"), min: 0, max: 10, step: 1, unit: "px", group: "x" },
+            { key: "speedX", dataI18n: "wavy.speed_x", label: t("wavy.speed_x"), min: 0.1, max: 4.0, step: 0.1, unit: "x", group: "x" },
+            { key: "amplitudeY", dataI18n: "wavy.amp_y", label: t("wavy.amp_y"), min: 0, max: 10, step: 1, unit: "px", group: "y" },
+            { key: "speedY", dataI18n: "wavy.speed_y", label: t("wavy.speed_y"), min: 0.1, max: 4.0, step: 0.1, unit: "x", group: "y" },
+            { key: "amplitudeRotate", dataI18n: "wavy.rot_angle", label: t("wavy.rot_angle"), min: 0, max: 3, step: 0.1, unit: "deg", group: "rot" },
+            { key: "speedRotate", dataI18n: "wavy.rot_speed", label: t("wavy.rot_speed"), min: 0, max: 3.0, step: 0.1, unit: "x", group: "rot" },
+            { key: "stiffness", dataI18n: "wavy.organic_stiffness", label: t("wavy.organic_stiffness"), min: 0.5, max: 8.0, step: 0.1, unit: "x", group: "spring", tooltipKey: "wavy.tip_stiffness" },
+            { key: "damping", dataI18n: "wavy.organic_damping", label: t("wavy.organic_damping"), min: 0.3, max: 4.0, step: 0.1, unit: "x", group: "spring", tooltipKey: "wavy.tip_damping" },
+            { key: "detailScale", dataI18n: "wavy.motion_detail_scale", label: t("wavy.motion_detail_scale"), min: 0.05, max: 1.0, step: 0.01, unit: "x", group: "spring", tooltipKey: "wavy.tip_detail_scale" },
+            { key: "persistence", dataI18n: "wavy.motion_persistence", label: t("wavy.motion_persistence"), min: 0.2, max: 0.8, step: 0.05, unit: "x", group: "spring", tooltipKey: "wavy.tip_persistence" },
         ];
     }
 }

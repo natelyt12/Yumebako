@@ -134,10 +134,10 @@ export class FirefliesEffect extends ParticleEffect {
 
     static getSettingsSpec() {
         return [
-            { key: "count", label: t("particles.fireflies.count"), min: 10, max: 300, step: 10, unit: "hạt" },
-            { key: "speed", label: t("particles.fireflies.speed"), min: 0.1, max: 2, step: 0.1, unit: "x" },
-            { key: "size", label: t("particles.fireflies.size"), min: 0.1, max: 2, step: 0.1, unit: "x" },
-            { key: "opacity", label: t("particles.fireflies.opacity"), min: 0.1, max: 1, step: 0.1, unit: "x" }
+            { key: "count", dataI18n: "particles.fireflies.count", label: t("particles.fireflies.count"), min: 10, max: 300, step: 10, unit: t("unit.fireflies"), dataI18nUnit: "unit.fireflies" },
+            { key: "speed", dataI18n: "particles.fireflies.speed", label: t("particles.fireflies.speed"), min: 0.1, max: 2, step: 0.1, unit: "x" },
+            { key: "size", dataI18n: "particles.fireflies.size", label: t("particles.fireflies.size"), min: 0.1, max: 2, step: 0.1, unit: "x" },
+            { key: "opacity", dataI18n: "particles.fireflies.opacity", label: t("particles.fireflies.opacity"), min: 0.1, max: 1, step: 0.1, unit: "x" }
         ];
     }
 }

@@ -168,15 +168,21 @@ class BackgroundEditor {
 
         const specs = [
             {
-                id: "zoom", label: isVideo ? t("bg_editor.zoom_video_label", "Zoom video:") : t("bg_editor.zoom_label"),
+                id: "zoom",
+                dataI18n: isVideo ? "bg_editor.zoom_video_label" : "bg_editor.zoom_label",
+                label: isVideo ? t("bg_editor.zoom_video_label", "Zoom video:") : t("bg_editor.zoom_label"),
                 min: MIN_ZOOM, max: MAX_ZOOM, step: 0.01, defaultValue: 1, unit: "×",
             },
             {
-                id: "x", label: t("bg_editor.pos_x_label"),
+                id: "x",
+                dataI18n: "bg_editor.pos_x_label",
+                label: t("bg_editor.pos_x_label"),
                 min: 0, max: 100, step: 0.1, defaultValue: 50, unit: "%",
             },
             {
-                id: "y", label: t("bg_editor.pos_y_label"),
+                id: "y",
+                dataI18n: "bg_editor.pos_y_label",
+                label: t("bg_editor.pos_y_label"),
                 min: 0, max: 100, step: 0.1, defaultValue: 50, unit: "%",
             },
         ];
@@ -187,6 +193,7 @@ class BackgroundEditor {
         specs.forEach(spec => {
             const slider = createSlider({
                 label: spec.label,
+                dataI18n: spec.dataI18n,
                 min: spec.min,
                 max: spec.max,
                 step: spec.step,

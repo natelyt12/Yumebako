@@ -145,12 +145,12 @@ export class SnowEffect extends ParticleEffect {
 
     static getSettingsSpec() {
         return [
-            { key: "count", label: t("particles.snow.count"), min: 10, max: 1000, step: 10, unit: "hạt" },
-            { key: "speed", label: t("particles.snow.gravity"), min: 0.1, max: 5, step: 0.1, unit: "x" },
-            { key: "size", label: t("particles.snow.size") || "Kích thước hạt", min: 0.1, max: 3.0, step: 0.1, unit: "x" },
-            { key: "blur", label: t("particles.snow.blur") || "Độ nhòe viền", min: 0.0, max: 2.0, step: 0.1, unit: "x" },
-            { key: "angle", label: t("particles.snow.windDirection"), min: -30, max: 30, step: 1, unit: "°" },
-            { key: "opacity", label: t("particles.snow.opacity"), min: 0.1, max: 2, step: 0.1, unit: "x" }
+            { key: "count", dataI18n: "particles.snow.count", label: t("particles.snow.count"), min: 10, max: 1000, step: 10, unit: t("unit.particles"), dataI18nUnit: "unit.particles" },
+            { key: "speed", dataI18n: "particles.snow.gravity", label: t("particles.snow.gravity"), min: 0.1, max: 5, step: 0.1, unit: "x" },
+            { key: "size", dataI18n: "particles.snow.size", label: t("particles.snow.size"), min: 0.1, max: 3.0, step: 0.1, unit: "x" },
+            { key: "blur", dataI18n: "particles.snow.blur", label: t("particles.snow.blur"), min: 0.0, max: 2.0, step: 0.1, unit: "x" },
+            { key: "angle", dataI18n: "particles.snow.windDirection", label: t("particles.snow.windDirection"), min: -30, max: 30, step: 1, unit: "°" },
+            { key: "opacity", dataI18n: "particles.snow.opacity", label: t("particles.snow.opacity"), min: 0.1, max: 2, step: 0.1, unit: "x" }
         ];
     }
 }

@@ -31,8 +31,8 @@ export class CinematicEffect extends ParticleEffect {
 
     static getSettingsSpec() {
         return [
-            { key: "thickness", label: t("particles.cinematic.thickness"), min: 0, max: 30, step: 0.5, unit: "%" },
-            { key: "opacity", label: t("particles.cinematic.opacity"), min: 0, max: 1, step: 0.05, unit: "x" }
+            { key: "thickness", dataI18n: "particles.cinematic.thickness", label: t("particles.cinematic.thickness"), min: 0, max: 30, step: 0.5, unit: "%" },
+            { key: "opacity", dataI18n: "particles.cinematic.opacity", label: t("particles.cinematic.opacity"), min: 0, max: 1, step: 0.05, unit: "x" }
         ];
     }
 }

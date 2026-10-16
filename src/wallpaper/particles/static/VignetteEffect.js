@@ -32,8 +32,8 @@ export class VignetteEffect extends ParticleEffect {
 
     static getSettingsSpec() {
         return [
-            { key: "opacity", label: t("particles.vignette.opacity"), min: 0, max: 1, step: 0.05, unit: "x" },
-            { key: "size", label: t("particles.vignette.size"), min: 0.1, max: 1, step: 0.05, unit: "x" }
+            { key: "opacity", dataI18n: "particles.vignette.opacity", label: t("particles.vignette.opacity"), min: 0, max: 1, step: 0.05, unit: "x" },
+            { key: "size", dataI18n: "particles.vignette.size", label: t("particles.vignette.size"), min: 0.1, max: 1, step: 0.05, unit: "x" }
         ];
     }
 }

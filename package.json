@@ -8,8 +8,6 @@
     "predev": "node scripts/sort_locales.cjs",
     "dev": "vite",
     "build": "node scripts/sort_locales.cjs && vite build",
-    "postbuild": "node scripts/copy_dist.cjs",
-    "copy-dist": "node scripts/copy_dist.cjs",
     "sort-locales": "node scripts/sort_locales.cjs",
     "sync-locales": "node scripts/sync_locales.cjs",
     "test": "node --test \"tests/**/*.test.js\"",

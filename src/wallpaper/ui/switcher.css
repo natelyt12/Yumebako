@@ -53,7 +53,7 @@
         opacity 0.35s var(--cubic_in);
 
     /* Glassmorphism signature (từ commit f3ffb1a: blur sâu 28px, inset highlight viền kính) */
-    background-color: rgba(8, 8, 14, 0.45);
+    background-color: var(--bg-panel, rgba(8, 8, 14, 0.45));
     -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
     backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
     border-top: 1px solid rgba(255, 255, 255, 0.14);

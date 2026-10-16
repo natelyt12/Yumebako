@@ -28,35 +28,64 @@ export function closeAllDropdowns(except = null) {
     });
 }
 
-// Toggle a dropdown open/closed, closing any other open panel first. Shared by
-// the global handler and by components that build their own dropdown markup.
-export function toggleDropdown(dropdown, btn) {
+// Open a dropdown with proper bounds, max-height and open_upwards calculation.
+export function openDropdown(dropdown, btn) {
     if (!dropdown || !btn) return;
     closeAllDropdowns(dropdown);
-
-    if (dropdown.classList.contains("opening")) {
-        closeDropdown(dropdown, btn);
-        return;
-    }
 
     dropdown.classList.remove("closing");
     dropdown.classList.add("active");
     dropdown.offsetHeight;
     dropdown.classList.add("opening");
     btn.classList.add("btn_active");
+
+    const rect = btn.getBoundingClientRect();
+    const scrollParent = btn.closest('.popup_content, #settings_content, .submenu_body') || document.body;
+    const parentRect = scrollParent === document.body
+        ? { top: 0, bottom: window.innerHeight }
+        : scrollParent.getBoundingClientRect();
+
+    const bounds = {
+        top: Math.max(parentRect.top, 0),
+        bottom: Math.min(parentRect.bottom, window.innerHeight),
+    };
+
+    const gap = 6;
+    dropdown.style.removeProperty("max-height");
+    const maxCap = parseFloat(getComputedStyle(dropdown).maxHeight) || dropdown.offsetHeight;
+    const panelHeight = Math.min(dropdown.offsetHeight, maxCap);
+    const spaceBelow = bounds.bottom - rect.bottom - gap;
+    const spaceAbove = rect.top - bounds.top - gap;
+    const openUpwards = spaceBelow < panelHeight && spaceAbove > spaceBelow;
+
+    dropdown.classList.toggle("open_upwards", openUpwards);
+
+    const available = Math.max(120, Math.min(maxCap, openUpwards ? spaceAbove : spaceBelow));
+    dropdown.style.maxHeight = `${Math.floor(available)}px`;
 }
 
 // Close an open dropdown unless it was reopened within the animation window.
-function closeDropdown(dropdown, btn) {
+export function closeDropdown(dropdown, btn) {
+    if (!dropdown) return;
+    if (!btn) btn = findControlButton(dropdown);
     dropdown.classList.remove("opening");
-    // `closing` flips the wipe direction so the panel retreats the way it came.
     dropdown.classList.add("closing");
-    btn.classList.remove("btn_active");
+    if (btn) btn.classList.remove("btn_active");
     setTimeout(() => {
         if (!dropdown.classList.contains("opening")) {
             dropdown.classList.remove("active", "open_upwards", "closing");
         }
     }, CLOSE_ANIM_MS);
+}
+
+// Toggle a dropdown open/closed, closing any other open panel first.
+export function toggleDropdown(dropdown, btn) {
+    if (!dropdown || !btn) return;
+    if (dropdown.classList.contains("opening")) {
+        closeDropdown(dropdown, btn);
+    } else {
+        openDropdown(dropdown, btn);
+    }
 }
 
 // Flag exactly one item as the current selection so the checkmark (CSS ::before)
@@ -252,50 +281,7 @@ export function initSubToggle() {
         if (btn) {
             const dropdown = findDropdown(btn);
             if (dropdown) {
-                const wasOpening = dropdown.classList.contains("opening");
-
-                closeAllDropdowns(dropdown);
-
-                if (wasOpening) {
-                    closeDropdown(dropdown, btn);
-                } else {
-                    dropdown.classList.remove("closing");
-                    dropdown.classList.add("active");
-                    dropdown.offsetHeight;
-                    dropdown.classList.add("opening");
-                    btn.classList.add("btn_active");
-
-                    // Flip the panel upwards when it would not fit below. The
-                    // measured height is used (CSS caps it via max-height) and the
-                    // scroll parent is clamped to the viewport — mandatory for the
-                    // submenu drawer, whose scroll container is a flex child that
-                    // can extend past the bottom of the screen.
-                    const rect = btn.getBoundingClientRect();
-                    const scrollParent = btn.closest('.popup_content, #settings_content, .submenu_body') || document.body;
-                    const parentRect = scrollParent === document.body
-                        ? { top: 0, bottom: window.innerHeight }
-                        : scrollParent.getBoundingClientRect();
-
-                    const bounds = {
-                        top: Math.max(parentRect.top, 0),
-                        bottom: Math.min(parentRect.bottom, window.innerHeight),
-                    };
-
-                    const gap = 6;
-                    dropdown.style.removeProperty("max-height");
-                    const maxCap = parseFloat(getComputedStyle(dropdown).maxHeight) || dropdown.offsetHeight;
-                    const panelHeight = Math.min(dropdown.offsetHeight, maxCap);
-                    const spaceBelow = bounds.bottom - rect.bottom - gap;
-                    const spaceAbove = rect.top - bounds.top - gap;
-                    const openUpwards = spaceBelow < panelHeight && spaceAbove > spaceBelow;
-
-                    dropdown.classList.toggle("open_upwards", openUpwards);
-
-                    // Never let the panel spill past the viewport: clamp it to the
-                    // room actually available on the side it opens towards.
-                    const available = Math.max(120, Math.min(maxCap, openUpwards ? spaceAbove : spaceBelow));
-                    dropdown.style.maxHeight = `${Math.floor(available)}px`;
-                }
+                toggleDropdown(dropdown, btn);
             }
             return;
         }
@@ -309,24 +295,53 @@ export function initSubToggle() {
                 const value = item.getAttribute("data-value");
                 const id = controlBtn.id;
 
-                // Reflect the choice immediately: label, checkmark and data-selected.
-                markSelectedItem(dropdown, item);
-                setDropdownValue(controlBtn, value);
+                if (value !== null) {
+                    // Value row: reflect the choice immediately (label, checkmark and data-selected).
+                    markSelectedItem(dropdown, item);
+                    setDropdownValue(controlBtn, value);
 
-                // If this dropdown was upgraded from a native select, mirror the
-                // pick onto it and re-emit a native `change` for legacy listeners.
-                if (dropdown._nativeSelect) {
-                    dropdown._nativeSelect.value = value;
-                    dropdown._nativeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+                    // If this dropdown was upgraded from a native select, mirror the
+                    // pick onto it and re-emit a native `change` for legacy listeners.
+                    if (dropdown._nativeSelect) {
+                        dropdown._nativeSelect.value = value;
+                        dropdown._nativeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+                    }
+
+                    const changeEvent = new CustomEvent("dropdownChange", {
+                        bubbles: true,
+                        detail: { id: id, value: value },
+                    });
+                    document.dispatchEvent(changeEvent);
+                } else {
+                    // Action menu row (no data-value, e.g. "Add effect"):
+                    item._handled = true;
+                    if (typeof item._action === "function") {
+                        item._action(item);
+                    }
+                    const actionEvent = new CustomEvent("dropdownAction", {
+                        bubbles: true,
+                        detail: { id: id, item },
+                    });
+                    item.dispatchEvent(actionEvent);
+                    setTimeout(() => { item._handled = false; }, 300);
                 }
 
-                const changeEvent = new CustomEvent("dropdownChange", {
-                    bubbles: true,
-                    detail: { id: id, value: value },
-                });
-                document.dispatchEvent(changeEvent);
-
                 closeDropdown(dropdown, controlBtn);
+            }
+        }
+    });
+
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+            closeAllDropdowns();
+            return;
+        }
+        if (event.key === "Enter" || event.key === " ") {
+            const btn = event.target.closest?.(".btn[data-action='dropdown']");
+            if (btn) {
+                event.preventDefault();
+                const dropdown = findDropdown(btn);
+                if (dropdown) toggleDropdown(dropdown, btn);
             }
         }
     });

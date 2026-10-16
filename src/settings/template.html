@@ -1,6 +1,7 @@
 <!-- Feature Templates -->
 <template id="tpl_wallpaper_editor">
     <div class="setting_section wallpaper_editor">
+        <p class="setting_title" data-i18n="bg_editor.window_title">Điều chỉnh vị trí</p>
         <div id="editor_container" class="editor_container">
             <div id="full_image_view" class="full_image_view">
                 <div id="view_lens" class="view_lens">
@@ -62,69 +63,87 @@
 <template id="tpl_wavy_settings">
     <!-- Section 1: Wavy Animation -->
     <div class="setting_section wavy_settings">
-        <div class="section_divider" data-i18n="wavy.motion_type_label">Kiểu chuyển động</div>
-        <select id="wavy_motion_type" class="native_select"></select>
+        <p class="setting_title" data-i18n="sp.wallpaper_customization.toggle_wavy">Wavy Animation</p>
+
         <label class="btn" data-action="toggle">
-            <span data-i18n="wavy.advanced_settings">Cài đặt nâng cao</span>
-            <input type="checkbox" id="wavy_advanced_toggle" />
+            <div class="btn_body">
+                <span class="btn_title" data-i18n="sp.wallpaper_customization.toggle_wavy">Wavy
+                    Animation</span>
+                <span class="btn_desc" data-i18n="sp.wallpaper_customization.wavy_settings_tooltip">Làm cho
+                    hình
+                    nền của bạn đung đưa nhẹ, tạo cảm giác sống động hơn</span>
+            </div>
+            <input type="checkbox" id="wavy_enabled_toggle" />
         </label>
 
-        <!-- Advanced: parameters of the selected motion type, rebuilt on mode change -->
-        <div id="wavy_advanced_section" class="flex_col gap_8 w_full">
-            <div class="section_divider" data-i18n="wavy.advanced_settings">Cài đặt nâng cao</div>
-            <span class="tooltip" data-i18n="wavy.motion_tooltip">Mỗi kiểu chuyển động có bộ thông số riêng ở bên
-                dưới. Riêng tỉ lệ Phóng to là dùng chung cho tất cả các kiểu. Lưu ý: tăng Tốc độ hoặc Độ xoay quá cao có
-                thể gây mỏi mắt hoặc chóng mặt.</span>
-            <div id="wavy_motion_sliders" class="flex_col gap_8 w_full"></div>
+        <div id="wavy_content_container" class="flex_col gap_8 w_full">
+            <p class="setting_title" data-i18n="wavy.motion_type_label">Kiểu chuyển động</p>
+            <select id="wavy_motion_type" class="native_select"></select>
+            <label class="btn" data-action="toggle">
+                <span data-i18n="wavy.advanced_settings">Cài đặt nâng cao</span>
+                <input type="checkbox" id="wavy_advanced_toggle" />
+            </label>
+
+            <!-- Advanced: parameters of the selected motion type, rebuilt on mode change -->
+            <div id="wavy_advanced_section" class="flex_col gap_8 w_full">
+                <p class="setting_title" data-i18n="wavy.advanced_settings">Cài đặt nâng cao</p>
+                <span class="tooltip" data-i18n="wavy.motion_tooltip">Lưu ý: Tăng Tốc độ hoặc Độ xoay quá cao có thể gây cảm giác mỏi mắt hoặc chóng mặt.</span>
+                <div id="wavy_motion_sliders" class="flex_col gap_8 w_full"></div>
+
+                <div class="section_divider"></div>
+
+                <!-- Only randomises the style parameters above, so it lives inside
+                     the advanced section and hides together with it. -->
+                <button id="btn_wavy_random" class="btn w_full" data-i18n="wavy.btn_random">Ngẫu nhiên</button>
+            </div>
+
+            <p class="setting_title" data-i18n="wavy.shared_section_label">Tùy chỉnh chung</p>
+
+            <!-- Shared by every motion type and always visible -->
+            <div id="wavy_shared_sliders" class="flex_col gap_8 w_full"></div>
 
             <div class="section_divider"></div>
 
-            <!-- Only randomises the style parameters above, so it lives inside
-                 the advanced section and hides together with it. -->
-            <button id="btn_wavy_random" class="btn w_full" data-i18n="wavy.btn_random">Ngẫu nhiên</button>
+            <div class="flex_row gap_8 w_full">
+                <button id="btn_wavy_reset" class="btn flex_1" data-i18n="wavy.btn_default">Mặc định</button>
+                <button id="btn_wavy_save" class="btn flex_1" data-i18n="wavy.btn_save">Lưu</button>
+            </div>
         </div>
-
-        <div class="section_divider" data-i18n="wavy.shared_section_label">Tùy chỉnh chung</div>
-
-        <!-- Shared by every motion type and always visible -->
-        <div id="wavy_shared_sliders" class="flex_col gap_8 w_full"></div>
-
-        <div class="section_divider"></div>
-
-        <div class="flex_row gap_8 w_full">
-            <button id="btn_wavy_reset" class="btn flex_1" data-i18n="wavy.btn_default">Mặc định</button>
-            <button id="btn_wavy_save" class="btn flex_1" data-i18n="wavy.btn_save">Lưu</button>
-        </div>
-        <span class="tooltip" data-i18n="wavy.note_tooltip">
-            Cài đặt mặc định mang lại hiệu ứng tự nhiên nhất.
-        </span>
     </div>
 </template>
 
 <template id="tpl_parallax_settings">
     <!-- Section 2: Parallax Effect -->
     <div class="setting_section parallax_settings">
-        <div id="parallax_sliders_container" class="flex_col gap_8 w_full">
-            <!-- Dynamic parallax sliders injected here -->
-        </div>
-        <div class="section_divider"></div>
+        <p class="setting_title" data-i18n="sp.wallpaper_customization.toggle_parallax">Hiệu ứng Parallax</p>
 
-        <div class="flex_row gap_8 w_full">
-            <button id="btn_parallax_reset" class="btn flex_1" data-i18n="wavy.btn_default">Mặc định</button>
-            <button id="btn_parallax_save" class="btn flex_1" data-i18n="wavy.btn_save">Lưu</button>
+        <label class="btn" data-action="toggle">
+            <div class="btn_body">
+                <span class="btn_title" data-i18n="sp.wallpaper_customization.toggle_parallax">Hiệu ứng
+                    Parallax</span>
+                <span class="btn_desc" data-i18n="sp.wallpaper_customization.parallax_settings_tooltip">Hình
+                    nền
+                    sẽ di chuyển theo con trỏ chuột của bạn</span>
+            </div>
+            <input type="checkbox" id="parallax_enabled_toggle" />
+        </label>
+
+        <div id="parallax_content_container" class="flex_col gap_8 w_full">
+            <div id="parallax_sliders_container" class="flex_col gap_8 w_full">
+                <!-- Dynamic parallax sliders injected here -->
+            </div>
+            <div class="section_divider"></div>
+            <div class="flex_row gap_8 w_full">
+                <button id="btn_parallax_reset" class="btn flex_1" data-i18n="parallax.btn_default">Mặc định</button>
+                <button id="btn_parallax_save" class="btn flex_1" data-i18n="parallax.btn_save">Lưu</button>
+            </div>
         </div>
-        <span class="tooltip" data-i18n="wavy.parallax_tooltip">
-            Biên độ âm di chuyển ngược hướng con trỏ chuột, biên độ dương di chuyển cùng hướng. Độ nặng càng nhỏ thì di
-            chuyển càng đầm trễ.
-            Lưu ý: Chỉnh biên độ bám chuột quá cao có thể khiến hình nền bị lộ viền, hãy kết hợp tăng nhẹ tỉ lệ Phóng to
-            để khắc phục.
-        </span>
     </div>
 </template>
 
 <template id="tpl_onload_settings">
     <div class="setting_section onload_settings">
-        <p class="popup_section_title" data-i18n="onload_anim.preset_label">Hiệu ứng có sẵn</p>
+        <p class="setting_title" data-i18n="onload_anim.preset_label">Hiệu ứng có sẵn</p>
         <select id="onload_preset" class="native_select"></select>
 
         <label class="btn" data-action="toggle">
@@ -133,17 +152,17 @@
         </label>
 
         <div id="onload_advanced_section" class="flex_col gap_8 w_full">
-            <div class="section_divider" data-i18n="onload_anim.custom_bg_label">Tùy chỉnh hình nền</div>
+            <p class="setting_title" data-i18n="onload_anim.custom_bg_label">Tùy chỉnh hình nền</p>
             <div class="custom_onload_animation flex_col gap_12" id="onload_bg_sliders"></div>
 
-            <p class="popup_section_title" data-i18n="onload_anim.bg_easing_label">Easing hình nền</p>
+            <p class="setting_title" data-i18n="onload_anim.bg_easing_label">Easing hình nền</p>
             <select id="onload_bg_easing" class="native_select"></select>
 
-            <div class="section_divider" data-i18n="onload_anim.custom_overlay_label">Tùy chỉnh lớp phủ</div>
+            <p class="setting_title" data-i18n="onload_anim.custom_overlay_label">Tùy chỉnh lớp phủ</p>
             <div class="custom_onload_animation flex_col gap_12" id="onload_overlay_sliders"></div>
         </div>
 
-        <div class="section_divider" data-i18n="onload_anim.other_settings_label">Cài đặt khác</div>
+        <p class="setting_title" data-i18n="onload_anim.other_settings_label">Cài đặt khác</p>
         <label class="btn" data-action="toggle">
             <div class="btn_body">
                 <span class="btn_title" data-i18n="onload_anim.widget_immediate">Giao diện xuất hiện ngay lập tức</span>
@@ -161,6 +180,7 @@
 
 <template id="tpl_filter_settings">
     <div class="setting_section">
+        <p class="setting_title" data-i18n="sp.wallpaper_customization.filters">Bộ lọc & màu sắc</p>
         <div id="filter_sliders_container" class="flex_col gap_12 w_full">
             <!-- Dynamic sliders injected here -->
         </div>
@@ -217,7 +237,8 @@
                     <span data-i18n="sp.api.wallhaven.cat_people">People</span>
                     <input type="checkbox" id="wh_cat_people" />
                 </label>
-                <span class="tooltip" data-i18n="sp.api.wallhaven.category.tooltip">Lựa chọn các nhãn phân loại ảnh bạn muốn
+                <span class="tooltip" data-i18n="sp.api.wallhaven.category.tooltip">Lựa chọn các nhãn phân loại ảnh bạn
+                    muốn
                     hiển thị.</span>
             </div>
         </div>

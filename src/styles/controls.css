@@ -100,58 +100,6 @@ select option,
     padding: 8px 12px;
 }
 
-
-/* Custom Range Slider */
-.custom_slider_track_container {
-    position: relative;
-    width: 100%;
-    height: 36px;
-    margin: 0 4px;
-    display: flex;
-    align-items: center;
-}
-
-.custom_slider_track {
-    width: 100%;
-    height: 4px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
-    transition: background 0.3s var(--expo_out);
-    position: relative;
-    overflow: hidden;
-}
-
-.custom_slider_track_fill {
-    height: 100%;
-    background: rgba(255, 255, 255, 0.45);
-    border-radius: 4px;
-}
-
-.custom_slider_track_container:hover .custom_slider_track {
-    background: rgba(255, 255, 255, 0.2);
-}
-
-.custom_slider_thumb {
-    position: absolute;
-    height: 16px;
-    width: 16px;
-    border-radius: 50%;
-    background: var(--text-primary);
-    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1);
-    top: 50%;
-    transform: translate(-50%, -50%);
-    transition:
-        transform 0.3s var(--expo_out),
-        border-radius 0.3s var(--expo_out),
-        box-shadow 0.3s var(--expo_out);
-}
-
-.custom_slider_thumb.dragging {
-    transform: translate(-50%, -50%) rotate(45deg);
-    border-radius: 0;
-    box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.08);
-}
-
 hr {
     border: none;
     height: 1px;
@@ -161,43 +109,18 @@ hr {
 
 .section_divider,
 .slider_section_divider {
-    display: flex;
-    align-items: center;
-    gap: 12px;
     width: 100%;
-    margin: 8px 0 4px 0;
-    color: var(--text-muted);
-    font-size: 0.72em;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    user-select: none;
-}
-
-.section_divider:empty,
-.slider_section_divider:empty {
-    gap: 0;
-    margin: 6px 0;
+    height: 1px;
+    margin: 8px 0;
+    background-color: var(--divider);
+    border: none;
+    flex-shrink: 0;
+    display: block;
 }
 
 .section_divider:first-child,
 .slider_section_divider:first-child {
     margin-top: 0;
-}
-
-.section_divider::before,
-.section_divider::after,
-.slider_section_divider::before,
-.slider_section_divider::after {
-    content: "";
-    flex: 1;
-    height: 1px;
-    background-color: var(--divider);
-}
-
-.section_divider:empty::after,
-.slider_section_divider:empty::after {
-    display: none;
 }
 
 /* Wavy motion sliders: each control keeps its tooltip visually attached, while

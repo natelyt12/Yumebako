@@ -143,12 +143,12 @@ export class DustEffect extends ParticleEffect {
 
     static getSettingsSpec() {
         return [
-            { key: "count", label: t("particles.dust.count"), min: 10, max: 1000, step: 10, unit: "hạt" },
-            { key: "speed", label: t("particles.dust.speed"), min: 0.1, max: 5, step: 0.1, unit: "x" },
-            { key: "size", label: t("particles.dust.size") || "Kích thước hạt", min: 0.1, max: 3.0, step: 0.1, unit: "x" },
-            { key: "blur", label: t("particles.dust.blur") || "Độ nhòe viền", min: 0.0, max: 2.0, step: 0.1, unit: "x" },
-            { key: "angle", label: t("particles.dust.angle"), min: -10, max: 10, step: 1, unit: "°" },
-            { key: "opacity", label: t("particles.dust.opacity"), min: 0.1, max: 2, step: 0.1, unit: "x" }
+            { key: "count", dataI18n: "particles.dust.count", label: t("particles.dust.count"), min: 10, max: 1000, step: 10, unit: t("unit.particles"), dataI18nUnit: "unit.particles" },
+            { key: "speed", dataI18n: "particles.dust.speed", label: t("particles.dust.speed"), min: 0.1, max: 5, step: 0.1, unit: "x" },
+            { key: "size", dataI18n: "particles.dust.size", label: t("particles.dust.size"), min: 0.1, max: 3.0, step: 0.1, unit: "x" },
+            { key: "blur", dataI18n: "particles.dust.blur", label: t("particles.dust.blur"), min: 0.0, max: 2.0, step: 0.1, unit: "x" },
+            { key: "angle", dataI18n: "particles.dust.angle", label: t("particles.dust.angle"), min: -10, max: 10, step: 1, unit: "°" },
+            { key: "opacity", dataI18n: "particles.dust.opacity", label: t("particles.dust.opacity"), min: 0.1, max: 2, step: 0.1, unit: "x" }
         ];
     }
 }

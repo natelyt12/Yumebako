@@ -4,7 +4,7 @@
  */
 export { initToggleSettingBtn, openSidebarSubmenu, closeSidebarSubmenu, attemptCloseSubmenu, setSubmenuDirty } from "./ui/submenu.js";
 export { initButtons, createButton } from "./ui/button.js";
-export { initSubToggle, setDropdownValue, syncDropdownSelection, toggleDropdown, closeAllDropdowns, initCustomSelects, upgradeSelectToDropdown } from "./ui/dropdown.js";
+export { initSubToggle, setDropdownValue, syncDropdownSelection, toggleDropdown, openDropdown, closeDropdown, closeAllDropdowns, initCustomSelects, upgradeSelectToDropdown } from "./ui/dropdown.js";
 export { openCustomPopup, createConfirmDialog, showConfirm } from "./ui/popup.js";
 export { showNotification } from "./ui/notification.js";
 export { createSlider } from "./ui/slider.js";

@@ -73,7 +73,7 @@ export class NoiseEffect extends ParticleEffect {
 
     static getSettingsSpec() {
         return [
-            { key: "opacity", label: t("particles.noise.opacity"), min: 0, max: 0.4, step: 0.01, unit: "x" }
+            { key: "opacity", dataI18n: "particles.noise.opacity", label: t("particles.noise.opacity"), min: 0, max: 0.4, step: 0.01, unit: "x" }
         ];
     }
 }

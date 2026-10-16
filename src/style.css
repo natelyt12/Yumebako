@@ -3,6 +3,7 @@
 @import "./styles/base.css";
 @import "./styles/buttons.css";
 @import "./styles/controls.css";
+@import "./styles/sliders.css";
 @import "./styles/popups.css";
 @import "./settings/settings_wrapper.css";
 @import "./styles/utilities.css";

@@ -76,14 +76,14 @@ class FilterSettingsEditor {
         const config = getSettings().wallpaperConfig || {};
 
         const standardSpecs = [
-            { id: "brightness", label: t("sp.wallpaper_customization.brightness"), min: 0.1, max: 2.0, step: 0.05, unit: "%" },
-            { id: "contrast", label: t("sp.wallpaper_customization.contrast"), min: 0.1, max: 2.0, step: 0.05, unit: "%" },
-            { id: "saturate", label: t("sp.wallpaper_customization.saturate"), min: 0, max: 3.0, step: 0.1, unit: "%" },
+            { id: "brightness", dataI18n: "sp.wallpaper_customization.brightness", label: t("sp.wallpaper_customization.brightness"), min: 0.1, max: 2.0, step: 0.05, unit: "×" },
+            { id: "contrast", dataI18n: "sp.wallpaper_customization.contrast", label: t("sp.wallpaper_customization.contrast"), min: 0.1, max: 2.0, step: 0.05, unit: "×" },
+            { id: "saturate", dataI18n: "sp.wallpaper_customization.saturate", label: t("sp.wallpaper_customization.saturate"), min: 0, max: 3.0, step: 0.1, unit: "×" },
         ];
 
         // Everything under here is expensive to render/composite, hence the divider.
         const heavySpecs = [
-            { id: "bloom", label: t("sp.wallpaper_customization.bloom"), min: 0, max: 100, step: 10, unit: "%" },
+            { id: "bloom", dataI18n: "sp.wallpaper_customization.bloom", label: t("sp.wallpaper_customization.bloom"), min: 0, max: 100, step: 10, unit: "%" },
         ];
 
         this.sliders = {};
@@ -93,6 +93,7 @@ class FilterSettingsEditor {
             const renderSpec = (spec) => {
                 const sliderComponent = createSlider({
                     label: spec.label,
+                    dataI18n: spec.dataI18n,
                     min: spec.min,
                     max: spec.max,
                     step: spec.step,
@@ -108,12 +109,12 @@ class FilterSettingsEditor {
             // 1. Standard Sliders
             standardSpecs.forEach(renderSpec);
 
-            // 2. Heavy Effects Divider
-            const divider = document.createElement("div");
-            divider.className = "section_divider";
-            divider.setAttribute("data-i18n", "sp.wallpaper_customization.heavy_effects");
-            divider.textContent = t("sp.wallpaper_customization.heavy_effects", "Hiệu ứng nặng");
-            container.appendChild(divider);
+            // 2. Heavy Effects Title
+            const title = document.createElement("p");
+            title.className = "setting_title";
+            title.setAttribute("data-i18n", "sp.wallpaper_customization.heavy_effects");
+            title.textContent = t("sp.wallpaper_customization.heavy_effects", "Hiệu ứng nặng");
+            container.appendChild(title);
 
             // 3. Heavy Effect Sliders
             heavySpecs.forEach(renderSpec);

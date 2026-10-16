@@ -71,6 +71,7 @@ export function initToggleSettingBtn() {
             settingToggleBtn.classList.add("setting_toggle_btn_opened");
             actionButtons?.classList.add("setting_toggle_btn_opened");
             actionButtons?.classList.remove("toggle_hidden");
+            updateNavShift();
         } else {
             settingWrapper.classList.remove("setting_wrapper_opened");
             settingToggleBtn.classList.remove("setting_toggle_btn_opened");
@@ -93,6 +94,10 @@ export function initToggleSettingBtn() {
 
     if (settingCloseBtn) {
         settingCloseBtn.addEventListener("click", () => {
+            if (settingWrapper.classList.contains("submenu_active")) {
+                const closed = attemptCloseSubmenu();
+                if (!closed) return;
+            }
             setOpenState(false);
         });
     }
@@ -104,22 +109,18 @@ export function initToggleSettingBtn() {
  * seen snapping), then fade it back in.
  * @param {boolean} showActions - True to show the submenu actions, false for tabs.
  */
-function swapNavList(showActions) {
-    const navGroup = document.querySelector(".nav_group");
-    if (!navGroup) return;
+export function updateNavShift() {
+    const navMain = document.getElementById("setting_nav_main");
+    const settingsNav = document.querySelector(".settings_nav");
+    if (navMain && settingsNav) {
+        const gap = parseInt(getComputedStyle(settingsNav).gap, 10) || 8;
+        const shiftY = navMain.offsetHeight + gap;
+        settingsNav.style.setProperty("--nav-shift-y", `${shiftY}px`);
+    }
+}
 
-    clearTimeout(navSwapTimer);
-
-    // Already showing the requested list: nothing to do. This is what makes a
-    // submenu -> submenu switch a no-op instead of a needless re-fade.
-    if (navGroup.classList.contains("nav_actions_visible") === showActions) return;
-
-    navGroup.classList.add("nav_fading");
-    navSwapTimer = setTimeout(() => {
-        navGroup.classList.toggle("nav_actions_visible", showActions);
-        navGroup.classList.remove("nav_fading");
-        navSwapTimer = null;
-    }, NAV_SWAP_FADE_MS);
+function swapNavList() {
+    // State transitions for nav groups are handled via #setting_wrapper.submenu_active in CSS
 }
 
 /**
@@ -209,6 +210,7 @@ export function openSidebarSubmenu(title, contentNode, options = {}) {
         }
     }
 
+    updateNavShift();
     wrapper.classList.toggle("can_preview", canPreview);
     wrapper.classList.add("submenu_active");
     swapNavList(true);

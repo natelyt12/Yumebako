@@ -135,6 +135,90 @@ button:disabled,
     height: 0;
 }
 
+/* --- Material 3 Expressive Toggle Switch --- */
+:root {
+    --ts-track-width: 40px;
+    --ts-track-height: 24px;
+    --ts-thumb-size-off: 10px;
+    --ts-thumb-size-on: 16px;
+
+    /* Unselected (OFF) */
+    --ts-track-off-bg: rgba(255, 255, 255, 0.06);
+    --ts-track-off-border: rgba(255, 255, 255, 0.24);
+    --ts-thumb-off-color: rgba(255, 255, 255, 0.65);
+
+    /* Selected (ON) */
+    --ts-track-on-bg: #ffffff;
+    --ts-track-on-border: #ffffff;
+    --ts-thumb-on-color: #454545;
+}
+
+.ts-track {
+    width: var(--ts-track-width);
+    height: var(--ts-track-height);
+    background-color: var(--ts-track-off-bg);
+    border: 1.5px solid var(--ts-track-off-border);
+    border-radius: 999px;
+    position: relative;
+    box-sizing: border-box;
+    transition:
+        background-color 0.24s cubic-bezier(0.2, 0, 0, 1),
+        border-color 0.24s cubic-bezier(0.2, 0, 0, 1);
+    flex-shrink: 0;
+    pointer-events: none;
+}
+
+.ts-thumb {
+    position: absolute;
+    top: 50%;
+    left: 4px;
+    width: var(--ts-thumb-size-off);
+    height: var(--ts-thumb-size-off);
+    background-color: var(--ts-thumb-off-color);
+    border-radius: 50%;
+    transform: translate(0, -50%);
+    transition:
+        transform 0.28s cubic-bezier(0.2, 0, 0, 1),
+        width 0.24s cubic-bezier(0.2, 0, 0, 1),
+        height 0.24s cubic-bezier(0.2, 0, 0, 1),
+        background-color 0.24s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Hover on unselected toggle */
+.btn[data-action="toggle"]:hover .ts-track {
+    border-color: rgba(255, 255, 255, 0.4);
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.btn[data-action="toggle"]:hover .ts-thumb {
+    background-color: rgba(255, 255, 255, 0.9);
+}
+
+/* Selected (ON) State */
+.btn[data-action="toggle"] input:checked + .ts-track {
+    background-color: var(--ts-track-on-bg);
+    border-color: var(--ts-track-on-border);
+}
+
+.btn[data-action="toggle"] input:checked + .ts-track .ts-thumb {
+    width: var(--ts-thumb-size-on);
+    height: var(--ts-thumb-size-on);
+    background-color: var(--ts-thumb-on-color);
+    transform: translate(calc(var(--ts-track-width) - var(--ts-thumb-size-on) - 8px), -50%);
+}
+
+/* Hover on selected toggle */
+.btn[data-action="toggle"]:hover input:checked + .ts-track {
+    background-color: #f0f0f5;
+    border-color: #f0f0f5;
+}
+
+/* Keyboard accessibility */
+.btn[data-action="toggle"] input:focus-visible + .ts-track {
+    outline: 2px solid rgba(255, 255, 255, 0.6);
+    outline-offset: 2px;
+}
+
 /* Danger variant (replaces the legacy `.danger_btn` / `.btn_warning`). */
 .btn[data-variant="danger"] {
     background-color: var(--color-danger);

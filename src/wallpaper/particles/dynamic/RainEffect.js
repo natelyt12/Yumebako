@@ -142,11 +142,11 @@ export class RainEffect extends ParticleEffect {
 
     static getSettingsSpec() {
         return [
-            { key: "count", label: t("particles.rain.count"), min: 10, max: 1000, step: 1, unit: "giọt" },
-            { key: "speed", label: t("particles.rain.gravity"), min: 0.1, max: 5, step: 0.1, unit: "x" },
-            { key: "length", label: t("particles.rain.length"), min: 0.1, max: 5, step: 0.1, unit: "x" },
-            { key: "angle", label: t("particles.rain.windDirection"), min: -30, max: 30, step: 1, unit: "°" },
-            { key: "opacity", label: t("particles.rain.opacity"), min: 0.1, max: 2, step: 0.1, unit: "x" }
+            { key: "count", dataI18n: "particles.rain.count", label: t("particles.rain.count"), min: 10, max: 1000, step: 1, unit: t("unit.drops"), dataI18nUnit: "unit.drops" },
+            { key: "speed", dataI18n: "particles.rain.gravity", label: t("particles.rain.gravity"), min: 0.1, max: 5, step: 0.1, unit: "x" },
+            { key: "length", dataI18n: "particles.rain.length", label: t("particles.rain.length"), min: 0.1, max: 5, step: 0.1, unit: "x" },
+            { key: "angle", dataI18n: "particles.rain.windDirection", label: t("particles.rain.windDirection"), min: -30, max: 30, step: 1, unit: "°" },
+            { key: "opacity", dataI18n: "particles.rain.opacity", label: t("particles.rain.opacity"), min: 0.1, max: 2, step: 0.1, unit: "x" }
         ];
     }
 }

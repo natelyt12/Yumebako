@@ -1,19 +1,15 @@
-<div class="setting_section">
-    <div class="loading" id="weather_loading"></div>
-    <p class="setting_title" data-i18n="sp.weather.title">Thời tiết</p>
-    <div class="setting_options">
-        <p data-i18n="sp.weather.city_input">Nhập thành phố của bạn</p>
-        <input type="text" name="weather_city" id="weather_city"
-            data-i18n-placeholder="sp.weather.city_placeholder"
-            placeholder="Tên thành phố hoặc tên quốc gia" />
-        <div class="selected_city_wrapper">
-            <p id="selected" data-i18n="sp.weather.no_city">Bạn chưa chọn thành phố nào</p>
-        </div>
-        <div id="city_output"></div>
-        <div id="weather_output"></div>
-        <label class="btn" data-action="toggle">
-            <span data-i18n="sp.weather.use_fahrenheit">Sử dụng độ F (°F)</span>
-            <input type="checkbox" id="weather_fahrenheit" />
-        </label>
-    </div>
+<div class="loading" id="weather_loading"></div>
+<p class="setting_title" data-i18n="sp.weather.title">Thời tiết</p>
+<p data-i18n="sp.weather.city_input">Nhập thành phố của bạn</p>
+<input type="text" name="weather_city" id="weather_city"
+    data-i18n-placeholder="sp.weather.city_placeholder"
+    placeholder="Tên thành phố hoặc tên quốc gia" />
+<div class="selected_city_wrapper">
+    <p id="selected" data-i18n="sp.weather.no_city">Bạn chưa chọn thành phố nào</p>
 </div>
+<div id="city_output"></div>
+<div id="weather_output"></div>
+<label class="btn" data-action="toggle">
+    <span data-i18n="sp.weather.use_fahrenheit">Sử dụng độ F (°F)</span>
+    <input type="checkbox" id="weather_fahrenheit" />
+</label>

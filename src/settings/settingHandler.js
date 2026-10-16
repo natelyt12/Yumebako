@@ -58,6 +58,7 @@ export async function initSettingsLauncher() {
         renderIcons();
         initToggleSettingBtn();
         initSettingsNav();
+        initNavFloatingTooltip();
 
         // --- 3. INIT FEATURES ---
 
@@ -150,6 +151,120 @@ function initSettingsNav() {
                 });
             }
         });
+    });
+}
+
+function initNavFloatingTooltip() {
+    const nav = document.querySelector(".settings_nav");
+    const tooltip = document.getElementById("nav_floating_tooltip");
+    const textEl = document.getElementById("nav_tooltip_text");
+    const measureEl = document.getElementById("nav_tooltip_measure");
+    if (!nav || !tooltip || !textEl || !measureEl) return;
+
+    let hideTimer = null;
+    let fadeTimer = null;
+    let rafId = null;
+
+    let currentY = null;
+    let targetY = null;
+    let currentWidth = null;
+    let targetWidth = null;
+    let currentText = "";
+
+    const LERP_FACTOR = 0.22;
+    const HORIZONTAL_CHROME = 28 + 2; // 14px * 2 padding + 1px * 2 border
+
+    function animate() {
+        const dy = targetY - currentY;
+        const dw = targetWidth - currentWidth;
+
+        if (Math.abs(dy) < 0.25 && Math.abs(dw) < 0.25) {
+            currentY = targetY;
+            currentWidth = targetWidth;
+            tooltip.style.top = `${currentY.toFixed(1)}px`;
+            tooltip.style.width = `${currentWidth.toFixed(1)}px`;
+            rafId = null;
+            return;
+        }
+
+        currentY += dy * LERP_FACTOR;
+        currentWidth += dw * LERP_FACTOR;
+
+        tooltip.style.top = `${currentY.toFixed(1)}px`;
+        tooltip.style.width = `${currentWidth.toFixed(1)}px`;
+
+        rafId = requestAnimationFrame(animate);
+    }
+
+    function startLerp() {
+        if (!rafId) {
+            rafId = requestAnimationFrame(animate);
+        }
+    }
+
+    nav.addEventListener("pointerover", (e) => {
+        const item = e.target.closest(".nav_item[data-tooltip-i18n], .nav_item[data-tooltip]");
+        if (!item || !nav.contains(item)) return;
+
+        clearTimeout(hideTimer);
+        const i18nKey = item.getAttribute("data-tooltip-i18n");
+        const directText = item.getAttribute("data-tooltip");
+        const text = i18nKey ? t(i18nKey) : directText;
+        if (!text) return;
+
+        const navRect = nav.getBoundingClientRect();
+        const itemRect = item.getBoundingClientRect();
+        targetY = (itemRect.top - navRect.top) + (itemRect.height / 2);
+
+        measureEl.textContent = text;
+        targetWidth = Math.ceil(measureEl.offsetWidth + HORIZONTAL_CHROME);
+
+        const isAlreadyVisible = tooltip.classList.contains("visible");
+
+        if (!isAlreadyVisible) {
+            currentY = targetY;
+            currentWidth = targetWidth;
+            currentText = text;
+            textEl.textContent = text;
+            textEl.className = "nav_tooltip_text";
+            tooltip.style.top = `${currentY}px`;
+            tooltip.style.width = `${currentWidth}px`;
+            tooltip.classList.add("visible");
+        } else {
+            startLerp();
+
+            if (text !== currentText) {
+                currentText = text;
+                clearTimeout(fadeTimer);
+                textEl.classList.remove("fade_in_prep");
+                textEl.classList.add("fade_out");
+
+                fadeTimer = setTimeout(() => {
+                    textEl.textContent = text;
+                    textEl.classList.add("fade_in_prep");
+                    textEl.classList.remove("fade_out");
+                    void textEl.offsetWidth; // Force reflow
+                    textEl.classList.remove("fade_in_prep");
+                }, 70);
+            }
+        }
+    });
+
+    nav.addEventListener("pointerout", (e) => {
+        const item = e.target.closest(".nav_item");
+        if (!item) return;
+
+        const related = e.relatedTarget?.closest?.(".nav_item");
+        if (related && nav.contains(related)) return;
+
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => {
+            tooltip.classList.remove("visible");
+            if (rafId) {
+                cancelAnimationFrame(rafId);
+                rafId = null;
+            }
+        }, 80);
     });
 }
 

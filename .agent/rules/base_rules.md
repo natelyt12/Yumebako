@@ -7,12 +7,12 @@ description: "Core rules for developing Yumebako Startpage. Always follow them."
 
 These are the rules the agent must always keep in mind when coding a new feature for this project:
 
-## 1. Settings Storage
-- **Check before coding:** Whenever a new feature or module is requested, the very first step is to check `src/core/storageHandler.js`. If the feature needs to persist state (a setting), declare its default structure inside the `defaultSettings` object in that file before doing anything else.
-- **Split storage:**
-  - Settings about aesthetics, wallpaper and effects (e.g. `wavy`, `particles`, `wallpaperConfig`) are automatically stored under the `bako_wallpaper` key in LocalStorage.
-  - Settings about the system, the startpage, widgets and utilities are automatically stored under the `bako_settings` key.
-- **Never override stored data directly:** Always call `getSettings()` to read the latest state and use `saveSettings()` to update it. `saveSettings()` is designed to route the data into both keys above automatically.
+## 1. Settings Storage (`src/core/storageHandler.js`)
+- **Check before coding:** Whenever a new feature or module is requested, the very first step is to check `src/core/storageHandler.js`. If the feature needs to persist state (a setting), declare its default structure (and JSDoc typedef) inside `defaultSettings` in that file before doing anything else.
+- **Split storage (`WALLPAPER_KEYS`):**
+  - Aesthetics, wallpaper, and effect settings (`wallpaperConfig`, `wallpaperSwitcher`, `wallpaperPosition`, `wavy`, `particles`, `onload`, `wallpapers`) are automatically routed to `bako_wallpaper` in LocalStorage.
+  - System, startpage, widget, and utility settings are automatically routed to `bako_settings`.
+- **Never override stored data directly:** Always call `getSettings()` to read the latest merged state, `saveSettings(partial)` to update it, and `subscribe(key, callback)` to reactively listen to changes on a top-level key.
 
 ## 2. General Rules & Workflow
 - **Output & Workflow:**
@@ -26,49 +26,54 @@ These are the rules the agent must always keep in mind when coding a new feature
   - Removing a feature: review and remove every related locale key, leaving no orphan keys behind.
 
 ## 3. Interface (UI/UX)
-When working on the UI, follow the structure of the project, keep nested `div`s to an absolute minimum and strictly limit inline styles.
-- **Core UI components:**
-  - The project already ships a component library. For dropdowns, use `core/ui/dropdown.js` and restyle through `styles/dropdown.css` (the single source of truth for dropdown UI). The same applies to `notification`, `popup`, `slider` and `submenu`. **Read and study each of these JS files carefully** before using them, so you pass the right params.
-- **Tooltip:** Write in-app tooltips using an element with the `.tooltip` class.
-- **Button:** Every bar-style button (settings + app UI) uses the single `.btn`
-  component. It follows a three-zone slot layout, and Zone 3 is always rendered by
-  JS from `data-action` — never write the chevron or the switch track by hand.
-  - Zone 1 (optional): leading icon `<i data-icon="...">`.
-  - Zone 2: `<div class="btn_body">` holding `.btn_title` and an optional `.btn_desc`
-    (use a plain `<span>` for a one-line label without a description).
-  - Zone 3 (auto-rendered by `core/ui/button.js`):
+When working on the UI, follow the structure of the project, keep nested `div`s to an absolute minimum, and use helper classes from `src/styles/utilities.css` (`.flex_row`, `.flex_col`, `.flex_1`, `.gap_4`–`.gap_12`, `.mt_4`–`.mt_12`, `.mb_8`, `.w_full`, `.text_center`, `.hidden`) instead of inline styles.
 
-    | `data-action` | Zone 3 | Purpose |
-    | :--- | :--- | :--- |
-    | *(none)* | – | Plain action (Save, Reset, Export, Close) |
-    | `submenu` | right chevron | Opens a right-hand submenu panel |
-    | `dropdown` | down chevron (`.sbsctsvg`) | Opens a dropdown — see `styles/dropdown.css` |
-    | `toggle` | switch track (`.ts-track`) | Binary on/off — use a `<label class="btn">` |
+- **Icons (`src/core/icon.js`):**
+  - Icons use `@phosphor-icons/core` raw SVGs registered in `Icons` (`src/core/icon.js`).
+  - In HTML, place `<i data-icon="iconName"></i>` and call `renderIcons(rootNode)` after injecting dynamic DOM.
+- **Core UI Components (`src/core/ui.js` barrel):**
+  - **Read and study each component file in `src/core/ui/` before using it** so you pass the right parameters:
+  - **Button (`core/ui/button.js`, `styles/buttons.css`):** Every bar-style button (settings + app UI) uses the single `.btn` component with a three-zone slot layout. Zone 3 is always auto-rendered by `initButtons(rootNode)` from `data-action` — never hand-write chevrons or switch tracks:
+    - Zone 1 (optional): leading icon `<i data-icon="...">`.
+    - Zone 2: `<div class="btn_body">` holding `.btn_title` and an optional `.btn_desc` (or a plain `<span>` for a single-line label without description).
+    - Zone 3 (auto-rendered by `core/ui/button.js`):
 
-  - Colour variants: default glass, or `data-variant="danger"` for destructive actions.
-  - After injecting markup dynamically, call `initButtons(rootNode)` (exported from `core/ui.js`).
-  - The legacy `.btn_liked`, `.icon_button`, `.submenu_button`, `.btn_warning` and
-    `.danger_btn` classes were removed — do not use them.
-  - Icon-only controls (slider steppers, the floating settings/wallpaper buttons,
-    transparent tabs) are intentionally **outside** this spec: keep their own class and CSS.
-- **Toggle:** a toggle is a `.btn` with `data-action="toggle"`; JS injects the track:
-  ```html
-  <label class="btn" data-action="toggle">
-      <span data-i18n="...">Option name</span>
-      <input type="checkbox" />
-  </label>
-  ```
-- **Settings Layout:**
-  - A settings block must be wrapped in a `.setting_section`.
-  - Block title: use `<p class="setting_title">` (optional, not required).
-  - Option content:
-    - In the main menu (`#settings_content`): put it inside `<div class="setting_options">`.
-    - In a submenu (`.submenu_body`): do **not** use `<div class="setting_options">`, place the options directly inside `.setting_section`. The CSS already handles the spacing through the selector `.submenu_body .setting_section:not(:has(.setting_title)) { gap: 8px; }`, keeping redundant `div` nesting to an absolute minimum.
-  - Divider: use `<div class="section_divider"></div>`.
-    - **Without text (empty):** `<div class="section_divider"></div>` renders a plain horizontal separator.
-    - **With text/i18n:** `<div class="section_divider" data-i18n="...">Section title</div>` automatically draws a line on both sides of the label (`── TEXT ──`). It can be used flexibly in settings, popups, submenus or to group items inside a dropdown.
+      | `data-action` | Zone 3 | Purpose |
+      | :--- | :--- | :--- |
+      | *(none)* | – | Plain action (Save, Reset, Export, Close) |
+      | `submenu` | right chevron (`.btn_action_icon`) | Opens a level-2 submenu panel |
+      | `dropdown` | down chevron (`.sbsctsvg`) | Opens a dropdown — see `styles/dropdown.css` |
+      | `toggle` | switch track (`.ts-track`) | Binary on/off — use `<label class="btn" data-action="toggle">` |
 
-## 4. Localization (i18n)
-- **Never hardcode text that is displayed in the UI**. Always use the `data-i18n="..."` attribute on HTML elements that contain text. For placeholders, use `data-i18n-placeholder="..."`.
-- In JS code, use the `t("...")` function from `core/i18n.js` to resolve translated strings.
-- If a new feature contains text, remind the user to add the translation keys to the locale JSON files.
+    - Colour variants: default glass, or `data-variant="danger"` for destructive actions.
+    - Can also be built in JS via `createButton({ id, icon, title, desc, action, variant, checked, onClick })`.
+    - Calling `initButtons(rootNode)` also runs `initCustomSelects(rootNode)` and `syncDropdownSelection(rootNode)`.
+    - Legacy classes (`.btn_liked`, `.icon_button`, `.submenu_button`, `.btn_warning`, `.danger_btn`) were removed — do not use them. Icon-only controls (slider steppers, floating action buttons, nav items, transparent tabs) are intentionally outside this spec.
+  - **Toggle:** A `.btn` with `data-action="toggle"`:
+    ```html
+    <label class="btn" data-action="toggle">
+        <span data-i18n="...">Option name</span>
+        <input type="checkbox" />
+    </label>
+    ```
+  - **Dropdown (`core/ui/dropdown.js`, `styles/dropdown.css`):**
+    - Use `<select class="native_select">` (or `select[data-custom]`); `initButtons(rootNode)` / `initCustomSelects(rootNode)` automatically upgrades it into `.dropdown_wrapper > button.btn[data-action="dropdown"] + .dropdown` while keeping the hidden `<select>` synced.
+    - For custom markup or action menus (items without `data-value`), follow the `.dropdown_wrapper` contract in `styles/dropdown.css`. Use `setDropdownValue(el, value)` and listen to `dropdownChange` / `dropdownAction`.
+  - **Slider (`core/ui/slider.js`, `styles/sliders.css`):** Use `createSlider({ label, dataI18n, min, max, step, value, defaultValue, unit, dataI18nUnit, disabled, onChange })` for Material 3 Expressive wavy sliders.
+  - **Submenu (`core/ui/submenu.js`, `styles/submenus.css`):** Use `openSidebarSubmenu(title, contentNode, { width, isFullScreen, canPreview, isDirty, onCancel, onBeforeClose })`, `closeSidebarSubmenu(force)`, and `setSubmenuDirty(isDirty)`. `openSidebarSubmenu` automatically runs `translateDOM`, `renderIcons`, and `initButtons`.
+  - **Popup & Confirm (`core/ui/popup.js`, `styles/popups.css`):** Use `openCustomPopup(title, contentNode, width, options)` and Promise-based `showConfirm(msg, { title, okText, cancelText, isDanger, width, anchor, placement, offset })`. Pass `anchor` (element/button or event) to position contextually near the trigger.
+  - **Notification (`core/ui/notification.js`):** Use `showNotification(message, type)` (`"info" | "success" | "error" | "warning"`).
+- **Tooltip:** Write in-app descriptions/notes using `<span class="tooltip">`. For sidebar `.nav_item` buttons, use `data-tooltip-i18n="..."` (driven by the singleton `#nav_floating_tooltip`).
+- **Settings Layout (`settings/settings_layout.css`, `settings/settings_nav.css`):**
+  - **Flat Linear Layout:** Options, titles, and dividers sit directly inside `.tab_content` (or `.setting_section` inside submenu templates) in a flat vertical sequence. Avoid redundant wrapper `div`s.
+  - **Block title:** Use `<p class="setting_title">` (automatically handles top spacing rhythm and renders a trailing gradient line; supports an optional `<i data-icon="...">`).
+  - **Divider:** Use `<div class="section_divider"></div>` as a horizontal separator line.
+
+## 4. Localization (i18n) (`src/core/i18n.js`)
+- **Never hardcode text that is displayed in the UI.**
+- Supported HTML attributes handled by `translateDOM(container)`:
+  - `data-i18n="..."` for text content.
+  - `data-i18n-placeholder="..."` for input placeholders.
+  - `data-i18n-title="..."` for native `title` tooltips.
+  - `data-i18n-html="..."` (with optional `data-i18n-link="..."` to convert `[text]` into `<a>` links).
+- In JS code, use `t(key, variables)` from `core/i18n.js` (supports `{{variable}}` replacement).

@@ -281,6 +281,7 @@ export function initClockSettings() {
 
             weightSliderObj = createSlider({
                 label: t("sp.time.font_weight") || "Font Weight",
+                dataI18n: "sp.time.font_weight",
                 min: minWeight,
                 max: maxWeight,
                 step: 100,

@@ -1,18 +1,20 @@
 /* Floating Submenu Panel & Dropdown Components */
 
-/* Submenu view: the second half of the content card's slider track. It sits right
-   after the main menu in the flow and is pulled into view by the shared track
-   transform (see settings_layout.css), so the two can never overlap. */
+/* Submenu view: sits directly on top of the main menu card as an overlay layer.
+   When activated, it slides in by 50% while fading in. Fixed width prevents content squishing. */
 .settings_submenu_view {
-    position: relative;
-    flex: 0 0 var(--settings-inner-submenu-width);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--settings-inner-submenu-width);
     height: 100%;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    transform: translateX(0);
+    transform: translateX(50%);
     opacity: 0;
     pointer-events: none;
+    z-index: 2;
     /* Motion duration lives in `--settings-motion` (settings_wrapper.css) so the
        panel, the sidebar and the content fades always finish together. */
     transition:
@@ -21,6 +23,7 @@
 }
 
 #setting_wrapper.submenu_active .settings_submenu_view {
+    transform: translateX(0);
     opacity: 1;
     pointer-events: auto;
 }

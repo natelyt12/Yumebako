@@ -160,11 +160,11 @@ export class PetalsEffect extends ParticleEffect {
 
     static getSettingsSpec() {
         return [
-            { key: "count", label: t("particles.petals.count"), min: 10, max: 300, step: 10, unit: "cánh" },
-            { key: "speed", label: t("particles.petals.gravity"), min: 0.1, max: 5, step: 0.1, unit: "x" },
-            { key: "size", label: t("particles.petals.size"), min: 0.1, max: 3, step: 0.1, unit: "x" },
-            { key: "angle", label: t("particles.petals.angle"), min: -30, max: 30, step: 1, unit: "°" },
-            { key: "opacity", label: t("particles.petals.opacity"), min: 0.1, max: 2, step: 0.1, unit: "x" }
+            { key: "count", dataI18n: "particles.petals.count", label: t("particles.petals.count"), min: 10, max: 300, step: 10, unit: t("unit.petals"), dataI18nUnit: "unit.petals" },
+            { key: "speed", dataI18n: "particles.petals.gravity", label: t("particles.petals.gravity"), min: 0.1, max: 5, step: 0.1, unit: "x" },
+            { key: "size", dataI18n: "particles.petals.size", label: t("particles.petals.size"), min: 0.1, max: 3, step: 0.1, unit: "x" },
+            { key: "angle", dataI18n: "particles.petals.angle", label: t("particles.petals.angle"), min: -30, max: 30, step: 1, unit: "°" },
+            { key: "opacity", dataI18n: "particles.petals.opacity", label: t("particles.petals.opacity"), min: 0.1, max: 2, step: 0.1, unit: "x" }
         ];
     }
 }

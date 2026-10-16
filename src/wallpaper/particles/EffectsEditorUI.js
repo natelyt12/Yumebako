@@ -1,4 +1,4 @@
-import { openSidebarSubmenu, setSubmenuDirty, showNotification, createSlider, toggleDropdown, closeAllDropdowns, initButtons } from "/src/core/ui.js";
+import { openSidebarSubmenu, setSubmenuDirty, showNotification, createSlider, initButtons } from "/src/core/ui.js";
 import { t, translateDOM } from "/src/core/i18n.js";
 import { getSettings, saveSettings } from "/src/core/storageHandler.js";
 import { Icons, renderIcons } from "/src/core/icon.js";
@@ -18,7 +18,6 @@ export class EffectsEditorUI {
         this.isDirty = false;
         this.workingState = null;
         this.columnLists = {};
-        this._closeDropdown = null;
     }
 
     initialize() {
@@ -78,22 +77,8 @@ export class EffectsEditorUI {
                     this.isDirty = false;
                     setSubmenuDirty(false);
                 }
-
-                if (this._closeDropdown) {
-                    document.removeEventListener("mousedown", this._closeDropdown);
-                    this._closeDropdown = null;
-                }
             }
         });
-
-        // Close dropdowns when clicking outside
-        if (this._closeDropdown) document.removeEventListener("mousedown", this._closeDropdown);
-        this._closeDropdown = (e) => {
-            if (!e.target.closest(".dropdown_wrapper")) {
-                closeAllDropdowns();
-            }
-        };
-        document.addEventListener("mousedown", this._closeDropdown);
     }
 
     // ── UI Building ──────────────────────────────
@@ -102,10 +87,10 @@ export class EffectsEditorUI {
     _buildSection(layer, i18nKey) {
         const frag = document.createDocumentFragment();
 
-        const divider = document.createElement("div");
-        divider.className = "section_divider";
-        divider.setAttribute("data-i18n", i18nKey);
-        divider.textContent = t(i18nKey);
+        const title = document.createElement("p");
+        title.className = "setting_title";
+        title.setAttribute("data-i18n", i18nKey);
+        title.textContent = t(i18nKey);
 
         const masterToggleLabel = document.createElement("label");
         masterToggleLabel.className = "btn";
@@ -162,7 +147,7 @@ export class EffectsEditorUI {
             addArea.style.pointerEvents = "none";
         }
 
-        frag.append(divider, masterToggleLabel, addArea, list);
+        frag.append(title, masterToggleLabel, addArea, list);
         this._refreshList(layer);
 
         return frag;
@@ -172,8 +157,10 @@ export class EffectsEditorUI {
         area.className = "dropdown_wrapper";
 
         const btn = document.createElement("button");
+        btn.type = "button";
         btn.className = "btn";
         btn.setAttribute("data-action", "dropdown");
+        btn.id = `add_particle_${layer}`;
 
         const iconI = document.createElement("i");
         iconI.setAttribute("data-icon", "plus");
@@ -192,26 +179,21 @@ export class EffectsEditorUI {
 
         const registry = layer === "static" ? STATIC_EFFECTS : DYNAMIC_EFFECTS;
         for (const [type] of Object.entries(registry)) {
-            const item = document.createElement("button");
+            const item = document.createElement("div");
             item.className = "dropdown_item";
-            item.textContent = t(`particles.${type}.label`) || type;
-            item.onclick = (e) => {
-                e.stopPropagation();
+            const i18nKey = `particles.${type}.label`;
+            item.setAttribute("data-i18n", i18nKey);
+            item.textContent = t(i18nKey) || type;
+            item._action = () => {
                 this._addEffect(layer, type, list);
-                // Close the action menu (it reopens fresh on the next click).
-                dropdown.classList.remove("opening");
-                dropdown.classList.add("closing");
-                setTimeout(() => {
-                    dropdown.classList.remove("active", "open_upwards", "closing");
-                }, 200);
-                btn.classList.remove("btn_active");
-            };            dropdown.appendChild(item);
+            };
+            item.onclick = () => {
+                if (!item._handled) {
+                    this._addEffect(layer, type, list);
+                }
+            };
+            dropdown.appendChild(item);
         }
-
-        btn.onclick = (e) => {
-            e.stopPropagation();
-            toggleDropdown(dropdown, btn);
-        };
 
         area.append(btn, dropdown);
         return area;
@@ -280,6 +262,8 @@ export class EffectsEditorUI {
             const initialVal = effectData.config[spec.key] ?? spec.defaultValue;
             const sliderComponent = createSlider({
                 label: spec.label,
+                dataI18n: spec.dataI18n,
+                dataI18nUnit: spec.dataI18nUnit,
                 min: spec.min,
                 max: spec.max,
                 step: spec.step,

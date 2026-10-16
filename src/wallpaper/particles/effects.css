@@ -155,49 +155,6 @@
     padding: 10px 12px 12px 12px;
 }
 
-.effects_add_area {
-    position: relative;
-    margin-top: 2px;
-}
-
-.effects_add_btn {
-    width: 100%;
-    font-size: 0.8em;
-    padding: 5px 8px;
-    height: auto !important;
-    min-height: unset !important;
-}
-
-.effects_add_dropdown {
-    position: absolute;
-    bottom: calc(100% + 4px);
-    left: 0;
-    right: 0;
-    z-index: 20;
-    background: var(--bg-panel);
-    border: 1px solid var(--glass-border);
-    border-radius: 8px;
-    padding: 4px;
-    box-shadow:
-        0 8px 24px rgba(0, 0, 0, 0.4),
-        inset 0 1px 0 var(--glass-inset);
-    max-height: 200px;
-    overflow-y: auto;
-
-    opacity: 0;
-    pointer-events: none;
-    transform: translateY(4px) scale(0.97);
-    transform-origin: bottom center;
-    transition:
-        opacity 0.18s var(--smooth),
-        transform 0.18s var(--smooth);
-}
-
-.effects_add_dropdown.open {
-    opacity: 1;
-    pointer-events: auto;
-    transform: translateY(0) scale(1);
-}
 
 .effects_placeholder {
     display: flex;

@@ -10,12 +10,15 @@
     pointer-events: auto;
     overflow: visible;
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--settings-gap);
     /* Shared sizing of the card and its buttons: both lists keep the same
        rhythm and the card hugs whichever one is shown. */
     --nav_item_size: 44px;
     --nav_gap: 2px;
     --nav_pad: 7px;
-    --nav_item_radius: 8px;
+    --nav_item_radius: 50px;
 }
 
 .nav_group {
@@ -39,11 +42,11 @@
     position: absolute;
     inset: 0;
     background-color: var(--bg-panel);
-    -webkit-backdrop-filter: blur(15px) saturate(180%) brightness(1.15);
-    backdrop-filter: blur(15px) saturate(180%) brightness(1.15);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: calc(var(--nav_pad) + var(--nav_item_radius));
-    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);
+    -webkit-backdrop-filter: blur(12px) saturate(180%) brightness(1.06);
+    backdrop-filter: blur(12px) saturate(180%) brightness(1.06);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 50px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 1px rgba(0, 0, 0, 0.5);
     pointer-events: none;
     transition:
         background-color var(--settings-motion) var(--expo_out),
@@ -53,39 +56,33 @@
         box-shadow var(--settings-motion) var(--expo_out);
 }
 
-/* Mid-swap: the controller flips `.nav_actions_visible` while the card is
-   invisible, so the new height is never seen snapping. */
-.nav_group.nav_fading {
-    opacity: 0;
+/* Main nav card transitions out by sliding fully up off-screen when entering a submenu */
+#setting_nav_main {
+    transition: transform var(--settings-motion) var(--expo_out);
+    will-change: transform;
 }
 
-.nav_layer {
-    position: relative;
-    z-index: 1;
-    min-width: 0;
+#setting_wrapper.submenu_active #setting_nav_main {
+    transform: translateY(calc(-1 * (var(--nav-shift-y, 400px) + 40px)));
+    pointer-events: none;
 }
 
-/* Show exactly one list: the submenu actions while a submenu is open, otherwise
-   the tab list. The card height follows automatically. */
-.nav_layer_actions {
-    display: none;
-}
-
-.nav_group.nav_actions_visible .nav_layer_actions {
-    display: block;
-}
-
-.nav_group.nav_actions_visible .nav_layer_tabs {
-    display: none;
-}
-
-/* Both lists share the same vertical rhythm. */
+/* Both groups share the same vertical rhythm. */
 .settings_nav_inner,
-.submenu_nav_actions {
+.nav_group_close {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: var(--nav_gap);
+}
+
+.nav_group_close {
+    transition: transform var(--settings-motion) var(--expo_out);
+    will-change: transform;
+}
+
+#setting_wrapper.submenu_active .nav_group_close {
+    transform: translateY(calc(-1 * var(--nav-shift-y, 0px)));
 }
 
 .nav_item {
@@ -96,9 +93,32 @@
     align-items: center;
     justify-content: center;
     border-radius: var(--nav_item_radius);
-    transition: all 0.3s var(--expo_out);
-    color: rgba(255, 255, 255, 0.4);
+    transition: color 0.2s var(--smooth);
+    color: var(--text-secondary);
     position: relative;
+    cursor: pointer;
+}
+
+.nav_item::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: var(--nav_item_radius);
+    background-color: #f5f3f3f6;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    transform: scale(0.65);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 0;
+    transition:
+        transform 0.18s var(--smooth),
+        opacity 0.16s var(--smooth);
+}
+
+.nav_item svg,
+.nav_item i {
+    position: relative;
+    z-index: 1;
 }
 
 .nav_item_close svg {
@@ -106,20 +126,31 @@
     height: 22px;
 }
 
-.nav_item:hover {
-    background-color: var(--bg-surface-hov);
+.nav_item:hover:not(.active) {
     color: var(--text-primary);
 }
 
 .nav_item.active {
-    background-color: rgba(255, 255, 255, 0.13);
-    color: var(--text-primary);
+    color: var(--ts-thumb-on-color, #454545);
+}
+
+.nav_item.active::before {
+    transform: scale(1);
+    opacity: 1;
+    transition:
+        transform 0.24s cubic-bezier(0.34, 1.35, 0.64, 1),
+        opacity 0.18s var(--smooth);
+}
+
+.nav_item:active:not(.active) {
+    transform: scale(0.92);
 }
 
 .nav_divider {
     width: 32px;
     height: 1px;
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: var(--divider);
+    opacity: 0.45;
     margin: 4px 0;
     flex-shrink: 0;
 }
@@ -129,47 +160,134 @@
     height: 20px;
 }
 
-/* Nav item tooltips sit outside the nav glass layer so they can blur the page
-   backdrop independently. */
-.nav_tooltip {
+/* Singleton floating tooltip gliding across navigation items */
+.nav_floating_tooltip {
     position: absolute;
     right: calc(100% + 14px);
-    top: 50%;
-    transform: translateY(-50%) translateX(10px);
+    top: 0;
+    width: auto;
+    height: 32px;
+    box-sizing: border-box;
+    transform: translateY(-50%) scale(0.9);
+    transform-origin: right center;
     opacity: 0;
     pointer-events: none;
-    background-color: rgba(14, 14, 22, 0.28);
-    -webkit-backdrop-filter: blur(12px) saturate(160%);
-    backdrop-filter: blur(12px) saturate(160%);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow:
-        0 6px 20px rgba(0, 0, 0, 0.15),
-        inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    color: var(--text-primary, #ffffff);
+    background-color: var(--bg-panel);
+    -webkit-backdrop-filter: blur(12px) saturate(180%) brightness(1.06);
+    backdrop-filter: blur(12px) saturate(180%) brightness(1.06);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 1px rgba(0, 0, 0, 0.5);
+    color: var(--text-primary);
     font-size: 0.8em;
     font-weight: 500;
-    padding: 6px 12px;
-    border-radius: 8px;
+    padding: 0 14px;
+    border-radius: 50px;
+    white-space: nowrap;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    will-change: top, width, transform, opacity;
+    transition:
+        opacity 0.15s var(--smooth),
+        transform 0.15s var(--smooth);
+}
+
+.nav_floating_tooltip.visible {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+    transition:
+        opacity 0.18s var(--cubic_out),
+        transform 0.22s cubic-bezier(0.34, 1.35, 0.64, 1);
+}
+
+.nav_tooltip_text {
+    display: inline-block;
     white-space: nowrap;
     transition:
-        opacity 0.25s var(--expo_out),
-        transform 0.25s var(--expo_out),
-        right 0.8s var(--expo_out);
-    z-index: 5;
+        opacity 0.12s var(--smooth),
+        transform 0.12s var(--smooth),
+        filter 0.12s var(--smooth);
+    opacity: 1;
+    transform: translateY(0);
 }
 
-#setting_wrapper:not(.setting_wrapper_opened) .nav_tooltip {
-    right: calc(100% - 80px);
+.nav_tooltip_text.fade_out {
     opacity: 0;
-    transition:
-        opacity 0.4s var(--expo_out),
-        transform 0.4s var(--expo_out),
-        right 0s 0.4s;
+    transform: translateY(-3px);
 }
 
-/* Keep both action buttons the exact size of a tab item. */
-.submenu_nav_actions .submenu_back_btn,
-.submenu_nav_actions .submenu_eye_btn {
+.nav_tooltip_text.fade_in_prep {
+    transition: none !important;
+    opacity: 0;
+    transform: translateY(3px);
+}
+
+.nav_tooltip_measure {
+    position: absolute;
+    top: 0;
+    left: 0;
+    visibility: hidden;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    font-size: inherit;
+    font-weight: inherit;
+    font-family: inherit;
+}
+
+#setting_wrapper:not(.setting_wrapper_opened) .nav_floating_tooltip {
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/* Morphing Slot: holds Close and Back buttons in the exact same footprint */
+.nav_slot_morph {
+    position: relative;
+    width: var(--nav_item_size);
+    height: var(--nav_item_size);
+    flex-shrink: 0;
+}
+
+.nav_slot_morph .nav_item {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    transition:
+        opacity 0.2s var(--smooth),
+        transform 0.26s cubic-bezier(0.34, 1.35, 0.64, 1),
+        color 0.2s var(--smooth);
+}
+
+/* Main menu state: Close is visible, Back is hidden */
+.nav_slot_morph .nav_item_close {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+    pointer-events: auto;
+}
+
+.nav_slot_morph .submenu_back_btn {
+    opacity: 0;
+    transform: scale(0.65) rotate(-90deg);
+    pointer-events: none;
+}
+
+/* Submenu state: Back is visible, Close is hidden */
+#setting_wrapper.submenu_active .nav_slot_morph .nav_item_close {
+    opacity: 0;
+    transform: scale(0.65) rotate(90deg);
+    pointer-events: none;
+}
+
+#setting_wrapper.submenu_active .nav_slot_morph .submenu_back_btn {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+    pointer-events: auto;
+}
+
+/* Eye button is always visible in the bottom group */
+.submenu_eye_btn {
     margin: 0;
     width: var(--nav_item_size);
     height: var(--nav_item_size);
@@ -186,15 +304,5 @@
     background-color: rgba(255, 255, 255, 0.85);
     box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
     display: none;
-}
-
-/* The eye button only exists for submenus that opt into hold-to-preview. */
-#setting_wrapper:not(.can_preview) .submenu_eye_btn {
-    display: none;
-}
-
-.nav_item:hover .nav_tooltip,
-.nav_item.active .nav_tooltip {
-    opacity: 1;
-    transform: translateY(-50%) translateX(0);
+    z-index: 2;
 }

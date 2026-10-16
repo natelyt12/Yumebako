@@ -66,7 +66,7 @@ export function translateDOM(container = document) {
     const isDebug = getSettings().debugI18n;
     if (isDebug) return; // Bỏ qua toàn bộ quá trình dịch nếu đang bật debug
 
-    const elements = container.querySelectorAll('[data-i18n], [data-i18n-placeholder], [data-i18n-html]');
+    const elements = container.querySelectorAll('[data-i18n], [data-i18n-placeholder], [data-i18n-html], [data-i18n-title]');
     elements.forEach(el => {
         // Handle innerText
         if (el.hasAttribute('data-i18n')) {
@@ -86,6 +86,11 @@ export function translateDOM(container = document) {
         // Handle placeholder
         if (el.hasAttribute('data-i18n-placeholder')) {
             el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
+        }
+
+        // Handle title tooltip
+        if (el.hasAttribute('data-i18n-title')) {
+            el.title = t(el.getAttribute('data-i18n-title'));
         }
     });
 }
