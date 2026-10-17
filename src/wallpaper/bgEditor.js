@@ -1,4 +1,5 @@
-import { openSidebarSubmenu, closeSidebarSubmenu, setSubmenuDirty, showNotification, createSlider } from "/src/core/ui.js";
+import "./bgEditor.css";
+import { openSidebarSubmenu, closeSidebarSubmenu, setSubmenuDirty, showNotification, createSlider, confirmReset } from "/src/core/ui.js";
 import { saveSettings, getSettings } from "/src/core/storageHandler.js";
 import { t, translateDOM } from "/src/core/i18n.js";
 
@@ -596,7 +597,8 @@ class BackgroundEditor {
     // ─── Button Events ───────────────────────────────────────────────────────
 
     setupEvents() {
-        this.ui.btnReset.onclick = () => {
+        this.ui.btnReset.onclick = async () => {
+            if (!(await confirmReset())) return;
             // Reset position & zoom but keep current mode
             this.currentState = {
                 ...this.DEFAULT_STATE,

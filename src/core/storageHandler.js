@@ -114,13 +114,14 @@ import { initDate, initClock } from "/src/core/time.js";
  * @property {boolean}           presentationMode   - Hide UI chrome for presentations.
  * @property {string}            language           - Locale id (e.g. "en", "vi").
  * @property {{query:string, categories:Object, resolution:string, sorting:string, topRange:string}} wallhavenConfig - Wallhaven search parameters.
+ * @property {{videoSound:boolean, videoVolume:number}} collectionConfig - Collection wallpaper settings (video audio, volume).
  * @property {string}            unsplashApiKey     - User-supplied Unsplash API key.
  * @property {boolean}           debugI18n          - Highlight missing i18n keys.
  * @property {boolean}           hideToggleButton   - Hide the settings toggle button.
  * @property {WidgetsConfig}     widgets            - Widget layer configuration.
  */
 
-const WALLPAPER_KEYS = ["wallpaperConfig", "wallpaperSwitcher", "wallpaperPosition", "wavy", "particles", "onload", "wallpapers"];
+const WALLPAPER_KEYS = ["wallpaperConfig", "wallpaperSwitcher", "wallpaperPosition", "wavy", "particles", "onload", "wallpapers", "collectionConfig"];
 
 
 /**
@@ -224,11 +225,15 @@ const defaultSettings = {
     presentationMode: false,
     language: "en",
     wallhavenConfig: {
-        query: "neko, catgirl",
-        categories: { general: false, anime: true, people: false },
-        resolution: "1920x1080",
+        query: "",
+        categories: { general: true, anime: true, people: false },
+        resolution: "any",
         sorting: "random",
         topRange: "1M"
+    },
+    collectionConfig: {
+        videoSound: false,
+        videoVolume: 1,
     },
     unsplashApiKey: "",
     debugI18n: false,

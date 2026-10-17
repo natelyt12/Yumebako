@@ -1,9 +1,13 @@
-/* Main CSS Entry - Modular Imports */
+/* Main CSS Entry - Modular Imports
+   Shared UI component styles (buttons, dropdowns, popovers, sliders, dialogs,
+   notifications, settings submenu) are imported by the component module that
+   creates the markup. Only tokens, base layout, global form controls and
+   utilities live here. `settings/settings_wrapper.css` stays because it styles
+   `#setting_wrapper` and `#action_buttons`, which are static markup in
+   index.html and must be styled before the settings panel is lazily loaded. */
+@import "./styles/layers.css";
 @import "./styles/variables.css";
 @import "./styles/base.css";
-@import "./styles/buttons.css";
 @import "./styles/controls.css";
-@import "./styles/sliders.css";
-@import "./styles/popups.css";
 @import "./settings/settings_wrapper.css";
 @import "./styles/utilities.css";

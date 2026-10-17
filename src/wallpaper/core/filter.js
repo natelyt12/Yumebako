@@ -1,4 +1,4 @@
-import { openSidebarSubmenu, closeSidebarSubmenu, setSubmenuDirty, showNotification, createSlider, initButtons } from "/src/core/ui.js";
+import { openSidebarSubmenu, closeSidebarSubmenu, setSubmenuDirty, showNotification, createSlider, initButtons, confirmReset } from "/src/core/ui.js";
 import { t, translateDOM } from "/src/core/i18n.js";
 import { getSettings, saveSettings } from "/src/core/storageHandler.js";
 
@@ -126,7 +126,10 @@ class FilterSettingsEditor {
 
     setupBindings() {
         if (this.btnReset) {
-            this.btnReset.addEventListener("click", () => this.handleReset());
+            this.btnReset.addEventListener("click", async () => {
+                if (!(await confirmReset())) return;
+                this.handleReset();
+            });
         }
 
         if (this.btnSave) {

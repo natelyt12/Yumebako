@@ -1,22 +1,34 @@
+import "./dropdown.css";
 import { Icons } from "/src/core/icon.js";
 
-const CLOSE_ANIM_MS = 200;
+// Mirrors the `.dropdown.closing` height transition (0.26s) in dropdown.css.
+const CLOSE_ANIM_MS = 300;
 
 // Resolve the `.dropdown` panel that belongs to a `.btn[data-action="dropdown"]`, looking
 // through any non-dropdown siblings in between (e.g. labels or svg wrappers).
 function findDropdown(btn) {
+    if (btn?._dropdown) return btn._dropdown;
     let node = btn ? btn.nextElementSibling : null;
     while (node && !node.classList.contains("dropdown")) {
         node = node.nextElementSibling;
+    }
+    if (node) {
+        btn._dropdown = node;
+        node._controlBtn = btn;
     }
     return node;
 }
 
 // Resolve the dropdown trigger that controls a `.dropdown` panel.
 function findControlButton(dropdown) {
+    if (dropdown?._controlBtn) return dropdown._controlBtn;
     let node = dropdown ? dropdown.previousElementSibling : null;
     while (node && !node.matches(".btn[data-action='dropdown']")) {
         node = node.previousElementSibling;
+    }
+    if (node) {
+        dropdown._controlBtn = node;
+        node._dropdown = dropdown;
     }
     return node;
 }
@@ -28,52 +40,169 @@ export function closeAllDropdowns(except = null) {
     });
 }
 
+export function ensureDropdownInner(dropdown) {
+    let inner = dropdown.querySelector(".dropdown_inner");
+    if (!inner) {
+        inner = document.createElement("div");
+        inner.className = "dropdown_inner";
+        while (dropdown.firstChild) {
+            inner.appendChild(dropdown.firstChild);
+        }
+        dropdown.appendChild(inner);
+    }
+    return inner;
+}
+
 // Open a dropdown with proper bounds, max-height and open_upwards calculation.
 export function openDropdown(dropdown, btn) {
     if (!dropdown || !btn) return;
     closeAllDropdowns(dropdown);
 
-    dropdown.classList.remove("closing");
-    dropdown.classList.add("active");
-    dropdown.offsetHeight;
-    dropdown.classList.add("opening");
-    btn.classList.add("btn_active");
+    const inner = ensureDropdownInner(dropdown);
+
+    // Portal to document.body to break free from ancestor Backdrop Roots and overflow clipping
+    if (dropdown.parentElement !== document.body) {
+        dropdown._placeholder = document.createComment("dropdown-portal-placeholder");
+        dropdown.parentElement?.insertBefore(dropdown._placeholder, dropdown);
+        document.body.appendChild(dropdown);
+    }
 
     const rect = btn.getBoundingClientRect();
-    const scrollParent = btn.closest('.popup_content, #settings_content, .submenu_body') || document.body;
-    const parentRect = scrollParent === document.body
-        ? { top: 0, bottom: window.innerHeight }
-        : scrollParent.getBoundingClientRect();
-
-    const bounds = {
-        top: Math.max(parentRect.top, 0),
-        bottom: Math.min(parentRect.bottom, window.innerHeight),
-    };
-
     const gap = 6;
-    dropdown.style.removeProperty("max-height");
-    const maxCap = parseFloat(getComputedStyle(dropdown).maxHeight) || dropdown.offsetHeight;
-    const panelHeight = Math.min(dropdown.offsetHeight, maxCap);
-    const spaceBelow = bounds.bottom - rect.bottom - gap;
-    const spaceAbove = rect.top - bounds.top - gap;
-    const openUpwards = spaceBelow < panelHeight && spaceAbove > spaceBelow;
+    const padding = 8;
 
-    dropdown.classList.toggle("open_upwards", openUpwards);
+    // Measure natural height of inner content without restriction
+    inner.style.position = "static";
+    dropdown.style.height = "auto";
+    dropdown.style.maxHeight = "none";
+    dropdown.style.overflow = "hidden";
 
+    const maxCap = 440;
+    const naturalHeight = inner.offsetHeight || 200;
+
+    const spaceBelow = window.innerHeight - rect.bottom - gap - padding;
+    const spaceAbove = rect.top - gap - padding;
+    const openUpwards = spaceBelow < naturalHeight && spaceAbove > spaceBelow;
     const available = Math.max(120, Math.min(maxCap, openUpwards ? spaceAbove : spaceBelow));
-    dropdown.style.maxHeight = `${Math.floor(available)}px`;
+    const targetHeight = Math.min(naturalHeight, available);
+
+    // Anchor inner content to the moving edge so it slides with the frame
+    inner.style.position = "absolute";
+    if (openUpwards) {
+        inner.style.bottom = "auto";
+        inner.style.top = "0";
+    } else {
+        inner.style.top = "auto";
+        inner.style.bottom = "0";
+    }
+
+    // Set initial 0 height and layout coordinates with transition disabled
+    dropdown.style.transition = "none";
+    dropdown.style.height = "0px";
+    dropdown.classList.remove("closing", "opening");
+    dropdown.classList.toggle("open_upwards", openUpwards);
+    dropdown.classList.add("active");
+
+    dropdown.style.position = "fixed";
+    dropdown.style.left = `${Math.round(rect.left)}px`;
+    dropdown.style.width = `${Math.round(rect.width)}px`;
+
+    if (openUpwards) {
+        dropdown.style.bottom = `${Math.round(window.innerHeight - rect.top + gap)}px`;
+        dropdown.style.top = "auto";
+    } else {
+        dropdown.style.top = `${Math.round(rect.bottom + gap)}px`;
+        dropdown.style.bottom = "auto";
+    }
+
+    // Ensure stacking z-index is higher than parent containers (modals, popovers, sidebars)
+    let highestZ = 40;
+    const dialogRoot = btn.closest(".dialog_root");
+    if (dialogRoot) {
+        const dialogZ = parseInt(getComputedStyle(dialogRoot).zIndex, 10);
+        if (!isNaN(dialogZ)) highestZ = Math.max(highestZ, dialogZ + 10);
+    }
+    const popoverPanel = btn.closest(".popover_panel");
+    if (popoverPanel) {
+        const popoverZ = parseInt(getComputedStyle(popoverPanel).zIndex, 10);
+        if (!isNaN(popoverZ)) highestZ = Math.max(highestZ, popoverZ + 10);
+    }
+    dropdown.style.zIndex = highestZ;
+
+    // Commit initial height = 0 in a single reflow
+    dropdown.offsetHeight;
+
+    // Restore transition and trigger opening on the next paint frame
+    dropdown.style.removeProperty("transition");
+    btn.classList.add("btn_active");
+
+    requestAnimationFrame(() => {
+        if (dropdown.classList.contains("active") && !dropdown.classList.contains("closing")) {
+            dropdown.style.height = `${targetHeight}px`;
+            dropdown.classList.add("opening");
+
+            if (naturalHeight > available) {
+                clearTimeout(dropdown._overflowTimer);
+                dropdown._overflowTimer = setTimeout(() => {
+                    if (dropdown.classList.contains("opening")) {
+                        dropdown.style.overflowY = "auto";
+                        inner.style.position = "static";
+                    }
+                }, 360);
+            }
+        }
+    });
 }
 
 // Close an open dropdown unless it was reopened within the animation window.
 export function closeDropdown(dropdown, btn) {
     if (!dropdown) return;
     if (!btn) btn = findControlButton(dropdown);
+
+    clearTimeout(dropdown._overflowTimer);
+    const inner = dropdown.querySelector(".dropdown_inner");
+    if (inner) {
+        inner.style.position = "absolute";
+        if (dropdown.classList.contains("open_upwards")) {
+            inner.style.top = "0";
+            inner.style.bottom = "auto";
+        } else {
+            inner.style.bottom = "0";
+            inner.style.top = "auto";
+        }
+    }
+
+    dropdown.style.overflow = "hidden";
     dropdown.classList.remove("opening");
     dropdown.classList.add("closing");
+    dropdown.style.height = "0px";
+
     if (btn) btn.classList.remove("btn_active");
+
     setTimeout(() => {
         if (!dropdown.classList.contains("opening")) {
             dropdown.classList.remove("active", "open_upwards", "closing");
+
+            // Return to original DOM placeholder if portaled
+            if (dropdown._placeholder && dropdown._placeholder.parentNode) {
+                dropdown._placeholder.parentNode.insertBefore(dropdown, dropdown._placeholder);
+                dropdown._placeholder.remove();
+                dropdown._placeholder = null;
+            }
+            dropdown.style.removeProperty("position");
+            dropdown.style.removeProperty("left");
+            dropdown.style.removeProperty("top");
+            dropdown.style.removeProperty("bottom");
+            dropdown.style.removeProperty("width");
+            dropdown.style.removeProperty("z-index");
+            dropdown.style.removeProperty("max-height");
+            dropdown.style.removeProperty("height");
+            dropdown.style.removeProperty("overflow");
+            if (inner) {
+                inner.style.removeProperty("position");
+                inner.style.removeProperty("top");
+                inner.style.removeProperty("bottom");
+            }
         }
     }, CLOSE_ANIM_MS);
 }
@@ -175,16 +304,21 @@ export function upgradeSelectToDropdown(selectEl) {
 
     const panel = document.createElement("div");
     panel.className = "dropdown";
+    const inner = document.createElement("div");
+    inner.className = "dropdown_inner";
     options.forEach((opt) => {
         const item = document.createElement("div");
         item.className = "dropdown_item";
         item.dataset.value = opt.value;
         if (opt.i18n) item.setAttribute("data-i18n", opt.i18n);
         item.textContent = opt.label;
-        panel.appendChild(item);
+        inner.appendChild(item);
     });
+    panel.appendChild(inner);
 
     wrapper.append(btn, panel);
+    btn._dropdown = panel;
+    panel._controlBtn = btn;
     // Hide the select but keep it as the value store; link the pair both ways so
     // `setDropdownValue` can find the visible UI from the select.
     selectEl.classList.add("hidden");
@@ -251,7 +385,12 @@ function updateDropdownUI(dropdownId, value) {
     setDropdownValue(btn, value);
 }
 
+let isSubToggleInitialized = false;
+
 export function initSubToggle() {
+    if (isSubToggleInitialized) return;
+    isSubToggleInitialized = true;
+
     document.addEventListener("change", (event) => {
         const target = event.target;
         // Upgraded selects are hidden value stores: the custom dropdown already
@@ -271,7 +410,7 @@ export function initSubToggle() {
 
     document.addEventListener("mousedown", (event) => {
         const target = event.target;
-        const isClickInsideDropdown = target.closest(".dropdown_wrapper");
+        const isClickInsideDropdown = target.closest(".dropdown_wrapper") || target.closest(".dropdown");
 
         if (!isClickInsideDropdown) {
             closeAllDropdowns();
@@ -329,6 +468,22 @@ export function initSubToggle() {
                 closeDropdown(dropdown, controlBtn);
             }
         }
+    });
+
+    // Close open dropdowns when scrolling any container (except when scrolling the dropdown itself)
+    window.addEventListener(
+        "scroll",
+        (event) => {
+            if (event.target && (event.target.classList?.contains("dropdown") || event.target.closest?.(".dropdown"))) {
+                return;
+            }
+            closeAllDropdowns();
+        },
+        true
+    );
+
+    window.addEventListener("resize", () => {
+        closeAllDropdowns();
     });
 
     document.addEventListener("keydown", (event) => {

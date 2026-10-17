@@ -1,3 +1,4 @@
+@layer features {
 /* Particles & Wavy Visual Effects Editor Styles */
 
 .particles_editor {
@@ -43,7 +44,9 @@
     flex: 1;
 }
 
-.effects_column .btn[data-action="toggle"] {
+/* Scoped above `.settings_layout`'s generic toggle sizing so these cards keep
+   their intrinsic height regardless of stylesheet order. */
+.effects_column .btn[data-action="toggle"]:not(:has(.btn_desc)) {
     height: auto !important;
     min-height: unset !important;
     padding: 0 !important;
@@ -169,4 +172,5 @@
     text-align: center;
     pointer-events: none;
     user-select: none;
+}
 }

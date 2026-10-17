@@ -1,3 +1,5 @@
+import "./wallpaper.css";
+
 export * from "./motion/index.js";
 export * from "./particles/index.js";
 export * from "./bgEditor.js";

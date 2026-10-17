@@ -1,3 +1,4 @@
+@layer features {
 /* Visual Grid Background — removed, will be redesigned */
 #widgets_container {
     position: absolute;
@@ -457,4 +458,92 @@
     border-color: rgba(255, 255, 255, 0.75) !important;
     color: #ffffff !important;
     box-shadow: none !important;
+}
+
+/* Floating Action Bar - follows Yumebako design language */
+.edit_floating_bar {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: var(--z-floating-bar);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--glass-border);
+    border-radius: 4px;
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        0 2px 8px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
+    backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
+    animation: floating_bar_slide_up 0.35s var(--expo_out) both;
+}
+
+.edit_floating_bar.closing {
+    animation: floating_bar_slide_down 0.25s var(--smooth) both;
+    pointer-events: none;
+}
+
+.edit_floating_bar button {
+    width: auto;
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 2px;
+    font-size: 0.95em;
+    font-weight: 400;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background-color: var(--button);
+    border: 1px solid var(--glass-border-sm);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    color: var(--text-primary);
+    transition: all 0.2s var(--smooth);
+}
+
+.edit_floating_bar button:hover {
+    background-color: var(--button-hov);
+    border-color: var(--glass-border);
+    transition-duration: 0s !important;
+}
+
+.edit_floating_bar button:active {
+    background-color: var(--button-act);
+}
+
+.edit_floating_bar button svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+@keyframes floating_bar_slide_up {
+    from {
+        opacity: 0;
+        transform: translate(-50%, 24px) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0) scale(1);
+    }
+}
+
+@keyframes floating_bar_slide_down {
+    from {
+        opacity: 1;
+        transform: translate(-50%, 0) scale(1);
+    }
+
+    to {
+        opacity: 0;
+        transform: translate(-50%, 20px) scale(0.95);
+    }
+}
 }

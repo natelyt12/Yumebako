@@ -1,3 +1,4 @@
+@layer components {
 /* ============================================================================
    UNIFIED BUTTON COMPONENT (.btn)
    ============================================================================
@@ -249,14 +250,12 @@ button:hover,
 .btn:hover,
 .bg_coll_card:hover,
 .effect_card:hover,
-.popup_close:hover,
 .nav_item:hover,
 .dropdown_item:hover,
 .submenu_back_btn:hover,
 .slider_step_btn:hover,
 .slider_reset_btn:hover,
 .city_item:hover,
-.popup_header.draggable:hover,
 input:hover,
 input:focus,
 textarea:hover,
@@ -265,4 +264,5 @@ textarea:focus,
 select:hover,
 .native_select:hover {
     transition-duration: 0s !important;
+}
 }

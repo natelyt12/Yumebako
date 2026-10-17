@@ -4,7 +4,7 @@ import { translateDOM, t } from "/src/core/i18n.js";
 import { showNotification } from "/src/core/ui/notification.js";
 import { initButtons } from "/src/core/ui/button.js";
 
-/** Must stay in sync with `--settings-motion` (styles/settings_wrapper.css). */
+/** Must stay in sync with `--settings-motion` (settings/settings_wrapper.css). */
 const SUBMENU_TRANSITION_MS = 800;
 
 /** Must stay in sync with the `.nav_group` opacity transition (settings_nav.css). */
@@ -57,7 +57,12 @@ export function updateSubmenuDirtyUI() {
     dot.style.display = isDirty ? "inline-block" : "none";
 }
 
+let isToggleSettingBtnInitialized = false;
+
 export function initToggleSettingBtn() {
+    if (isToggleSettingBtnInitialized) return;
+    isToggleSettingBtnInitialized = true;
+
     const settingToggleBtn = document.getElementById("setting_toggle_btn");
     const settingCloseBtn = document.getElementById("setting_close_btn");
     const settingWrapper = document.getElementById("setting_wrapper");
@@ -85,6 +90,14 @@ export function initToggleSettingBtn() {
         }
     };
 
+    const closeSettings = () => {
+        if (settingWrapper.classList.contains("submenu_active")) {
+            const closed = attemptCloseSubmenu();
+            if (!closed) return;
+        }
+        setOpenState(false);
+    };
+
     settingToggleBtn.addEventListener("click", () => {
         const isOpen = settingWrapper.classList.contains("setting_wrapper_opened");
         if (!isOpen) {
@@ -94,13 +107,30 @@ export function initToggleSettingBtn() {
 
     if (settingCloseBtn) {
         settingCloseBtn.addEventListener("click", () => {
-            if (settingWrapper.classList.contains("submenu_active")) {
-                const closed = attemptCloseSubmenu();
-                if (!closed) return;
-            }
-            setOpenState(false);
+            closeSettings();
         });
     }
+
+    // Click outside to close settings panel
+    document.addEventListener("pointerdown", (e) => {
+        const isOpen = settingWrapper.classList.contains("setting_wrapper_opened");
+        if (!isOpen) return;
+
+        const target = e.target;
+        if (
+            target.closest("#setting_wrapper") ||
+            target.closest("#action_buttons") ||
+            target.closest("#setting_toggle_btn") ||
+            target.closest(".dialog_root") ||
+            target.closest(".dropdown") ||
+            target.closest(".popover_panel") ||
+            target.closest(".notification_container")
+        ) {
+            return;
+        }
+
+        closeSettings();
+    });
 }
 
 /**

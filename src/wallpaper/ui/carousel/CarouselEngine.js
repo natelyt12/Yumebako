@@ -945,22 +945,10 @@ export class CarouselEngine {
   }
 
   /**
-   * Overlay information at the bottom of the card.
-   *
-   * Real image cards show metaLeft and metaRight when available.
-   * Action cards display the action label / loading status in card-meta-left.
+   * Overlay placeholder at the bottom of the card (metadata has moved to Top Bar).
    */
-  _overlayHtml(item) {
-    const left = item.metaLeft || "";
-    const right = item.metaRight || "";
-    if (!left && !right) return `<div class="carousel-overlay"></div>`;
-
-    return `
-          <div class="carousel-overlay">
-            <div class="card-meta-left">${left}</div>
-            <div class="card-meta-right">${right}</div>
-          </div>
-        `;
+  _overlayHtml() {
+    return `<div class="carousel-overlay"></div>`;
   }
 
   /* ── Layout ───────────────────────────────────────────────────────────── */

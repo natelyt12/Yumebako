@@ -81,6 +81,8 @@ export class DataControl {
         /** @type {Map<string, Set<Function>>} */
         this._listeners = new Map();
 
+        this._switchToken = 0;
+
         this._initSources();
     }
 
@@ -209,6 +211,8 @@ export class DataControl {
             return;
         }
 
+        const switchToken = ++this._switchToken;
+
         this.activeSourceId = sourceId;
         this.isBusy = true;
         this.status = "switching";
@@ -225,26 +229,32 @@ export class DataControl {
             // Nguồn biến động (như Collection), luôn lấy danh sách mới nhất từ DB
             try {
                 const fetched = await this.activeSource.fetchItems();
+                if (this._switchToken !== switchToken) return;
                 if (Array.isArray(fetched)) {
                     storedItems = fetched.filter(Boolean);
                 }
             } catch (err) {
+                if (this._switchToken !== switchToken) return;
                 console.error(`[DataControl] Failed to fetch items for volatile source [${sourceId}]:`, err);
             }
         } else {
             // Đọc danh sách thẻ từ BakoDB (appData)
             const rawStored = await getFromStore(`carousel:${sourceId}`);
+            if (this._switchToken !== switchToken) return;
             storedItems = Array.isArray(rawStored) ? rawStored.filter(Boolean) : [];
 
             // Nếu nguồn rỗng, gọi fetch ban đầu (seed)
             if (storedItems.length === 0 && this.activeSource) {
                 try {
                     const initial = await this.activeSource.fetchItems();
+                    if (this._switchToken !== switchToken) return;
                     if (Array.isArray(initial) && initial.length > 0) {
                         storedItems = initial.filter(Boolean);
                         await this._persistCards(sourceId, storedItems);
+                        if (this._switchToken !== switchToken) return;
                     }
                 } catch (err) {
+                    if (this._switchToken !== switchToken) return;
                     console.error(`[DataControl] Failed to seed source [${sourceId}]:`, err);
                     this.emit("error", {
                         action: "seed",
@@ -260,8 +270,11 @@ export class DataControl {
                 await Promise.all(
                     storedItems.map((item) => this.activeSource.prepareThumb(item).catch(() => null))
                 );
+                if (this._switchToken !== switchToken) return;
             }
         }
+
+        if (this._switchToken !== switchToken) return;
 
         this.items = storedItems;
 
@@ -391,12 +404,15 @@ export class DataControl {
     async requestMore() {
         if (this.isBusy || !this.activeSource?.canGrow) return null;
 
+        const currentSourceId = this.activeSourceId;
         this.isBusy = true;
         this.status = "fetching";
         this._notifyState();
 
         try {
             const newItems = await this.activeSource.fetchMore();
+            if (this.activeSourceId !== currentSourceId) return null;
+
             if (!newItems || newItems.length === 0) {
                 // Nguồn đã cạn ảnh
                 this.emit("feed:exhausted", { sourceId: this.activeSourceId });

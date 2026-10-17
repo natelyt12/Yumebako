@@ -1,5 +1,6 @@
+import "./button.css";
 import { Icons } from "/src/core/icon.js";
-import { initCustomSelects, syncDropdownSelection } from "/src/core/ui/dropdown.js";
+import { initCustomSelects, syncDropdownSelection, initSubToggle } from "/src/core/ui/dropdown.js";
 
 /**
  * The single initializer for the unified `.btn` component.
@@ -17,6 +18,7 @@ import { initCustomSelects, syncDropdownSelection } from "/src/core/ui/dropdown.
  * @param {HTMLElement|Document} [rootNode=document] - Subtree to scan.
  */
 export function initButtons(rootNode = document) {
+    initSubToggle();
     if (!rootNode || typeof rootNode.querySelectorAll !== "function") return;
 
     const buttons = Array.from(rootNode.querySelectorAll(".btn[data-action]"));

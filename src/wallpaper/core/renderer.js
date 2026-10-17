@@ -1,5 +1,6 @@
 import { applyOnloadAnimation } from "/src/wallpaper/onload/index.js";
 import { dataControl } from "/src/wallpaper/core/DataControl.js";
+import { getSettings, subscribe } from "/src/core/storageHandler.js";
 
 /**
  * renderer.js
@@ -79,8 +80,15 @@ class WallpaperRenderer {
         this.hasActiveBackground = true;
 
         if (data.type === "video") {
+            const collectionConfig = getSettings().collectionConfig || {};
+            const soundEnabled = Boolean(collectionConfig.videoSound);
+            const volume = Math.max(0, Math.min(1, collectionConfig.videoVolume ?? 0.5));
+
             document.querySelectorAll(".video").forEach((v) => {
                 v.style.display = "block";
+                const isBloom = v.parentElement?.classList.contains("bloom_container");
+                v.muted = isBloom || !soundEnabled;
+                v.volume = volume;
                 if (newBlobUrl) {
                     v.src = newBlobUrl;
                     v.play().catch(() => { });
@@ -142,3 +150,21 @@ class WallpaperRenderer {
 
 export const wallpaperRenderer = new WallpaperRenderer();
 wallpaperRenderer.bindDataControl();
+
+/**
+ * Updates video wallpaper audio (muted state and volume level).
+ * @param {Object} [config]
+ */
+export function updateVideoAudio(config = getSettings().collectionConfig) {
+    const soundEnabled = Boolean(config?.videoSound);
+    const volume = Math.max(0, Math.min(1, config?.videoVolume ?? 1));
+    document.querySelectorAll(".video").forEach((v) => {
+        const isBloom = v.parentElement?.classList.contains("bloom_container");
+        v.muted = isBloom || !soundEnabled;
+        v.volume = volume;
+    });
+}
+
+subscribe("collectionConfig", (newConfig) => {
+    updateVideoAudio(newConfig);
+});

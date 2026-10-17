@@ -19,13 +19,19 @@ import { clamp } from "./easing.js";
 
 /** Kích thước chuẩn của sketch: thẻ tâm 800px, ảnh trong 792×446 (16:9). */
 export const DEFAULT_GEOMETRY = Object.freeze({
-  baseWidth: 634,
+  baseWidth: 744,
   cardMargin: 2,
-  containerHeight: 360,
+  containerHeight: 420,
   /** Bề rộng theo từng bước khoảng cách: tâm, ±1, ±2, ±3, rồi sàn. */
   percentageCurve: Object.freeze([1.0, 0.3, 0.2, 0.1, 0.05]),
   /** Bề rộng tối thiểu (px) cho các thẻ ở rất xa tâm. */
   minWidth: 35,
+  /**
+   * Độ mờ theo khoảng cách tới tâm: tâm 100%, rồi 90 / 70 / 50 / 30 / 10 (sàn)
+   * ở các bậc ±1..±5. Giữa hai bậc thì nội suy tuyến tính, nên khi lướt độ mờ
+   * biến thiên liên tục thay vì nhảy nấc.
+   */
+  opacityCurve: Object.freeze([1, 0.9, 0.7, 0.5, 0.3, 0.1]),
 });
 
 
@@ -61,6 +67,18 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
       ? Math.round(config.baseWidth * curve[k])
       : config.minWidth;
 
+  /** Độ mờ của thẻ cách tâm `offset` bậc (nội suy tuyến tính trong `opacityCurve`). */
+  const opacityForOffset = (offset) => {
+    const opacityCurve = config.opacityCurve;
+    const last = opacityCurve.length - 1;
+    if (offset <= 0) return opacityCurve[0];
+    if (offset >= last) return opacityCurve[last];
+
+    const step = Math.floor(offset);
+    const t = offset - step;
+    return opacityCurve[step] + (opacityCurve[step + 1] - opacityCurve[step]) * t;
+  };
+
   /**
    * Helper to cache child DOM elements directly on the card element,
    * avoiding expensive querySelector traversals on every animation frame.
@@ -87,6 +105,15 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
    */
   const defaultCardInfo = (cardEl, offset) => {
     const nodes = getCardElements(cardEl);
+
+    // Độ mờ giảm dần từ thẻ đang chọn ra hai bên (xem `opacityCurve`). Ghi lên
+    // `.card-frame` để chỉ tấm ảnh mờ đi, còn nền accent của slot vẫn giữ nguyên.
+    if (nodes.frame) {
+      const opacity = opacityForOffset(offset).toFixed(3);
+      if (nodes.frame.style.opacity !== opacity) {
+        nodes.frame.style.opacity = opacity;
+      }
+    }
 
     // Overlay is only visible near center: linear 1 -> 0 within 1 step
     if (nodes.overlay) {

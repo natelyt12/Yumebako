@@ -1,3 +1,4 @@
+@layer components {
 /* Custom Slider Group Component (Minimalist & Modern) */
 
 .custom_slider_group {
@@ -208,4 +209,5 @@
 
 i[data-icon] {
     display: contents;
+}
 }

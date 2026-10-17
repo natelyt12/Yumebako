@@ -1,10 +1,10 @@
 import { getSettings, saveSettings } from "/src/core/storageHandler.js";
 import { getFromStore, saveToStore } from "/src/core/db.js";
-import { showNotification, openCustomPopup, openSidebarSubmenu, showConfirm } from "/src/core/ui.js";
+import { showNotification, openSidebarSubmenu, showConfirm, showAlert } from "/src/core/ui.js";
 
 export function initDebugSettings() {
     initI18nDebug();
-    initPopupTest();
+    initDialogTest();
     initNotifTest();
     initSubmenuTest();
     initUnsplashDebug();
@@ -44,49 +44,33 @@ function initI18nDebug() {
     }
 }
 
-function initPopupTest() {
-    const createContent = (text) => {
-        const div = document.createElement("div");
-        div.className = "popup_body";
-        div.innerHTML = `<p>${text}</p>`;
-        return div;
-    };
-
-    const normalBtn = document.getElementById("test_popup_normal");
-    normalBtn?.addEventListener("click", () => {
-        openCustomPopup("Normal Popup", createContent("This is a standard popup for testing edge anchoring."), "400px", { anchor: normalBtn, placement: "bottom-right" });
+function initDialogTest() {
+    const confirmBtn = document.getElementById("test_dialog_confirm");
+    confirmBtn?.addEventListener("click", async () => {
+        const confirmed = await showConfirm("Đây là hộp thoại xác nhận tiêu chuẩn (Standard Confirm Dialog).", {
+            title: "Xác nhận hành động",
+            okText: "Đồng ý",
+            cancelText: "Hủy"
+        });
+        showNotification(`Kết quả: ${confirmed ? "Đồng ý" : "Đã hủy"}`, confirmed ? "success" : "info");
     });
 
-    const alertBtn = document.getElementById("test_popup_alert");
+    const dangerBtn = document.getElementById("test_dialog_danger");
+    dangerBtn?.addEventListener("click", async () => {
+        const confirmed = await showConfirm("Hành động này mang tính phá hủy hoặc không thể hoàn tác (Danger Confirm).", {
+            title: "Xóa dữ liệu?",
+            okText: "Xóa vĩnh viễn",
+            isDanger: true
+        });
+        showNotification(`Xác nhận xóa: ${confirmed}`, confirmed ? "success" : "info");
+    });
+
+    const alertBtn = document.getElementById("test_dialog_alert");
     alertBtn?.addEventListener("click", async () => {
-        const confirmed = await showConfirm("This is a danger confirmation dialog with standardized button.", {
-            title: "Danger Confirm Test",
-            okText: "Delete",
-            isDanger: true,
-            anchor: alertBtn,
-            placement: "bottom-right"
+        await showAlert("Đây là hộp thoại thông báo độc lập (Alert Dialog).", {
+            title: "Thông báo hệ thống"
         });
-        showNotification(`Confirmed: ${confirmed}`, confirmed ? "success" : "info");
-    });
-
-    const noCloseBtn = document.getElementById("test_popup_noclose");
-    noCloseBtn?.addEventListener("click", () => {
-        const div = document.createElement("div");
-        div.className = "popup_body";
-        div.innerHTML = `
-            <p>This popup has no close button. You must click backdrop (if allowed) or use the button below.</p>
-            <button id="manual_close_btn" style="background: var(--accent_2); color: white; margin-top: 10px;">Close this Popup</button>
-        `;
-        const result = openCustomPopup("No X Button", div, "400px", { canClose: false, anchor: noCloseBtn, placement: "bottom-right" });
-
-        div.querySelector("#manual_close_btn").addEventListener("click", () => {
-            result.closePopup();
-        });
-    });
-
-    const largeBtn = document.getElementById("test_popup_large");
-    largeBtn?.addEventListener("click", () => {
-        openCustomPopup("Large Popup", createContent("This is a wide popup (600px) for testing layout responsiveness."), "600px", { anchor: largeBtn, placement: "bottom-right" });
+        showNotification("Đã đóng thông báo", "info");
     });
 }
 

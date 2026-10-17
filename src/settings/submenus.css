@@ -1,3 +1,4 @@
+@layer features {
 /* Floating Submenu Panel & Dropdown Components */
 
 /* Submenu view: sits directly on top of the main menu card as an overlay layer.
@@ -55,7 +56,7 @@
     transition: none !important;
 }
 
-/* The custom dropdown component lives in `styles/dropdown.css` — see that file
+/* The custom dropdown component lives in `core/ui/dropdown.css` — see that file
    to restyle triggers, panels, items and the selection checkmark. */
 
 .grid_2col {
@@ -93,4 +94,5 @@
 
 .btn_active .sbsctsvg svg {
     transform: rotateX(180deg);
+}
 }

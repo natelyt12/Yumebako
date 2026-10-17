@@ -1,3 +1,5 @@
+import "./notification.css";
+
 /**
  * Display a top-center notification with a 5-second progress bar.
  * Supporting multiple concurrent notifications.

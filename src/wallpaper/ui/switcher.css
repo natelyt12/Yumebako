@@ -1,3 +1,4 @@
+@layer features {
 /* ── Wallpaper Switcher Styles ─────────────────────────────────────────────
    Chỉ còn phần khung của switcher: wrapper toàn màn hình, tấm nền gradient và
    thanh điều khiển dưới cùng.
@@ -34,23 +35,19 @@
 .wallpaper_switcher_inner {
     position: relative;
     width: 100%;
-    /* Cao theo nội dung: sân khấu carousel 454px + thanh dưới. */
+    /* Cao theo nội dung: thanh tab trên + sân khấu carousel 420px + thanh dưới. */
     height: auto;
-    max-height: 85vh;
+    max-height: 90vh;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: flex-end;
     overflow: visible;
-    /* Chừa 20px phía trên sân khấu: khung ngắm phình ra khi lướt (scale 1.03) và
-       vòng thở của nó vươn tới 1.05, nếu sát mép thì `overflow: hidden` sẽ cắt
-       mất viền trắng ở cạnh trên. Padding trong suốt, không đổi vị trí thẻ. */
-    padding: 10px 0 25px 0;
+    padding: 12px 0 20px 0;
+    /* Không fade khi mở/đóng: bảng trượt lên là đủ, độ mờ đã do từng thẻ trong
+       carousel đảm nhiệm (xem `geometry.js`). */
     transform: translateY(100%);
-    opacity: 0;
-    transition:
-        transform 0.45s var(--cubic_in),
-        opacity 0.35s var(--cubic_in);
+    transition: transform 0.45s var(--cubic_in);
 
     /* Glassmorphism signature (từ commit f3ffb1a: blur sâu 28px, inset highlight viền kính) */
     background-color: var(--bg-panel, rgba(8, 8, 14, 0.45));
@@ -64,117 +61,177 @@
 
 .wallpaper_switcher.active .wallpaper_switcher_inner {
     transform: translateY(0);
-    opacity: 1;
+    transition: transform 0.7s var(--expo_out);
+}
+
+/* ── Top Bar (Source Tabs Header) ────────────────────────── */
+
+.wallpaper_switcher_top_bar {
+    position: relative;
+    width: 100%;
+    max-width: 1800px;
+    padding: 0 max(24px, 3.5vw) 10px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.wallpaper_switcher_top_bar > * {
+    pointer-events: auto;
+}
+
+.wallpaper_switcher_top_left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.wallpaper_switcher_top_right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Chip thông tin chi tiết hình nền đang chọn (nguồn, dung lượng, độ phân giải) */
+.wallpaper_switcher_meta_info {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 26px;
+    padding: 0 12px;
+    border-radius: 50px;
+    background: var(--button);
+    border: 1px solid var(--glass-border-sm);
+    box-sizing: border-box;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    user-select: none;
+    pointer-events: none;
+    margin-right: 4px;
+}
+
+.wallpaper_switcher_meta_info:empty {
+    display: none;
+}
+
+.wallpaper_switcher_meta_info .wallpaper_meta_part {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.wallpaper_switcher_meta_info .card-meta-sep,
+.wallpaper_switcher_meta_info .wallpaper_meta_sep {
+    color: rgba(255, 255, 255, 0.35);
+    user-select: none;
+}
+
+.wallpaper_switcher_icon_btn,
+.wallpaper_switcher_close_btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50px;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    cursor: default;
+    padding: 0;
+    margin: 0;
     transition:
-        transform 0.7s var(--expo_out),
-        opacity 0.45s var(--expo_out);
+        background-color 0.2s var(--smooth),
+        color 0.2s var(--smooth),
+        transform 0.15s var(--smooth);
+}
+
+.wallpaper_switcher_icon_btn:hover,
+.wallpaper_switcher_close_btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+}
+
+.wallpaper_switcher_icon_btn:active,
+.wallpaper_switcher_close_btn:active {
+    background-color: rgba(255, 255, 255, 0.16);
+    transform: scale(0.92);
+}
+
+.wallpaper_switcher_icon_btn svg,
+.wallpaper_switcher_close_btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* Chip đếm vị trí hình nền (index / total) */
+.wallpaper_switcher_counter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 26px;
+    padding: 0 10px;
+    border-radius: 50px;
+    background: var(--button);
+    border: 1px solid var(--glass-border-sm);
+    box-sizing: border-box;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    user-select: none;
+    pointer-events: none;
+}
+
+.wallpaper_switcher_counter:empty {
+    display: none;
 }
 
 /* ── Bottom Bar ────────────────────────────────────────────
-   Row 1: meta (tabs + position) · actions (centre) · source settings / upload
+   Row 1: spacer (left) · actions (center) · controls (right)
    Row 2: navigation hint, full width                                             */
 
 .wallpaper_switcher_bar {
     position: relative;
     width: 100%;
-    /* Rộng bằng bề ngang sân khấu carousel ở màn phổ thông, chỉ chặn ở màn siêu
-       rộng để tab và nút không trôi ra hai góc màn hình. */
     max-width: 1800px;
-    padding: 14px max(24px, 3.5vw) 0;
+    padding: 12px max(24px, 3.5vw) 0;
     box-sizing: border-box;
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center;
     gap: 12px 16px;
     pointer-events: none;
-    z-index: 10;
+    z-index: 35;
 }
 
-.wallpaper_switcher_bar>* {
+.wallpaper_switcher_bar > * {
     pointer-events: auto;
 }
 
-/* Tabs và nhãn vị trí đứng cạnh nhau nên phải chung một ô lưới: nhãn là thông tin
-   đi kèm thanh tab chứ không phải một cột riêng. */
-.wallpaper_switcher_meta {
+.wallpaper_switcher_spacer {
     grid-column: 1;
     grid-row: 1;
-    justify-self: start;
-    display: flex;
-    align-items: center;
-    gap: 20px;
+    pointer-events: none;
 }
 
-/* Nhãn "vị trí / tổng": số đứng yên một chỗ nên phải khoá chiều rộng chữ số,
-   nếu không cả hàng sẽ rung nhè nhẹ mỗi lần số nhảy. */
-.wallpaper_switcher_counter {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.3px;
-    white-space: nowrap;
-    user-select: none;
-}
-
-/* ── Source Tabs ───────────────────────────────────────── */
-
-.wallpaper_source_tabs {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px;
-    border-radius: 40px;
-    background: var(--button);
-    border: 1px solid var(--glass-border-sm);
-}
-
-.wallpaper_source_tab {
-    width: auto;
-    height: 32px;
-    padding: 0 14px;
-    border: 1px solid transparent;
-    border-radius: 999px;
-    background-color: transparent;
-    box-shadow: none;
-    color: var(--text-secondary);
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.3px;
-    white-space: nowrap;
-    transition:
-        background-color 0.25s var(--smooth),
-        color 0.25s var(--smooth);
-}
-
-.wallpaper_source_tab:hover {
-    background-color: rgba(255, 255, 255, 0.10);
-    border-color: transparent;
-    color: var(--text-primary);
-}
-
-.wallpaper_source_tab:active {
-    background-color: rgba(255, 255, 255, 0.14);
-}
-
-.wallpaper_source_tab.active {
-    background-color: rgba(255, 255, 255, 0.16);
-    border-color: transparent;
-    color: var(--text-primary);
-}
-
-/* ── Item Actions ──────────────────────────────────────── */
-
+/* Actions nằm ở giữa */
 .wallpaper_source_actions {
     grid-column: 2;
     grid-row: 1;
+    justify-self: center;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
+    gap: 6px;
 }
-
-/* ── Right-hand controls: upload button & source settings ──── */
 
 .wallpaper_switcher_controls {
     grid-column: 3;
@@ -182,23 +239,117 @@
     justify-self: end;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+}
+
+/* ── Source Tabs ───────────────────────────────────────── */
+
+.wallpaper_source_tabs {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px;
+    border-radius: 50px;
+    background: var(--button);
+    border: 1px solid var(--glass-border-sm);
+    box-sizing: border-box;
+    height: 34px;
+}
+
+.wallpaper_source_tab {
+    position: relative;
+    width: auto;
+    height: 28px;
+    padding: 0 14px;
+    border: none;
+    border-radius: 50px;
+    background-color: transparent;
+    box-shadow: none;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: default;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+        color 0.2s var(--smooth),
+        transform 0.15s var(--smooth);
+}
+
+.wallpaper_source_tab span {
+    position: relative;
+    z-index: 1;
+}
+
+.wallpaper_source_tab::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50px;
+    background-color: #f5f3f3f6;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    transform: scale(0.6);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 0;
+    will-change: transform, opacity;
+    transition:
+        transform 0.2s var(--smooth),
+        opacity 0.16s var(--smooth);
+}
+
+.wallpaper_source_tab:hover {
+    background-color: transparent;
+}
+
+.wallpaper_source_tab:hover:not(.active) {
+    color: var(--text-primary);
+}
+
+.wallpaper_source_tab:active {
+    background-color: transparent;
+}
+
+.wallpaper_source_tab:active:not(.active) {
+    transform: scale(0.94);
+}
+
+.wallpaper_source_tab.active {
+    color: var(--ts-thumb-on-color, #454545);
+    font-weight: 600;
+    background-color: transparent;
+}
+
+.wallpaper_source_tab.active::before {
+    transform: scale(1);
+    opacity: 1;
+    transition:
+        transform 0.28s cubic-bezier(0.34, 1.45, 0.64, 1),
+        opacity 0.2s var(--smooth);
 }
 
 .wallpaper_upload_btn,
 .wallpaper_fetch_btn,
-.wallpaper_source_settings {
+.wallpaper_source_settings,
+.wallpaper_action {
     width: auto;
     height: 34px;
     padding: 0 14px;
+    gap: 8px;
+    border-radius: 9px;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 400;
     white-space: nowrap;
+    justify-content: center;
 }
 
 .wallpaper_upload_btn>svg,
 .wallpaper_fetch_btn>svg,
-.wallpaper_source_settings>svg {
+.wallpaper_source_settings>svg,
+.wallpaper_action>svg {
     width: 16px;
     height: 16px;
     flex-shrink: 0;
@@ -214,22 +365,26 @@
     }
 }
 
-/* These are plain system buttons: only their size differs from the global
-   default, so hover / active / border colours stay exactly as the app defines.
-   `disabled` (busy carousel, gated verb) keeps the app's own disabled styling. */
-.wallpaper_action {
-    width: auto;
-    height: 34px;
-    padding: 0 14px;
-    font-size: 12px;
-    font-weight: 600;
-    white-space: nowrap;
+/* ── Responsive Compact Mode on Narrow Screens ─────────── */
+
+@media (max-width: 1100px) {
+    .wallpaper_action span,
+    .wallpaper_switcher_controls .btn span {
+        display: none;
+    }
+
+    .wallpaper_action,
+    .wallpaper_switcher_controls .btn {
+        width: 36px;
+        min-width: 36px;
+        padding: 0;
+    }
 }
 
-.wallpaper_action>svg {
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
+@media (max-width: 900px) {
+    .wallpaper_switcher_meta_info {
+        display: none !important;
+    }
 }
 
 /* ── Navigation Hint (own row, below the buttons) ──────── */
@@ -247,4 +402,13 @@
 
 .wallpaper_switcher .hidden {
     display: none !important;
+}
+
+/* ── Action Buttons Visibility (Hide on Switcher Open) ─── */
+
+#action_buttons.wallpaper_switcher_opened {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: opacity 0.3s var(--expo_out) 0s;
+}
 }

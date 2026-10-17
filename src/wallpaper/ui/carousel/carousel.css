@@ -1,3 +1,4 @@
+@layer features {
 /* ── Carousel accordion (sketch layout) ────────────────────────────────────
    Bản port của `temp/carousel_layout/style.css`, đã scope dưới `.wallpaper_switcher`
    để không rò token/selector ra phần còn lại của app.
@@ -12,11 +13,11 @@
 
 .wallpaper_switcher {
     /* Kích thước thẻ & sân khấu */
-    --base-width: 634px;
+    --base-width: 744px;
     --card-margin: 2px;
     /* Margin 2px để thu hẹp gap hai bên giữa các thẻ */
-    --container-height: 360px;
-    /* (634 - 2*2) * 9 / 16 + 2*2 ≈ 360px (tỉ lệ 16:9) */
+    --container-height: 420px;
+    /* (744 - 2*2) * 9 / 16 + 2*2 ≈ 420px (tỉ lệ 16:9) */
 
     /* Màu sân khấu: chỉ dùng khi bật accent bg. Mặc định sân khấu trong suốt để
        gradient của switcher (và chính wallpaper phía sau) lộ qua, thay vì một
@@ -259,61 +260,10 @@ body.wp-carousel-dragging * {
     border-radius: 0;
 }
 
-/* ── Khối thông tin trên thẻ ───────────────────────────────────────────── */
+/* ── Khối thông tin trên thẻ (đã chuyển lên Top Bar) ───────────────────── */
 
 .wallpaper_switcher .carousel-overlay {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 18px;
-    pointer-events: none;
-    background: transparent;
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
-    will-change: opacity;
-}
-
-.wallpaper_switcher .card-meta-left {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--text-primary);
-    font-size: 0.88rem;
-    font-weight: 500;
-    text-shadow:
-        0 1px 3px rgba(0, 0, 0, 0.9),
-        0 2px 8px rgba(0, 0, 0, 0.75);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 55%;
-}
-
-.wallpaper_switcher .card-meta-right {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--text-primary);
-    font-size: 0.82rem;
-    white-space: nowrap;
-    max-width: 45%;
-    text-shadow:
-        0 1px 3px rgba(0, 0, 0, 0.9),
-        0 2px 8px rgba(0, 0, 0, 0.75);
-}
-
-.wallpaper_switcher .card-meta-sep {
-    color: rgba(255, 255, 255, 0.35);
-    font-size: 0.75rem;
-    margin: 0 1px;
-}
-
-.wallpaper_switcher .card-meta-left:only-child {
-    max-width: 100%;
+    display: none;
 }
 
 
@@ -423,4 +373,5 @@ body.wp-carousel-dragging * {
 .wallpaper_switcher .carousel-empty-state .empty-sub {
     font-size: 13px;
     color: rgba(255, 255, 255, 0.4);
+}
 }

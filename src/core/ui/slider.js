@@ -1,5 +1,7 @@
+import "./slider.css";
 import { Icons } from "/src/core/icon.js";
 import { t } from "/src/core/i18n.js";
+import { confirmReset } from "./dialog.js";
 
 /**
  * Global configuration values for the Material 3 Expressive Wavy Slider.
@@ -83,7 +85,8 @@ function registerWaveSlider(slider) {
  * @param {number} options.defaultValue - Default value to reset to
  * @param {string} options.unit - Unit to display next to the number input (e.g. "%", "px", "deg", "s")
  * @param {string} [options.dataI18nUnit] - i18n translation key for the unit
- * @param {function} options.onChange - Callback triggered on slider or input changes (receives new float value)
+ * @param {function} options.onChange - Callback fired continuously as the value changes (live preview), including every step of a drag.
+ * @param {function} [options.onCommit] - Callback fired once when the value is settled: mouse released after a drag, number committed, step button or reset clicked. Use this for persisting.
  * @returns {HTMLElement & { value: number, setValueNoAnim: function(number): void }} The created DOM element wrapper with added properties/methods
  */
 export function createSlider(options) {
@@ -98,7 +101,8 @@ export function createSlider(options) {
         unit = "",
         dataI18nUnit = null,
         disabled = false,
-        onChange = null
+        onChange = null,
+        onCommit = null
     } = options;
 
     const minVal = Number.isFinite(parseFloat(min)) ? parseFloat(min) : 0;
@@ -332,6 +336,17 @@ export function createSlider(options) {
         }
     };
 
+    // Giá trị đã "chốt" (thả tay, gõ số, bấm nút bước, reset) — dùng cho nơi cần
+    // ghi xuống storage thay vì bám theo từng bước kéo.
+    const commitValue = () => {
+        if (isDisabled) return;
+        if (onCommit) onCommit(currentValue);
+    };
+
+    // Trong lúc kéo chỉ báo `onChange` (xem trước trực tiếp); giá trị "chốt" để
+    // lưu xuống storage đi qua `onCommit`, gọi đúng một lần khi thả tay — nếu
+    // không, nơi nhận (vd. slider âm lượng lưu settings) sẽ ghi hàng chục lần
+    // cho một cú kéo.
     const updateFromMouse = (e) => {
         if (isDisabled) return;
         const rect = trackContainer.getBoundingClientRect();
@@ -350,6 +365,7 @@ export function createSlider(options) {
     trackContainer.addEventListener("mousedown", (e) => {
         if (isDisabled) return;
         isDragging = true;
+        const valueAtDragStart = currentValue;
         thumb.classList.add("dragging");
         updateFromMouse(e);
 
@@ -359,10 +375,17 @@ export function createSlider(options) {
         };
 
         const onMouseUp = () => {
+            const hadDragged = isDragging;
             isDragging = false;
             thumb.classList.remove("dragging");
             document.removeEventListener("mousemove", onMouseMove);
             document.removeEventListener("mouseup", onMouseUp);
+
+            // Chốt giá trị đúng một lần khi thả tay (kể cả cú click không kéo,
+            // vì mousedown đã nhảy tới vị trí mới).
+            if (hadDragged && currentValue !== valueAtDragStart) {
+                commitValue();
+            }
         };
 
         document.addEventListener("mousemove", onMouseMove);
@@ -377,6 +400,7 @@ export function createSlider(options) {
             return;
         }
         updateValue(rawVal, true, true);
+        commitValue();
     };
 
     numInput.addEventListener("blur", commitInputVal);
@@ -388,22 +412,26 @@ export function createSlider(options) {
         }
     });
 
-    resetBtn.addEventListener("click", (e) => {
+    resetBtn.addEventListener("click", async (e) => {
         if (isDisabled) return;
         e.preventDefault();
+        if (!(await confirmReset())) return;
         updateValue(defaultVal, true, true);
+        commitValue();
     });
 
     decBtn.addEventListener("click", (e) => {
         if (isDisabled) return;
         e.preventDefault();
         updateValue(currentValue - stepVal, true, true);
+        commitValue();
     });
 
     incBtn.addEventListener("click", (e) => {
         if (isDisabled) return;
         e.preventDefault();
         updateValue(currentValue + stepVal, true, true);
+        commitValue();
     });
 
     updateValue(initialRawVal, false, false);

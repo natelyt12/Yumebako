@@ -1,6 +1,9 @@
 import { renderIcons } from "/src/core/icon.js";
 import { t } from "/src/core/i18n.js";
-import { showConfirm, showNotification } from "/src/core/ui.js";
+import { showConfirm } from "/src/core/ui.js";
+import { resolveCardMeta } from "../../sources/cardMeta.js";
+import { createWallhavenSettingsPopover } from "../popover/WallhavenSettingsPopover.js";
+import { createCollectionSettingsPopover } from "../popover/CollectionSettingsPopover.js";
 
 /**
  * SwitcherBar.js
@@ -28,12 +31,15 @@ export class SwitcherBar {
 
         this.tabsContainer = container.querySelector("#wallpaper_source_tabs");
         this.counterEl = container.querySelector("#wallpaper_switcher_counter");
+        this.metaInfoEl = container.querySelector("#wallpaper_switcher_meta_info");
         this.actionsContainer = container.querySelector("#wallpaper_switcher_actions");
         this.fetchBtn = container.querySelector("#wallpaper_fetch_btn");
         this.uploadBtn = container.querySelector("#wallpaper_upload_btn");
         this.settingsBtn = container.querySelector("#wallpaper_source_settings");
 
         this.tabButtons = new Map();
+        this.wallhavenPopover = null;
+        this.collectionPopover = null;
         this._token = 0;
         this._isBusy = false;
     }
@@ -49,16 +55,23 @@ export class SwitcherBar {
 
         // Subscribe to DataControl events
         this.dataControl.on("state:change", (state) => this.syncState(state));
+        this.dataControl.on("card:soft", ({ card }) => this.syncMetaInfo(card));
+        this.dataControl.on("card:hard", ({ card }) => {
+            this.syncMetaInfo(card);
+            this.renderActions(card);
+        });
         this.dataControl.on("source:change", ({ sourceId }) => {
-            this.renderTabs();
+            this.closePopovers();
+            this.syncActiveTab(sourceId);
             this.syncRightSlot(sourceId);
+            this.syncMetaInfo(null);
             this.renderActions(null);
         });
         this.dataControl.on("cards:loaded", () => {
             this.syncRightSlot(this.dataControl.activeSourceId);
+            this.syncMetaInfo(this.dataControl.activeCard);
             this.renderActions(this.dataControl.activeCard);
         });
-        this.dataControl.on("card:hard", ({ card }) => this.renderActions(card));
 
         return this;
     }
@@ -80,10 +93,39 @@ export class SwitcherBar {
             this.switcher?.requestUpload?.();
         });
 
-        // Settings button (for sources with custom settings like Wallhaven)
-        this.settingsBtn?.addEventListener("click", () => {
-            showNotification(t("wallpaper_switcher.extra_settings_hint", "Cài đặt của nguồn"), "info");
-        });
+        // Settings button (for sources with custom settings like Wallhaven & Collection)
+        if (this.settingsBtn) {
+            this.wallhavenPopover = createWallhavenSettingsPopover({
+                trigger: this.settingsBtn,
+                switcher: this.switcher,
+                dataControl: this.dataControl,
+            });
+            this.collectionPopover = createCollectionSettingsPopover({
+                trigger: this.settingsBtn,
+                switcher: this.switcher,
+                dataControl: this.dataControl,
+            });
+
+            this.settingsBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                const activeId = this.dataControl.activeSourceId;
+                if (activeId === "wallhaven") {
+                    this.collectionPopover?.close();
+                    this.wallhavenPopover?.toggle();
+                } else if (activeId === "collection") {
+                    this.wallhavenPopover?.close();
+                    this.collectionPopover?.toggle();
+                }
+            });
+        }
+    }
+
+    /**
+     * Đóng tất cả popover đang mở thuộc thanh bar.
+     */
+    closePopovers() {
+        this.wallhavenPopover?.close();
+        this.collectionPopover?.close();
     }
 
     /**
@@ -93,6 +135,7 @@ export class SwitcherBar {
     syncState(state) {
         this.setBusy(state.isBusy || state.status !== "idle");
         this.syncCounter(state);
+        this.syncMetaInfo(state.softCard || state.activeCard);
         this.syncActiveTab(state.sourceId);
         this.syncRightSlot(state.sourceId);
         if (!state.cardCount || state.cardCount === 0 || !state.activeCard) {
@@ -125,9 +168,7 @@ export class SwitcherBar {
             btn.appendChild(label);
 
             btn.addEventListener("click", () => {
-                if (source.id !== this.dataControl.activeSourceId) {
-                    this.switcher?.selectSource(source.id);
-                }
+                this.switcher?.selectSource(source.id);
             });
 
             this.tabsContainer.appendChild(btn);
@@ -154,7 +195,8 @@ export class SwitcherBar {
         if (sources.length < 2) return;
 
         const ids = sources.map((s) => s.id);
-        const currentIndex = ids.indexOf(this.dataControl.activeSourceId);
+        const currentTargetId = this.switcher?._pendingSourceId || this.dataControl.activeSourceId;
+        const currentIndex = ids.indexOf(currentTargetId);
         const nextIndex = (currentIndex + direction + ids.length) % ids.length;
         this.switcher?.selectSource(ids[nextIndex]);
     }
@@ -176,6 +218,30 @@ export class SwitcherBar {
         // `state:change` bắn rất thường, mà gán `textContent` là một lần ghi DOM
         // (thay text node) — chỉ ghi khi chuỗi thật sự đổi.
         if (this.counterEl.textContent !== text) this.counterEl.textContent = text;
+    }
+
+    /* ── Meta Info (Top Bar) ───────────────────────────────────────────────── */
+
+    /**
+     * Đồng bộ thông tin ảnh đang chọn (loại, nguồn, dung lượng, độ phân giải) lên Top Bar.
+     * @param {Object|null} [card]
+     */
+    syncMetaInfo(card = this.dataControl.softCard || this.dataControl.activeCard) {
+        if (!this.metaInfoEl) return;
+        if (!card) {
+            if (this.metaInfoEl.innerHTML !== "") this.metaInfoEl.innerHTML = "";
+            return;
+        }
+
+        const meta = resolveCardMeta(this.dataControl.activeSourceId, card);
+        const parts = [];
+        if (meta.leftHtml) parts.push(`<div class="wallpaper_meta_part">${meta.leftHtml}</div>`);
+        if (meta.rightHtml) parts.push(`<div class="wallpaper_meta_part">${meta.rightHtml}</div>`);
+        const html = parts.join('<span class="wallpaper_meta_sep">•</span>');
+
+        if (this.metaInfoEl.innerHTML !== html) {
+            this.metaInfoEl.innerHTML = html;
+        }
     }
 
     /* ── Action Buttons ────────────────────────────────────────────────────── */
@@ -215,13 +281,17 @@ export class SwitcherBar {
             btn.className = "btn wallpaper_action";
             if (action.danger) btn.setAttribute("data-variant", "danger");
             btn.innerHTML = `<i data-icon="${action.icon}"></i><span></span>`;
-            btn.querySelector("span").textContent = t(action.labelKey, action.fallback);
+            const label = t(action.labelKey, action.fallback);
+            btn.querySelector("span").textContent = label;
+            btn.dataset.actionTitle = label;
 
             if (verdict?.disabled) {
                 btn.dataset.blocked = "1";
                 btn.dataset.blockReason = verdict.reason || "";
                 btn.disabled = true;
                 btn.title = verdict.reason || "";
+            } else {
+                btn.title = label;
             }
 
             btn.addEventListener("click", (e) => {
@@ -350,12 +420,17 @@ export class SwitcherBar {
             if (labelSpan && labelSpan.textContent !== label) {
                 labelSpan.textContent = label;
             }
+            if (this.fetchBtn.title !== label) this.fetchBtn.title = label;
         }
         if (this.uploadBtn) {
             this.uploadBtn.classList.toggle("hidden", !isCollection);
+            const uploadLabel = t("sp.api.collection.upload_btn", "Tải lên ảnh / video");
+            if (this.uploadBtn.title !== uploadLabel) this.uploadBtn.title = uploadLabel;
         }
         if (this.settingsBtn) {
             this.settingsBtn.classList.toggle("hidden", !hasExtraSettings);
+            const settingsLabel = t("wallpaper_switcher.extra_settings", "Cài đặt nguồn");
+            if (this.settingsBtn.title !== settingsLabel) this.settingsBtn.title = settingsLabel;
         }
     }
 
@@ -386,8 +461,9 @@ export class SwitcherBar {
             if (this._isBusy) {
                 const title = t("wallpaper_switcher.wait_for_wallpaper", "Đang tải hình nền…");
                 if (btn.title !== title) btn.title = title;
-            } else if (btn.hasAttribute("title")) {
-                btn.removeAttribute("title");
+            } else {
+                const title = btn.dataset.actionTitle || "";
+                if (btn.title !== title) btn.title = title;
             }
         });
     }

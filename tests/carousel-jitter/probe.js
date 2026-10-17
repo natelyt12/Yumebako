@@ -7,7 +7,7 @@
  * Cách hoạt động: mỗi lần engine ghi layout ra DOM là đúng một lần gọi
  * `geometry.applyLayout(...)`. Bọc hàm đó lại, chụp ngay sau khi nó chạy xong, và
  * ta có ảnh chụp "mỗi lần render" của toàn bộ dải: từng thẻ một, gồm bề rộng, toạ
- * độ (translateX), tâm, độ mờ của overlay và trạng thái `active`.
+ * độ (translateX), tâm, độ mờ của khung ảnh và trạng thái `active`.
  *
  * Từ chuỗi ảnh chụp đó, `analyze()` rút ra các dấu hiệu jitter:
  *   - nhảy vị trí / bề rộng giữa hai frame liền nhau,
@@ -23,11 +23,12 @@
  */
 
 /**
- * Hệ số mờ theo khoảng cách của overlay: `defaultCardInfo` trong `geometry.js` ghi
- * `opacity = max(0, 1 - offset)`, tức hàm Lipschitz với hằng số 1 — độ mờ không thể
- * đổi nhanh hơn quãng đường tâm ảo đi được trong cùng frame.
+ * Hệ số mờ theo khoảng cách của thẻ: `defaultCardInfo` trong `geometry.js` nội
+ * suy tuyến tính `opacityCurve` = [1, 0.9, 0.7, 0.5, 0.3, 0.1], nên dốc lớn nhất
+ * của hàm là 0.2 — độ mờ không thể đổi nhanh hơn 0.2 lần quãng đường tâm ảo đi
+ * được trong cùng frame.
  */
-export const OPACITY_FADE_RATE = 1;
+export const OPACITY_FADE_RATE = 0.2;
 
 const TRANSLATE_RE = /translateX\((-?[\d.eE+-]+)px\)/;
 
@@ -44,7 +45,7 @@ export function parseTranslateX(transform) {
  * @param {() => number} [options.now]
  */
 export function createProbe(engine, {
-  opacitySelector = ".carousel-overlay",
+  opacitySelector = ".card-frame",
   now = () => globalThis.performance?.now?.() ?? Date.now(),
 } = {}) {
   /** @type {Array<Object>} */
@@ -69,9 +70,8 @@ export function createProbe(engine, {
       center: left + width / 2,
       opacity: Number.isFinite(rawOpacity) ? rawOpacity : null,
       active: cardEl.classList.contains("active"),
-      // Thẻ đang rơi: độ mờ do hiệu ứng rơi điều khiển (trên `.card-frame`, không
-      // phải overlay), không theo công thức khoảng cách tới tâm — phải loại khỏi
-      // phép kiểm tra liên tục.
+      // Thẻ đang rơi: độ mờ của khung do hiệu ứng rơi điều khiển, không theo
+      // công thức khoảng cách tới tâm — phải loại khỏi phép kiểm tra liên tục.
       deleting: cardEl.classList.contains("deleting"),
     };
   };

@@ -1,0 +1,5 @@
+/* Cascade layer order - declared once, imported first by every CSS entry.
+   `utilities` comes first so its !important helpers out-rank component and
+   feature rules (important declarations win in earlier layers); `features`
+   comes last so feature styles override shared component styles. */
+@layer utilities, tokens, base, components, features;

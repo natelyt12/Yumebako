@@ -1,10 +1,7 @@
-/* Settings Panel - Modular Sub-imports */
+/* Settings Panel Entry - Modular Sub-imports */
+@import "/src/styles/layers.css";
 @import "./settings_nav.css";
 @import "./settings_layout.css";
-@import "/src/styles/submenus.css";
-@import "/src/styles/dropdown.css";
-@import "/src/wallpaper/particles/effects.css";
+@import "./submenus.css";
 @import "./weather_settings.css";
-@import "/src/wallpaper/bgEditor.css";
-@import "/src/styles/sliders.css";
 @import "/src/styles/utilities.css";

@@ -1,3 +1,4 @@
+@layer components {
 /* ============================================================================
    CUSTOM DROPDOWN — single source of truth
    ============================================================================
@@ -61,20 +62,11 @@
        concern of `.btn` so a two-line trigger keeps its own spacing. */
     padding-left: 14px;
     padding-right: 36px;
-    transition:
-        background-color 0.2s var(--smooth),
-        /* Radius squares off on open and rounds back on close. */
-        border-radius 0.2s var(--expo_out);
+    transition: background-color 0.2s var(--smooth);
 }
 
 .btn[data-action="dropdown"]:hover {
     background-color: var(--button-hov);
-}
-
-/* While the panel is open the trigger squares off, so it reads as the panel's
-   top edge rather than a floating pill. */
-.btn[data-action="dropdown"].btn_active {
-    border-radius: 0;
 }
 
 /* The label fills the trigger; the chevron is out of flow so it never shifts it. */
@@ -113,60 +105,63 @@
     width: 100%;
     z-index: var(--z-dropdown);
 
-    /* Solid dark surface, like the native `select option` background.
-       `clip-path` (below) also clips `box-shadow`, so the panel separates from
-       the page with a hairline border instead of a drop shadow. */
-    background-color: #12121c;
-    border: 1px solid var(--glass-border-sm);
+    /* Glassmorphism surface adhering to Yumebako design system */
+    background-color: var(--bg-panel);
+    -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.05);
+    backdrop-filter: blur(24px) saturate(180%) brightness(1.05);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
     pointer-events: none;
+    box-sizing: border-box;
 
-    display: flex;
-    flex-direction: column;
-    max-height: min(440px, 65vh);
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
+    height: 0;
 
-    /* Wipe reveal driven by `clip-path`. Two independent axes:
-         - direction: which edge the content is revealed from
-         - easing:    --expo_out on open, --cubic_in on close
-       The closed state collapses the panel toward the TOP edge (bottom inset
-       100%), so opening grows top -> bottom; closing shrinks bottom -> top,
-       i.e. the exact reverse of the opening sweep. */
-    clip-path: inset(0 0 100% 0);
-    transition: clip-path 0.2s var(--cubic_in);
+    /* Panel đóng chỉ còn 2px viền (border-box không co dưới 2px), đủ để hở một
+       dải tối dưới trigger — nên ẩn hẳn khi không mở, chỉ hiện lại đúng lúc bắt
+       đầu quét. */
+    visibility: hidden;
+
+    transition:
+        height 0.34s var(--expo_out),
+        visibility 0s 0s;
+    will-change: height;
 }
 
-/* Open: fully revealed. --expo_out gives the "curtain pulled down" feel. */
+/* Open State */
 .dropdown.opening {
-    clip-path: inset(0 0 0 0);
-    transition-timing-function: var(--expo_out);
+    visibility: visible;
     pointer-events: auto;
 }
 
-/* Closing: push back toward the top edge, so the panel is eaten bottom -> top
-   (the reverse of opening) with --cubic_in for an accelerating exit. */
+/* Close State: vẫn hiện trong suốt cú quét đóng, ẩn ngay khi gỡ class. */
 .dropdown.closing {
-    clip-path: inset(0 0 100% 0);
-    transition-timing-function: var(--cubic_in);
+    height: 0 !important;
+    visibility: visible;
+    pointer-events: none;
+    transition: height 0.26s var(--cubic_in);
 }
 
-/* Upward panel: reveal from the bottom edge, so it grows bottom -> top. The
-   `open_upwards` modifier simply swaps the collapsed edge. */
+/* Upward panel */
 .dropdown.open_upwards {
     top: auto;
     bottom: calc(100% + 6px);
-    clip-path: inset(100% 0 0 0);
 }
 
-.dropdown.open_upwards.opening {
-    clip-path: inset(0 0 0 0);
-    transition-timing-function: var(--expo_out);
+/* Inner container pinned to the moving edge so content slides with the border */
+.dropdown_inner {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
 }
 
-/* Closing an upward panel reverses it: eaten top -> bottom. */
-.dropdown.open_upwards.closing {
-    clip-path: inset(100% 0 0 0);
-    transition-timing-function: var(--cubic_in);
+.dropdown.open_upwards .dropdown_inner {
+    bottom: auto;
+    top: 0;
 }
 
 /* --- Items (mirror `select option` rows) --------------------------------- */
@@ -251,4 +246,14 @@
 
 .dropdown .section_divider:first-child {
     margin-top: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dropdown,
+    .dropdown > * {
+        clip-path: none !important;
+        transform: none !important;
+        transition: none !important;
+    }
+}
 }

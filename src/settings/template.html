@@ -1,298 +1,465 @@
 <!-- Feature Templates -->
 <template id="tpl_wallpaper_editor">
-    <div class="setting_section wallpaper_editor">
-        <p class="setting_title" data-i18n="bg_editor.window_title">Điều chỉnh vị trí</p>
-        <div id="editor_container" class="editor_container">
-            <div id="full_image_view" class="full_image_view">
-                <div id="view_lens" class="view_lens">
-                    <div class="lens_corner" data-corner="nw"></div>
-                    <div class="lens_corner" data-corner="ne"></div>
-                    <div class="lens_corner" data-corner="sw"></div>
-                    <div class="lens_corner" data-corner="se"></div>
-                </div>
-            </div>
+  <div class="setting_section wallpaper_editor">
+    <p class="setting_title" data-i18n="bg_editor.window_title">
+      Điều chỉnh vị trí
+    </p>
+    <div id="editor_container" class="editor_container">
+      <div id="full_image_view" class="full_image_view">
+        <div id="view_lens" class="view_lens">
+          <div class="lens_corner" data-corner="nw"></div>
+          <div class="lens_corner" data-corner="ne"></div>
+          <div class="lens_corner" data-corner="sw"></div>
+          <div class="lens_corner" data-corner="se"></div>
         </div>
-        <div class="editor_row">
-            <label class="btn" data-action="toggle">
-                <span data-i18n="bg_editor.fit_mode_label">Hiển thị toàn bộ ảnh</span>
-                <input type="checkbox" id="fit_mode_checkbox" />
-            </label>
-        </div>
-        <div class="editor_controls flex_col gap_8" id="manual_controls">
-            <!-- Dynamic sliders injected here -->
-        </div>
-        <div class="section_divider"></div>
-        <div class="flex_row gap_8 w_full">
-            <button id="btn_reset" class="btn flex_1" data-i18n="bg_editor.btn_reset">Đặt lại</button>
-            <button id="btn_apply" class="btn flex_1" data-i18n="bg_editor.btn_apply">Lưu</button>
-        </div>
-        <span class="tooltip" data-i18n="bg_editor.note_tooltip">Lưu ý: Zoom tại đây và Zoom trong Wavy Animation không
-            liên quan đến nhau</span>
+      </div>
     </div>
+    <div class="editor_row">
+      <label class="btn" data-action="toggle">
+        <span data-i18n="bg_editor.fit_mode_label">Hiển thị toàn bộ ảnh</span>
+        <input type="checkbox" id="fit_mode_checkbox" />
+      </label>
+    </div>
+    <div class="editor_controls flex_col gap_8" id="manual_controls">
+      <!-- Dynamic sliders injected here -->
+    </div>
+    <div class="section_divider"></div>
+    <div class="flex_row gap_8 w_full">
+      <button id="btn_reset" class="btn flex_1" data-i18n="bg_editor.btn_reset">
+        Đặt lại
+      </button>
+      <button id="btn_apply" class="btn flex_1" data-i18n="bg_editor.btn_apply">
+        Lưu
+      </button>
+    </div>
+    <span class="tooltip" data-i18n="bg_editor.note_tooltip"
+      >Lưu ý: Zoom tại đây và Zoom trong Wavy Animation không liên quan đến
+      nhau</span
+    >
+  </div>
 </template>
 
 <template id="bg_collection_popup_tpl">
-    <div class="bg_collection_popup">
-        <!-- Header actions -->
-        <div class="bg_collection_header">
-            <button id="coll_upload_btn" class="btn">
-                <i data-icon="upload"></i>
-                <span data-i18n="sp.api.collection.upload_btn">Tải lên ảnh / video</span>
-            </button>
-            <input type="file" id="coll_file_input" multiple accept="image/*,video/*" style="display: none" />
-            <button id="coll_bulk_delete_btn" class="btn" data-variant="danger" style="display: none">
-                <i data-icon="bulkDelete"></i>
-                <span data-i18n="sp.api.collection.delete_selected">Xóa mục đã chọn</span>
-            </button>
-            <button id="coll_select_mode_btn" class="btn">
-                <i data-icon="selectMode"></i>
-                <span data-i18n="sp.api.collection.select_mode">Chọn nhiều</span>
-            </button>
-        </div>
-        <!-- Empty state -->
-        <div id="coll_empty_state" class="bg_coll_empty">
-            <i data-icon="emptyCollection"></i>
-            <p>Bộ sưu tập trống</p>
-            <span>Tải lên ảnh/video hoặc thêm hình nền đang hiển thị</span>
-        </div>
-        <!-- Grid -->
-        <div id="coll_grid" class="bg_collection_grid" style="display: none"></div>
+  <div class="bg_collection_popup">
+    <!-- Header actions -->
+    <div class="bg_collection_header">
+      <button id="coll_upload_btn" class="btn">
+        <i data-icon="upload"></i>
+        <span data-i18n="sp.api.collection.upload_btn"
+          >Tải lên ảnh / video</span
+        >
+      </button>
+      <input
+        type="file"
+        id="coll_file_input"
+        multiple
+        accept="image/*,video/*"
+        style="display: none"
+      />
+      <button
+        id="coll_bulk_delete_btn"
+        class="btn"
+        data-variant="danger"
+        style="display: none"
+      >
+        <i data-icon="bulkDelete"></i>
+        <span data-i18n="sp.api.collection.delete_selected"
+          >Xóa mục đã chọn</span
+        >
+      </button>
+      <button id="coll_select_mode_btn" class="btn">
+        <i data-icon="selectMode"></i>
+        <span data-i18n="sp.api.collection.select_mode">Chọn nhiều</span>
+      </button>
     </div>
+    <!-- Empty state -->
+    <div id="coll_empty_state" class="bg_coll_empty">
+      <i data-icon="emptyCollection"></i>
+      <p>Bộ sưu tập trống</p>
+      <span>Tải lên ảnh/video hoặc thêm hình nền đang hiển thị</span>
+    </div>
+    <!-- Grid -->
+    <div id="coll_grid" class="bg_collection_grid" style="display: none"></div>
+  </div>
 </template>
 
 <template id="tpl_wavy_settings">
-    <!-- Section 1: Wavy Animation -->
-    <div class="setting_section wavy_settings">
-        <p class="setting_title" data-i18n="sp.wallpaper_customization.toggle_wavy">Wavy Animation</p>
+  <!-- Section 1: Wavy Animation -->
+  <div class="setting_section wavy_settings">
+    <p class="setting_title" data-i18n="sp.wallpaper_customization.toggle_wavy">
+      Wavy Animation
+    </p>
 
-        <label class="btn" data-action="toggle">
-            <div class="btn_body">
-                <span class="btn_title" data-i18n="sp.wallpaper_customization.toggle_wavy">Wavy
-                    Animation</span>
-                <span class="btn_desc" data-i18n="sp.wallpaper_customization.wavy_settings_tooltip">Làm cho
-                    hình
-                    nền của bạn đung đưa nhẹ, tạo cảm giác sống động hơn</span>
-            </div>
-            <input type="checkbox" id="wavy_enabled_toggle" />
-        </label>
+    <label class="btn" data-action="toggle">
+      <div class="btn_body">
+        <span
+          class="btn_title"
+          data-i18n="sp.wallpaper_customization.toggle_wavy"
+          >Wavy Animation</span
+        >
+        <span
+          class="btn_desc"
+          data-i18n="sp.wallpaper_customization.wavy_settings_tooltip"
+          >Làm cho hình nền của bạn đung đưa nhẹ, tạo cảm giác sống động
+          hơn</span
+        >
+      </div>
+      <input type="checkbox" id="wavy_enabled_toggle" />
+    </label>
 
-        <div id="wavy_content_container" class="flex_col gap_8 w_full">
-            <p class="setting_title" data-i18n="wavy.motion_type_label">Kiểu chuyển động</p>
-            <select id="wavy_motion_type" class="native_select"></select>
-            <label class="btn" data-action="toggle">
-                <span data-i18n="wavy.advanced_settings">Cài đặt nâng cao</span>
-                <input type="checkbox" id="wavy_advanced_toggle" />
-            </label>
+    <div id="wavy_content_container" class="flex_col gap_8 w_full">
+      <p class="setting_title" data-i18n="wavy.motion_type_label">
+        Kiểu chuyển động
+      </p>
+      <select id="wavy_motion_type" class="native_select"></select>
+      <label class="btn" data-action="toggle">
+        <span data-i18n="wavy.advanced_settings">Cài đặt nâng cao</span>
+        <input type="checkbox" id="wavy_advanced_toggle" />
+      </label>
 
-            <!-- Advanced: parameters of the selected motion type, rebuilt on mode change -->
-            <div id="wavy_advanced_section" class="flex_col gap_8 w_full">
-                <p class="setting_title" data-i18n="wavy.advanced_settings">Cài đặt nâng cao</p>
-                <span class="tooltip" data-i18n="wavy.motion_tooltip">Lưu ý: Tăng Tốc độ hoặc Độ xoay quá cao có thể gây cảm giác mỏi mắt hoặc chóng mặt.</span>
-                <div id="wavy_motion_sliders" class="flex_col gap_8 w_full"></div>
+      <!-- Advanced: parameters of the selected motion type, rebuilt on mode change -->
+      <div id="wavy_advanced_section" class="flex_col gap_8 w_full">
+        <p class="setting_title" data-i18n="wavy.advanced_settings">
+          Cài đặt nâng cao
+        </p>
+        <span class="tooltip" data-i18n="wavy.motion_tooltip"
+          >Lưu ý: Tăng Tốc độ hoặc Độ xoay quá cao có thể gây cảm giác mỏi mắt
+          hoặc chóng mặt.</span
+        >
+        <div id="wavy_motion_sliders" class="flex_col gap_8 w_full"></div>
 
-                <div class="section_divider"></div>
+        <div class="section_divider"></div>
 
-                <!-- Only randomises the style parameters above, so it lives inside
+        <!-- Only randomises the style parameters above, so it lives inside
                      the advanced section and hides together with it. -->
-                <button id="btn_wavy_random" class="btn w_full" data-i18n="wavy.btn_random">Ngẫu nhiên</button>
-            </div>
+        <button
+          id="btn_wavy_random"
+          class="btn w_full"
+          data-i18n="wavy.btn_random"
+        >
+          Ngẫu nhiên
+        </button>
+      </div>
 
-            <p class="setting_title" data-i18n="wavy.shared_section_label">Tùy chỉnh chung</p>
+      <p class="setting_title" data-i18n="wavy.shared_section_label">
+        Tùy chỉnh chung
+      </p>
 
-            <!-- Shared by every motion type and always visible -->
-            <div id="wavy_shared_sliders" class="flex_col gap_8 w_full"></div>
+      <!-- Shared by every motion type and always visible -->
+      <div id="wavy_shared_sliders" class="flex_col gap_8 w_full"></div>
 
-            <div class="section_divider"></div>
+      <div class="section_divider"></div>
 
-            <div class="flex_row gap_8 w_full">
-                <button id="btn_wavy_reset" class="btn flex_1" data-i18n="wavy.btn_default">Mặc định</button>
-                <button id="btn_wavy_save" class="btn flex_1" data-i18n="wavy.btn_save">Lưu</button>
-            </div>
-        </div>
+      <div class="flex_row gap_8 w_full">
+        <button
+          id="btn_wavy_reset"
+          class="btn flex_1"
+          data-i18n="wavy.btn_default"
+        >
+          Mặc định
+        </button>
+        <button id="btn_wavy_save" class="btn flex_1" data-i18n="wavy.btn_save">
+          Lưu
+        </button>
+      </div>
     </div>
+  </div>
 </template>
 
 <template id="tpl_parallax_settings">
-    <!-- Section 2: Parallax Effect -->
-    <div class="setting_section parallax_settings">
-        <p class="setting_title" data-i18n="sp.wallpaper_customization.toggle_parallax">Hiệu ứng Parallax</p>
+  <!-- Section 2: Parallax Effect -->
+  <div class="setting_section parallax_settings">
+    <p
+      class="setting_title"
+      data-i18n="sp.wallpaper_customization.toggle_parallax"
+    >
+      Hiệu ứng Parallax
+    </p>
 
-        <label class="btn" data-action="toggle">
-            <div class="btn_body">
-                <span class="btn_title" data-i18n="sp.wallpaper_customization.toggle_parallax">Hiệu ứng
-                    Parallax</span>
-                <span class="btn_desc" data-i18n="sp.wallpaper_customization.parallax_settings_tooltip">Hình
-                    nền
-                    sẽ di chuyển theo con trỏ chuột của bạn</span>
-            </div>
-            <input type="checkbox" id="parallax_enabled_toggle" />
-        </label>
+    <label class="btn" data-action="toggle">
+      <div class="btn_body">
+        <span
+          class="btn_title"
+          data-i18n="sp.wallpaper_customization.toggle_parallax"
+          >Hiệu ứng Parallax</span
+        >
+        <span
+          class="btn_desc"
+          data-i18n="sp.wallpaper_customization.parallax_settings_tooltip"
+          >Hình nền sẽ di chuyển theo con trỏ chuột của bạn</span
+        >
+      </div>
+      <input type="checkbox" id="parallax_enabled_toggle" />
+    </label>
 
-        <div id="parallax_content_container" class="flex_col gap_8 w_full">
-            <div id="parallax_sliders_container" class="flex_col gap_8 w_full">
-                <!-- Dynamic parallax sliders injected here -->
-            </div>
-            <div class="section_divider"></div>
-            <div class="flex_row gap_8 w_full">
-                <button id="btn_parallax_reset" class="btn flex_1" data-i18n="parallax.btn_default">Mặc định</button>
-                <button id="btn_parallax_save" class="btn flex_1" data-i18n="parallax.btn_save">Lưu</button>
-            </div>
-        </div>
+    <div id="parallax_content_container" class="flex_col gap_8 w_full">
+      <div id="parallax_sliders_container" class="flex_col gap_8 w_full">
+        <!-- Dynamic parallax sliders injected here -->
+      </div>
+      <div class="section_divider"></div>
+      <div class="flex_row gap_8 w_full">
+        <button
+          id="btn_parallax_reset"
+          class="btn flex_1"
+          data-i18n="parallax.btn_default"
+        >
+          Mặc định
+        </button>
+        <button
+          id="btn_parallax_save"
+          class="btn flex_1"
+          data-i18n="parallax.btn_save"
+        >
+          Lưu
+        </button>
+      </div>
     </div>
+  </div>
 </template>
 
 <template id="tpl_onload_settings">
-    <div class="setting_section onload_settings">
-        <p class="setting_title" data-i18n="onload_anim.preset_label">Hiệu ứng có sẵn</p>
-        <select id="onload_preset" class="native_select"></select>
+  <div class="setting_section onload_settings">
+    <p class="setting_title" data-i18n="onload_anim.preset_label">
+      Hiệu ứng có sẵn
+    </p>
+    <select id="onload_preset" class="native_select"></select>
 
-        <label class="btn" data-action="toggle">
-            <span data-i18n="onload_anim.advanced_settings">Cài đặt nâng cao</span>
-            <input type="checkbox" id="onload_advanced_toggle" />
-        </label>
+    <label class="btn" data-action="toggle">
+      <span data-i18n="onload_anim.advanced_settings">Cài đặt nâng cao</span>
+      <input type="checkbox" id="onload_advanced_toggle" />
+    </label>
 
-        <div id="onload_advanced_section" class="flex_col gap_8 w_full">
-            <p class="setting_title" data-i18n="onload_anim.custom_bg_label">Tùy chỉnh hình nền</p>
-            <div class="custom_onload_animation flex_col gap_12" id="onload_bg_sliders"></div>
+    <div id="onload_advanced_section" class="flex_col gap_8 w_full">
+      <p class="setting_title" data-i18n="onload_anim.custom_bg_label">
+        Tùy chỉnh hình nền
+      </p>
+      <div
+        class="custom_onload_animation flex_col gap_12"
+        id="onload_bg_sliders"
+      ></div>
 
-            <p class="setting_title" data-i18n="onload_anim.bg_easing_label">Easing hình nền</p>
-            <select id="onload_bg_easing" class="native_select"></select>
+      <p class="setting_title" data-i18n="onload_anim.bg_easing_label">
+        Easing hình nền
+      </p>
+      <select id="onload_bg_easing" class="native_select"></select>
 
-            <p class="setting_title" data-i18n="onload_anim.custom_overlay_label">Tùy chỉnh lớp phủ</p>
-            <div class="custom_onload_animation flex_col gap_12" id="onload_overlay_sliders"></div>
-        </div>
-
-        <p class="setting_title" data-i18n="onload_anim.other_settings_label">Cài đặt khác</p>
-        <label class="btn" data-action="toggle">
-            <div class="btn_body">
-                <span class="btn_title" data-i18n="onload_anim.widget_immediate">Giao diện xuất hiện ngay lập tức</span>
-                <span class="btn_desc" data-i18n="onload_anim.widget_immediate_tooltip">Nếu tắt, giao diện sẽ đợi hoạt
-                    ảnh mở trang chạy xong mới hiển thị.</span>
-            </div>
-            <input type="checkbox" id="widget_immediate" />
-        </label>
-        <div class="flex_row gap_8 w_full">
-            <button id="btn_preview" class="btn flex_1" data-i18n="onload_anim.btn_preview">Xem trước</button>
-            <button id="btn_save" class="btn flex_1" data-i18n="onload_anim.btn_save">Lưu</button>
-        </div>
+      <p class="setting_title" data-i18n="onload_anim.custom_overlay_label">
+        Tùy chỉnh lớp phủ
+      </p>
+      <div
+        class="custom_onload_animation flex_col gap_12"
+        id="onload_overlay_sliders"
+      ></div>
     </div>
+
+    <p class="setting_title" data-i18n="onload_anim.other_settings_label">
+      Cài đặt khác
+    </p>
+    <label class="btn" data-action="toggle">
+      <div class="btn_body">
+        <span class="btn_title" data-i18n="onload_anim.widget_immediate"
+          >Giao diện xuất hiện ngay lập tức</span
+        >
+        <span class="btn_desc" data-i18n="onload_anim.widget_immediate_tooltip"
+          >Nếu tắt, giao diện sẽ đợi hoạt ảnh mở trang chạy xong mới hiển
+          thị.</span
+        >
+      </div>
+      <input type="checkbox" id="widget_immediate" />
+    </label>
+    <div class="flex_row gap_8 w_full">
+      <button
+        id="btn_preview"
+        class="btn flex_1"
+        data-i18n="onload_anim.btn_preview"
+      >
+        Xem trước
+      </button>
+      <button id="btn_save" class="btn flex_1" data-i18n="onload_anim.btn_save">
+        Lưu
+      </button>
+    </div>
+  </div>
 </template>
 
 <template id="tpl_filter_settings">
-    <div class="setting_section">
-        <p class="setting_title" data-i18n="sp.wallpaper_customization.filters">Bộ lọc & màu sắc</p>
-        <div id="filter_sliders_container" class="flex_col gap_12 w_full">
-            <!-- Dynamic sliders injected here -->
-        </div>
-        <div class="section_divider"></div>
-        <div class="actions">
-            <button id="btn_filter_reset" class="btn" data-i18n="bg_editor.btn_reset">Đặt lại</button>
-            <button id="btn_filter_save" class="btn" data-i18n="wavy.btn_save">Lưu</button>
-        </div>
+  <div class="setting_section">
+    <p class="setting_title" data-i18n="sp.wallpaper_customization.filters">
+      Bộ lọc & màu sắc
+    </p>
+    <div id="filter_sliders_container" class="flex_col gap_12 w_full">
+      <!-- Dynamic sliders injected here -->
     </div>
+    <div class="section_divider"></div>
+    <div class="flex_row gap_8 w_full">
+      <button
+        id="btn_filter_reset"
+        class="btn flex_1"
+        data-i18n="bg_editor.btn_reset"
+      >
+        Đặt lại
+      </button>
+      <button id="btn_filter_save" class="btn flex_1" data-i18n="wavy.btn_save">
+        Lưu
+      </button>
+    </div>
+  </div>
 </template>
 
 <template id="tpl_particles_settings">
-    <div class="setting_section particles_editor">
-        <div id="particles_columns" class="effects_columns">
-            <!-- Dynamic and Static columns rendered dynamically -->
-        </div>
-        <span class="tooltip" data-i18n="particles.editor_tooltip">Lưu ý: Hiệu ứng càng nhiều sẽ đòi hỏi hiệu năng GPU
-            càng cao.</span>
-        <div class="flex_row gap_8 w_full">
-            <button id="btn_clear_all" class="btn flex_1" data-i18n="particles.btn_clear_all">Xóa tất
-                cả</button>
-            <button id="btn_save" class="btn flex_1" data-i18n="particles.btn_save">Lưu</button>
-        </div>
+  <div class="setting_section particles_editor">
+    <div id="particles_columns" class="effects_columns">
+      <!-- Dynamic and Static columns rendered dynamically -->
     </div>
+    <span class="tooltip" data-i18n="particles.editor_tooltip"
+      >Lưu ý: Hiệu ứng càng nhiều sẽ đòi hỏi hiệu năng GPU càng cao.</span
+    >
+    <div class="flex_row gap_8 w_full">
+      <button
+        id="btn_clear_all"
+        class="btn flex_1"
+        data-i18n="particles.btn_clear_all"
+      >
+        Xóa tất cả
+      </button>
+      <button id="btn_save" class="btn flex_1" data-i18n="particles.btn_save">
+        Lưu
+      </button>
+    </div>
+  </div>
 </template>
 
 <!-- Provider Extra Settings Submenu Templates -->
 <template id="tpl_wallhaven_settings">
-    <div class="setting_section">
-        <p class="setting_title" data-i18n="sp.api.wallhaven.search">Tìm kiếm</p>
-        <div class="setting_options flex_col gap_8">
-            <div class="input_container">
-                <input type="text" id="wh_query" class="sub_input"
-                    placeholder="Từ khóa tìm kiếm (Ví dụ: Nature, Cyberpunk)" autocomplete="off" />
-            </div>
-            <span class="tooltip" data-i18n="sp.api.wallhaven.search_tooltip">Cú pháp tìm kiếm (vd: anime, landscape,
-                -girl,
-                type:png...). Bỏ trống để lấy ảnh ngẫu nhiên.</span>
-        </div>
+  <div class="setting_section">
+    <p class="setting_title" data-i18n="sp.api.wallhaven.search">Tìm kiếm</p>
+    <div class="setting_options flex_col gap_8">
+      <div class="input_container">
+        <input
+          type="text"
+          id="wh_query"
+          class="sub_input"
+          placeholder="Từ khóa tìm kiếm (Ví dụ: Nature, Cyberpunk)"
+          autocomplete="off"
+        />
+      </div>
+      <span class="tooltip" data-i18n="sp.api.wallhaven.search_tooltip"
+        >Cú pháp tìm kiếm (vd: anime, landscape, -girl, type:png...). Bỏ trống
+        để lấy ảnh ngẫu nhiên.</span
+      >
     </div>
-    <div class="setting_section">
-        <p class="setting_title" data-i18n="sp.api.wallhaven.categories">Thể loại</p>
-        <div class="setting_options flex_col gap_8">
-            <div class="checkbox_tooltip_group">
-                <label class="btn" data-action="toggle">
-                    <span data-i18n="sp.api.wallhaven.cat_general">General</span>
-                    <input type="checkbox" id="wh_cat_general" />
-                </label>
-                <label class="btn" data-action="toggle">
-                    <span data-i18n="sp.api.wallhaven.cat_anime">Anime</span>
-                    <input type="checkbox" id="wh_cat_anime" />
-                </label>
-                <label class="btn" data-action="toggle">
-                    <span data-i18n="sp.api.wallhaven.cat_people">People</span>
-                    <input type="checkbox" id="wh_cat_people" />
-                </label>
-                <span class="tooltip" data-i18n="sp.api.wallhaven.category.tooltip">Lựa chọn các nhãn phân loại ảnh bạn
-                    muốn
-                    hiển thị.</span>
-            </div>
-        </div>
+  </div>
+  <div class="setting_section">
+    <p class="setting_title" data-i18n="sp.api.wallhaven.categories">
+      Thể loại
+    </p>
+    <div class="setting_options flex_col gap_8">
+      <div class="checkbox_tooltip_group">
+        <label class="btn" data-action="toggle">
+          <span data-i18n="sp.api.wallhaven.cat_general">General</span>
+          <input type="checkbox" id="wh_cat_general" />
+        </label>
+        <label class="btn" data-action="toggle">
+          <span data-i18n="sp.api.wallhaven.cat_anime">Anime</span>
+          <input type="checkbox" id="wh_cat_anime" />
+        </label>
+        <label class="btn" data-action="toggle">
+          <span data-i18n="sp.api.wallhaven.cat_people">People</span>
+          <input type="checkbox" id="wh_cat_people" />
+        </label>
+        <span class="tooltip" data-i18n="sp.api.wallhaven.category.tooltip"
+          >Lựa chọn các nhãn phân loại ảnh bạn muốn hiển thị.</span
+        >
+      </div>
     </div>
-    <!-- Wallhaven resolution/sorting UI. Kept for the future Wallhaven settings
+  </div>
+  <!-- Wallhaven resolution/sorting UI. Kept for the future Wallhaven settings
          rebuild; these selects upgrade to the unified dropdown automatically via
          initCustomSelects. -->
-    <div class="setting_section">
-        <p class="setting_title" data-i18n="sp.api.wallhaven.resolution">Độ phân giải tối thiểu</p>
-        <div class="setting_options flex_col gap_8">
-            <select id="wh_resolution" class="native_select">
-                <option value="any" data-i18n="sp.api.wallhaven.resolution_any">Tất cả</option>
-                <option value="1920x1080">Full HD (1920x1080)</option>
-                <option value="2560x1440">2K (2560x1440)</option>
-                <option value="3840x2160">4K (3840x2160)</option>
-            </select>
-            <span class="tooltip" data-i18n="sp.api.wallhaven.resolution_tooltip">Chỉ tìm kiếm hình ảnh đạt hoặc vượt độ
-                phân giải được chọn.</span>
-        </div>
+  <div class="setting_section">
+    <p class="setting_title" data-i18n="sp.api.wallhaven.resolution">
+      Độ phân giải tối thiểu
+    </p>
+    <div class="setting_options flex_col gap_8">
+      <select id="wh_resolution" class="native_select">
+        <option value="any" data-i18n="sp.api.wallhaven.resolution_any">
+          Tất cả
+        </option>
+        <option value="1920x1080">Full HD (1920x1080)</option>
+        <option value="2560x1440">2K (2560x1440)</option>
+        <option value="3840x2160">4K (3840x2160)</option>
+      </select>
+      <span class="tooltip" data-i18n="sp.api.wallhaven.resolution_tooltip"
+        >Chỉ tìm kiếm hình ảnh đạt hoặc vượt độ phân giải được chọn.</span
+      >
     </div>
-    <div class="setting_section">
-        <p class="setting_title" data-i18n="sp.api.wallhaven.sorting">Sắp xếp theo</p>
-        <div class="setting_options flex_col gap_8">
-            <select id="wh_sorting" class="native_select">
-                <option value="random" data-i18n="sp.api.wallhaven.sort_random">Ngẫu nhiên</option>
-                <option value="date_added" data-i18n="sp.api.wallhaven.sort_date">Mới nhất</option>
-                <option value="views" data-i18n="sp.api.wallhaven.sort_views">Lượt xem</option>
-                <option value="favorites" data-i18n="sp.api.wallhaven.sort_favorites">Yêu thích</option>
-                <option value="toplist" data-i18n="sp.api.wallhaven.sort_toplist">Toplist</option>
-            </select>
-            <select id="wh_topRange" class="native_select" style="display: none;">
-                <option value="1d" data-i18n="sp.api.wallhaven.toprange_1d">1 Ngày</option>
-                <option value="3d" data-i18n="sp.api.wallhaven.toprange_3d">3 Ngày</option>
-                <option value="1w" data-i18n="sp.api.wallhaven.toprange_1w">1 Tuần</option>
-                <option value="1M" data-i18n="sp.api.wallhaven.toprange_1M">1 Tháng</option>
-                <option value="3M" data-i18n="sp.api.wallhaven.toprange_3M">3 Tháng</option>
-                <option value="6M" data-i18n="sp.api.wallhaven.toprange_6M">6 Tháng</option>
-                <option value="1y" data-i18n="sp.api.wallhaven.toprange_1y">1 Năm</option>
-            </select>
-            <span class="tooltip" data-i18n="sp.api.wallhaven.sorting_tooltip">Phương thức sắp xếp kết quả tìm
-                kiếm.</span>
-        </div>
+  </div>
+  <div class="setting_section">
+    <p class="setting_title" data-i18n="sp.api.wallhaven.sorting">
+      Sắp xếp theo
+    </p>
+    <div class="setting_options flex_col gap_8">
+      <select id="wh_sorting" class="native_select">
+        <option value="random" data-i18n="sp.api.wallhaven.sort_random">
+          Ngẫu nhiên
+        </option>
+        <option value="date_added" data-i18n="sp.api.wallhaven.sort_date">
+          Mới nhất
+        </option>
+        <option value="views" data-i18n="sp.api.wallhaven.sort_views">
+          Lượt xem
+        </option>
+        <option value="favorites" data-i18n="sp.api.wallhaven.sort_favorites">
+          Yêu thích
+        </option>
+        <option value="toplist" data-i18n="sp.api.wallhaven.sort_toplist">
+          Toplist
+        </option>
+      </select>
+      <select id="wh_topRange" class="native_select" style="display: none">
+        <option value="1d" data-i18n="sp.api.wallhaven.toprange_1d">
+          1 Ngày
+        </option>
+        <option value="3d" data-i18n="sp.api.wallhaven.toprange_3d">
+          3 Ngày
+        </option>
+        <option value="1w" data-i18n="sp.api.wallhaven.toprange_1w">
+          1 Tuần
+        </option>
+        <option value="1M" data-i18n="sp.api.wallhaven.toprange_1M">
+          1 Tháng
+        </option>
+        <option value="3M" data-i18n="sp.api.wallhaven.toprange_3M">
+          3 Tháng
+        </option>
+        <option value="6M" data-i18n="sp.api.wallhaven.toprange_6M">
+          6 Tháng
+        </option>
+        <option value="1y" data-i18n="sp.api.wallhaven.toprange_1y">
+          1 Năm
+        </option>
+      </select>
+      <span class="tooltip" data-i18n="sp.api.wallhaven.sorting_tooltip"
+        >Phương thức sắp xếp kết quả tìm kiếm.</span
+      >
     </div>
+  </div>
 </template>
 
-
 <template id="tpl_collection_settings">
-    <div class="setting_section flex_col gap_8">
-        <p class="setting_title" data-i18n="sp.api.collection.title">Quản lý Bộ sưu tập</p>
-        <button id="open_collection_btn_submenu" class="btn w_full">
-            <i data-icon="collection"></i>
-            <span data-i18n="sp.api.collection.open_btn">Mở trình quản lý bộ sưu tập</span>
-        </button>
-        <span class="tooltip" data-i18n="sp.api.collection.description">Xem, tải lên hoặc xóa các hình ảnh/video đã lưu
-            trong bộ sưu tập local.</span>
-    </div>
+  <div class="setting_section flex_col gap_8">
+    <p class="setting_title" data-i18n="sp.api.collection.title">
+      Quản lý Bộ sưu tập
+    </p>
+    <button id="open_collection_btn_submenu" class="btn w_full">
+      <i data-icon="collection"></i>
+      <span data-i18n="sp.api.collection.open_btn"
+        >Mở trình quản lý bộ sưu tập</span
+      >
+    </button>
+    <span class="tooltip" data-i18n="sp.api.collection.description"
+      >Xem, tải lên hoặc xóa các hình ảnh/video đã lưu trong bộ sưu tập
+      local.</span
+    >
+  </div>
 </template>

@@ -1,6 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Mulish:ital,wght@0,200..1000;1,200..1000&display=swap');
+@layer tokens {
 :root {
     /* ── Easing ─────────────────────────────────── */
+    /* Root type scale. Pinned in `px` so the browser's default font-size setting
+       (which extension pages follow) cannot shrink or grow the whole UI. */
+    --font-size-root: 16px;
     --linear: linear;
     --ease_in: ease-in;
     --ease_out: ease-out;
@@ -72,4 +76,5 @@
     --z-dropdown: 40;
     --z-modal: 50;
     --z-toast: 100;
+}
 }

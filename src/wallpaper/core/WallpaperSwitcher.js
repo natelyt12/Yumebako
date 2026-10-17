@@ -7,7 +7,6 @@ import {
   getDefaultWallpaperEffects,
 } from "/src/core/storageHandler.js";
 import { createSources } from "../sources/index.js";
-import { resolveCardMeta } from "../sources/cardMeta.js";
 import { SwitcherBar } from "../ui/bar/SwitcherBar.js";
 import { CarouselEngine } from "../ui/carousel/CarouselEngine.js";
 import { dataControl } from "./DataControl.js";
@@ -49,6 +48,7 @@ export class WallpaperSwitcher {
      * reach the desktop.
      */
     this._silentRender = false;
+    this._pendingSourceId = null;
 
     // Source adapters (Collection, Wallhaven, Unsplash, Picre...) — see ./sources/registry.js
     this.sources = createSources();
@@ -96,7 +96,7 @@ export class WallpaperSwitcher {
 
     // Khởi tạo component SwitcherBar thống nhất
     this.bar = new SwitcherBar({
-      container: this.container.querySelector(".wallpaper_switcher_bar"),
+      container: this.container.querySelector(".wallpaper_switcher_inner"),
       dataControl,
       switcher: this,
     }).init();
@@ -121,18 +121,13 @@ export class WallpaperSwitcher {
     dataControl.on("card:added", ({ addedCards, allCards }) => {
       // Sync the carousel using syncItems so only genuinely fresh cards receive the enter animation
       const source = this.activeSource;
-      const engineItems = (dataControl.items || []).map((item) => {
-        const meta = resolveCardMeta(this.activeSourceId, item);
-        return {
-          id: item.id,
-          name: item.title || item.id,
-          sub: item.category || source?.name || "",
-          url: item.thumbnailUrl || item.url || "",
-          card: item,
-          metaLeft: meta.leftHtml,
-          metaRight: meta.rightHtml,
-        };
-      });
+      const engineItems = (dataControl.items || []).map((item) => ({
+        id: item.id,
+        name: item.title || item.id,
+        sub: item.category || source?.name || "",
+        url: item.thumbnailUrl || item.url || "",
+        card: item,
+      }));
 
       const previousCount = (allCards?.length || 0) - (addedCards?.length || 0);
       const isAtLast = previousCount > 0 && (dataControl.currentIndex === previousCount - 1 || this.carousel.hardIndex === previousCount - 1);
@@ -210,18 +205,13 @@ export class WallpaperSwitcher {
     const source = this.activeSource;
     const items = dataControl.items || [];
 
-    const engineItems = items.map((item) => {
-      const meta = resolveCardMeta(this.activeSourceId, item);
-      return {
-        id: item.id,
-        name: item.title || item.id,
-        sub: item.category || source?.name || "",
-        url: item.thumbnailUrl || item.url || "",
-        card: item,
-        metaLeft: meta.leftHtml,
-        metaRight: meta.rightHtml,
-      };
-    });
+    const engineItems = items.map((item) => ({
+      id: item.id,
+      name: item.title || item.id,
+      sub: item.category || source?.name || "",
+      url: item.thumbnailUrl || item.url || "",
+      card: item,
+    }));
 
     this._silentRender = true;
     try {
@@ -324,15 +314,27 @@ export class WallpaperSwitcher {
     return url;
   }
 
-  /** Switch to another source tab, animate the swap and remember the choice. */
+  /**
+   * Switch to another source tab immediately.
+   * If a swap is currently in flight, queues the latest requested source
+   * and executes it safely as soon as the active swap finishes.
+   *
+   * @param {string} sourceId
+   */
   async selectSource(sourceId) {
-    if (this._isSwapping) return;
-    if (sourceId === this.activeSourceId) return;
     if (!this.availableSources.some((source) => source.id === sourceId)) return;
+    if (sourceId === this.activeSourceId && !this._pendingSourceId) return;
 
-    // Highlight straight away so the click feels instant; `loadSource`
-    // re-applies it once the swap is done.
+    // Highlight straight away so the click feels instant and responsive
     this.bar?.syncActiveTab(sourceId);
+
+    // If currently swapping/loading a source, record the desired destination
+    if (this._isSwapping) {
+      this._pendingSourceId = sourceId;
+      return;
+    }
+
+    this._pendingSourceId = null;
     await this.swapToSource(sourceId);
   }
 
@@ -368,6 +370,12 @@ export class WallpaperSwitcher {
       }
       this._isSwapping = false;
       this.bar?.setBusy(false);
+
+      if (this._pendingSourceId && this._pendingSourceId !== this.activeSourceId) {
+        const nextSourceId = this._pendingSourceId;
+        this._pendingSourceId = null;
+        this.selectSource(nextSourceId);
+      }
     }
   }
 
@@ -410,6 +418,43 @@ export class WallpaperSwitcher {
       this.toggle();
     });
 
+    // Close button click
+    const closeBtn = this.container.querySelector("#wallpaper_switcher_close_btn");
+    closeBtn?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.close();
+    });
+
+    // Settings button click (opens settings panel)
+    const settingsBtn = this.container.querySelector("#wallpaper_switcher_settings_btn");
+    settingsBtn?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.close();
+      const toggleBtn = document.getElementById("setting_toggle_btn");
+      if (toggleBtn) {
+        toggleBtn.click();
+      }
+    });
+
+    // Click outside to close wallpaper switcher
+    document.addEventListener("pointerdown", (e) => {
+      if (!this.isOpen) return;
+
+      const target = e.target;
+      if (
+        target.closest(".wallpaper_switcher_inner") ||
+        target.closest(".popover_panel") ||
+        target.closest(".dropdown") ||
+        target.closest(".dialog_root") ||
+        target.closest(".notification_container") ||
+        this.toggleBtn?.contains(target)
+      ) {
+        return;
+      }
+
+      this.close();
+    });
+
     // Keyboard navigation
     window.addEventListener("keydown", (e) => {
       if (!this.isOpen) return;
@@ -442,10 +487,6 @@ export class WallpaperSwitcher {
     });
   }
 
-
-
-
-
   async open() {
     if (this.isOpen) return;
 
@@ -457,6 +498,11 @@ export class WallpaperSwitcher {
         closeBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       }
     }
+
+    // Hide action buttons (Settings & Wallpaper toggle triggers) just like Settings panel
+    const actionButtons = document.getElementById("action_buttons");
+    actionButtons?.classList.add("wallpaper_switcher_opened");
+    actionButtons?.classList.remove("toggle_hidden");
 
     // Re-sync the active source
     this.bar?.renderTabs();
@@ -478,6 +524,19 @@ export class WallpaperSwitcher {
   close() {
     if (!this.isOpen) return;
     this.isOpen = false;
+    this.bar?.closePopovers?.();
+
+    this._pendingSourceId = null;
+
+    // Restore action buttons
+    const actionButtons = document.getElementById("action_buttons");
+    actionButtons?.classList.remove("wallpaper_switcher_opened");
+    const isDim = getSettings().hideToggleButton === true;
+    if (isDim) {
+      actionButtons?.classList.add("toggle_hidden");
+    } else {
+      actionButtons?.classList.remove("toggle_hidden");
+    }
 
     this.carousel?.stop();
     // Input is gated on the engine being active: while the switcher is hidden,

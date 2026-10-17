@@ -1,4 +1,5 @@
-import { openSidebarSubmenu, setSubmenuDirty, showNotification, createSlider, initButtons } from "/src/core/ui.js";
+import "./effects.css";
+import { openSidebarSubmenu, setSubmenuDirty, showNotification, createSlider, initButtons, confirmReset } from "/src/core/ui.js";
 import { t, translateDOM } from "/src/core/i18n.js";
 import { getSettings, saveSettings } from "/src/core/storageHandler.js";
 import { Icons, renderIcons } from "/src/core/icon.js";
@@ -57,7 +58,10 @@ export class EffectsEditorUI {
 
         const btnClearAll = this.clone.querySelector("#btn_clear_all");
         if (btnClearAll) {
-            btnClearAll.addEventListener("click", () => this._handleReset());
+            btnClearAll.addEventListener("click", async () => {
+                if (!(await confirmReset())) return;
+                this._handleReset();
+            });
         }
 
         const btnSave = this.clone.querySelector("#btn_save");
@@ -176,6 +180,8 @@ export class EffectsEditorUI {
 
         const dropdown = document.createElement("div");
         dropdown.className = "dropdown";
+        const inner = document.createElement("div");
+        inner.className = "dropdown_inner";
 
         const registry = layer === "static" ? STATIC_EFFECTS : DYNAMIC_EFFECTS;
         for (const [type] of Object.entries(registry)) {
@@ -192,8 +198,9 @@ export class EffectsEditorUI {
                     this._addEffect(layer, type, list);
                 }
             };
-            dropdown.appendChild(item);
+            inner.appendChild(item);
         }
+        dropdown.appendChild(inner);
 
         area.append(btn, dropdown);
         return area;
@@ -289,8 +296,9 @@ export class EffectsEditorUI {
 
         const btnResetEffect = document.createElement("button");
         btnResetEffect.textContent = t("particles.btn_reset_effect");
-        btnResetEffect.onclick = (e) => {
+        btnResetEffect.onclick = async (e) => {
             e.stopPropagation();
+            if (!(await confirmReset())) return;
             const defaults = { ...(EffectClass.DEFAULTS || {}) };
 
             for (const [key, val] of Object.entries(defaults)) {

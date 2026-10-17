@@ -1,3 +1,4 @@
+@layer features {
 /* Weather Widget Specific styles */
 .weather-widget {
     min-height: 0;
@@ -79,4 +80,5 @@
     font-weight: 400;
     opacity: 0.8;
     line-height: 1.2;
+}
 }

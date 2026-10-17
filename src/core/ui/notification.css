@@ -1,0 +1,117 @@
+@layer components {
+/* Notification Component */
+.notification_container {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: var(--z-toast);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.notification {
+    background-color: var(--bg-panel);
+    -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
+    backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
+    color: var(--text-primary);
+    padding: 10px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--glass-border-sm);
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 var(--glass-inset);
+    max-width: 600px;
+    position: relative;
+    overflow: hidden;
+    animation: notification_slide_down 0.5s var(--expo_out) both;
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    transition:
+        opacity 0.4s var(--expo_out),
+        transform 0.4s var(--expo_out),
+        max-height 0.35s var(--expo_out),
+        padding 0.35s var(--expo_out),
+        margin 0.35s var(--expo_out),
+        border-width 0.35s var(--expo_out);
+}
+
+@keyframes notification_slide_down {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.96);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.notification.exit {
+    /* Collapsing values must out-rank the base button/input rules, so they stay
+       `!important` inside the same cascade layer. */
+    animation: notification_exit 0.35s var(--smooth) forwards;
+    max-height: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    margin-top: -10px !important;
+    border-width: 0 !important;
+    pointer-events: none;
+}
+
+@keyframes notification_exit {
+    from {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateY(-24px) scale(0.95);
+    }
+}
+
+/* Status variants */
+.notification.success {
+    background-color: var(--bg-success);
+    border-color: rgba(74, 222, 128, 0.25);
+}
+
+.notification.error {
+    background-color: var(--bg-error);
+    border-color: rgba(255, 95, 95, 0.25);
+}
+
+.notification.warning {
+    background-color: var(--bg-warning);
+    border-color: rgba(255, 199, 44, 0.25);
+}
+
+.notification_progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 2px;
+    width: 100%;
+    background-color: rgba(255, 255, 255, 0.5);
+    transform-origin: left;
+    animation: notification_progress_bar 5s linear forwards;
+}
+
+@keyframes notification_progress_bar {
+    from {
+        transform: scaleX(1);
+    }
+
+    to {
+        transform: scaleX(0);
+    }
+}
+}

@@ -1,0 +1,96 @@
+@layer components {
+/* ============================================================================
+   POPOVER COMPONENT — Blank Canvas Glass Popover
+   ============================================================================
+   An unstyled, generic glassmorphism popover that snaps directly to any trigger
+   element. Supports placement (up / down) and alignment (start / end / center).
+   No built-in header, title or close button — provides a clean blank surface.
+   ============================================================================ */
+
+.popover_wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.popover_panel {
+    position: absolute;
+    z-index: var(--z-dropdown, 40);
+    box-sizing: border-box;
+    min-width: 200px;
+    max-width: calc(100vw - 32px);
+    overflow: visible;
+
+    /* Glassmorphism surface signature adhering to Yumebako design system */
+    background-color: var(--bg-panel);
+    -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.05);
+    backdrop-filter: blur(24px) saturate(180%) brightness(1.05);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    color: var(--text-primary);
+
+    /* Hidden State — cắt sát mép mà panel mọc ra, nên mở/đóng đọc thành một cú
+       quét giống dropdown: không scale, không mờ dần, nội dung không bị bóp méo. */
+    clip-path: inset(0 0 100% 0);
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+        clip-path 0.26s var(--cubic_in),
+        visibility 0s 0.26s;
+    will-change: clip-path;
+}
+
+/* ── Placement (Up / Down) ────────────────────────────────────────────────── */
+
+.popover_panel[data-placement="up"] {
+    bottom: calc(100% + 8px);
+    top: auto;
+    /* Panel mọc ngược lên trên trigger: quét từ mép dưới lên. */
+    clip-path: inset(100% 0 0 0);
+}
+
+.popover_panel[data-placement="down"] {
+    top: calc(100% + 8px);
+    bottom: auto;
+}
+
+/* ── Alignment (End / Start / Center) ─────────────────────────────────────── */
+
+.popover_panel[data-align="end"] {
+    right: 0;
+    left: auto;
+}
+
+.popover_panel[data-align="start"] {
+    left: 0;
+    right: auto;
+}
+
+.popover_panel[data-align="center"] {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+}
+
+/* ── Open State ──────────────────────────────────────────────────────────── */
+
+.popover_panel.is-open {
+    clip-path: inset(0 0 0 0);
+    visibility: visible;
+    pointer-events: auto;
+    transition:
+        clip-path 0.34s var(--expo_out),
+        visibility 0s 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .popover_panel {
+        clip-path: none !important;
+        transition: visibility 0s;
+    }
+
+    .popover_panel[data-placement="up"] {
+        clip-path: none !important;
+    }
+}
+}

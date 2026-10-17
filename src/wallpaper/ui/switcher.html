@@ -1,4 +1,19 @@
 <div class="wallpaper_switcher_inner">
+    <div class="wallpaper_switcher_top_bar">
+        <div class="wallpaper_switcher_top_left">
+            <div class="wallpaper_source_tabs" id="wallpaper_source_tabs"></div>
+            <span class="wallpaper_switcher_counter" id="wallpaper_switcher_counter"></span>
+        </div>
+        <div class="wallpaper_switcher_top_right">
+            <div class="wallpaper_switcher_meta_info" id="wallpaper_switcher_meta_info"></div>
+            <button type="button" class="wallpaper_switcher_icon_btn" id="wallpaper_switcher_settings_btn">
+                <i data-icon="settings"></i>
+            </button>
+            <button type="button" class="wallpaper_switcher_icon_btn" id="wallpaper_switcher_close_btn" data-i18n-title="sp.sb.close" title="Đóng">
+                <i data-icon="close"></i>
+            </button>
+        </div>
+    </div>
     <div class="carousel-container hide-accent-bg" id="wallpaper_carousel">
         <div class="carousel-guide"></div>
         <div class="carousel-viewfinder"></div>
@@ -6,26 +21,22 @@
         <div class="carousel-empty-state" id="wallpaper_carousel_empty">
             <i data-icon="image"></i>
             <span class="empty-title" data-i18n="wallpaper_switcher.empty_title">Chưa có hình nền nào</span>
-            <span class="empty-sub" data-i18n="wallpaper_switcher.empty_hint">Kéo thả ảnh vào đây hoặc bấm nút Tải
-                lên</span>
+            <span class="empty-sub" data-i18n="wallpaper_switcher.empty_hint">Kéo thả ảnh vào đây hoặc bấm nút Tải lên</span>
         </div>
     </div>
     <div class="wallpaper_switcher_bar">
-        <div class="wallpaper_switcher_meta">
-            <div class="wallpaper_source_tabs" id="wallpaper_source_tabs"></div>
-            <span class="wallpaper_switcher_counter" id="wallpaper_switcher_counter"></span>
-        </div>
+        <div class="wallpaper_switcher_spacer"></div>
         <div class="wallpaper_source_actions hidden" id="wallpaper_switcher_actions"></div>
         <div class="wallpaper_switcher_controls" id="wallpaper_switcher_controls">
-            <button type="button" class="btn wallpaper_fetch_btn hidden" id="wallpaper_fetch_btn">
+            <button type="button" class="btn wallpaper_fetch_btn hidden" id="wallpaper_fetch_btn" data-i18n-title="wallpaper_switcher.get_new_image" title="Lấy ảnh mới">
                 <i data-icon="changeWallpaper"></i>
                 <span data-i18n="wallpaper_switcher.get_new_image">Lấy ảnh mới</span>
             </button>
-            <button type="button" class="btn wallpaper_upload_btn hidden" id="wallpaper_upload_btn">
+            <button type="button" class="btn wallpaper_upload_btn hidden" id="wallpaper_upload_btn" data-i18n-title="sp.api.collection.upload_btn" title="Tải lên ảnh / video">
                 <i data-icon="upload"></i>
                 <span data-i18n="sp.api.collection.upload_btn">Tải lên ảnh / video</span>
             </button>
-            <button type="button" class="btn wallpaper_source_settings hidden" id="wallpaper_source_settings">
+            <button type="button" class="btn wallpaper_source_settings hidden" id="wallpaper_source_settings" data-i18n-title="wallpaper_switcher.extra_settings" title="Cài đặt nguồn">
                 <i data-icon="settings"></i>
                 <span data-i18n="wallpaper_switcher.extra_settings">Cài đặt nguồn</span>
             </button>

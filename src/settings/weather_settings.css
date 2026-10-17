@@ -1,3 +1,4 @@
+@layer features {
 /* Weather Widget Setting Styles */
 
 #city_output {
@@ -137,4 +138,5 @@
 .w-icon {
     width: 60px;
     height: 60px;
+}
 }

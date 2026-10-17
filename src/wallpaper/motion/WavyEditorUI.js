@@ -1,4 +1,4 @@
-import { openSidebarSubmenu, setSubmenuDirty, showNotification, createSlider, setDropdownValue } from "/src/core/ui.js";
+import { openSidebarSubmenu, setSubmenuDirty, showNotification, createSlider, setDropdownValue, confirmReset } from "/src/core/ui.js";
 import { saveSettings, getSettings } from "/src/core/storageHandler.js";
 import { t, translateDOM } from "/src/core/i18n.js";
 import { MOTION_ORDER, DEFAULT_MOTION, resolveMotionClass } from "./registry.js";
@@ -288,7 +288,8 @@ function openWavyEditor() {
     };
 
     if (btnWavyReset) {
-        btnWavyReset.onclick = () => {
+        btnWavyReset.onclick = async () => {
+            if (!(await confirmReset())) return;
             const { MotionClass, stored } = activeMotion();
             Object.entries(MotionClass.DEFAULTS).forEach(([key, value]) => {
                 stored[key] = value;
@@ -442,7 +443,8 @@ function openParallaxEditor() {
     };
 
     if (btnParallaxReset) {
-        btnParallaxReset.onclick = () => {
+        btnParallaxReset.onclick = async () => {
+            if (!(await confirmReset())) return;
             const resetValues = {
                 parallaxInertia: defaults.parallaxInertia,
                 parallaxAmplitude: defaults.parallaxAmplitude,
