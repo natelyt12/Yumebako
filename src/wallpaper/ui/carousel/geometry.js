@@ -108,7 +108,11 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
 
     // Độ mờ giảm dần từ thẻ đang chọn ra hai bên (xem `opacityCurve`). Ghi lên
     // `.card-frame` để chỉ tấm ảnh mờ đi, còn nền accent của slot vẫn giữ nguyên.
-    if (nodes.frame) {
+    //
+    // Thẻ đang bị xóa thì bỏ qua: độ mờ của nó thuộc hiệu ứng rơi (physics.js ghi
+    // thẳng vào style, kết thúc ở 0), mà pha thu cột vẫn gọi callback này cho nó
+    // với width 0 — ghi đè ở đây sẽ làm nó hiện nguyên hình giữa lúc cột khép lại.
+    if (nodes.frame && !cardEl.classList.contains(selectors_.deletingClass)) {
       const opacity = opacityForOffset(offset).toFixed(3);
       if (nodes.frame.style.opacity !== opacity) {
         nodes.frame.style.opacity = opacity;
