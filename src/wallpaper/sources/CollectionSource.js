@@ -226,7 +226,7 @@ export class CollectionSource extends BaseSource {
       raw.type === "local_video" ||
       raw.type === "video" ||
       (raw.blob instanceof Blob && raw.blob.type.startsWith("video/"));
-    await wallpaperRenderer.apply(
+    return await wallpaperRenderer.apply(
       { ...raw, id: item.id, type: isVideo ? "video" : "image" },
       { firstRun },
     );

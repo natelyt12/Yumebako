@@ -18,6 +18,8 @@ class WallpaperRenderer {
         this.currentBlobUrl = null;
         this.currentType = null;
         this.currentId = null;
+        this._renderToken = 0;
+        this._applyToken = 0;
     }
 
     initUI() {
@@ -58,21 +60,44 @@ class WallpaperRenderer {
     async apply(data, { firstRun = false } = {}) {
         this.initUI();
         const ui = this.globalUI;
-        if (!ui) return;
+        if (!ui) return false;
 
         if (!data || !data.blob) {
             console.error("Invalid wallpaper data", data);
-            return;
+            return false;
         }
 
         if (!firstRun && this.currentId && data.id && this.currentId === data.id) {
-            return;
+            return true;
         }
 
+        const token = ++this._renderToken;
+
         if (!firstRun) await this._fadeToOverlay();
+        // Nếu đã có request apply mới hơn trong lúc fade overlay -> huỷ request cũ ngay
+        if (token !== this._renderToken) return false;
 
         const oldBlob = this.currentBlobUrl;
         let newBlobUrl = URL.createObjectURL(data.blob);
+
+        // Giải mã bất đồng bộ ngoài Main Thread để triệt tiêu hiện tượng khựng khung hình
+        if (data.type !== "video" && newBlobUrl) {
+            try {
+                const decoder = new Image();
+                decoder.src = newBlobUrl;
+                if (typeof decoder.decode === "function") {
+                    await decoder.decode();
+                }
+            } catch {
+                // Fallback tự nhiên nếu giải mã gặp lỗi
+            }
+        }
+
+        // Nếu trong lúc giải mã đã có một request hình nền mới hơn -> huỷ ngay bản cũ để tránh đè giao diện
+        if (token !== this._renderToken) {
+            URL.revokeObjectURL(newBlobUrl);
+            return false;
+        }
 
         this.currentId = data.id || null;
         this.currentType = data.type;
@@ -105,6 +130,7 @@ class WallpaperRenderer {
                 v.pause();
                 v.removeAttribute("src");
             });
+
             document.querySelectorAll(".image").forEach((img) => {
                 img.style.display = "";
                 img.style.backgroundColor = "";
@@ -121,27 +147,25 @@ class WallpaperRenderer {
         }
 
         if (firstRun) {
-            if (data.type !== "video" && newBlobUrl) {
-                const tempImg = new Image();
-                tempImg.onload = () => applyOnloadAnimation();
-                tempImg.onerror = () => applyOnloadAnimation();
-                tempImg.src = newBlobUrl;
-            } else {
-                applyOnloadAnimation();
-            }
+            applyOnloadAnimation();
         } else if (ui.overlay) {
             ui.overlay.style.opacity = 0;
         }
+
+        return true;
     }
 
     bindDataControl() {
         dataControl.on("card:hard", async ({ card, sourceId, firstRun }) => {
             if (!card) return;
+            const token = ++this._applyToken;
             const source = dataControl.sources.get(sourceId) || dataControl.activeSource;
             if (!source) return;
             try {
-                await source.apply(card, { firstRun: Boolean(firstRun) });
+                const result = await source.apply(card, { firstRun: Boolean(firstRun) });
+                if (result === false || token !== this._applyToken) return;
             } catch (err) {
+                if (token !== this._applyToken) return;
                 console.error("[WallpaperRenderer] Error applying wallpaper for card:", card.id, err);
             }
         });

@@ -1,7 +1,8 @@
 import "./wallhaven_popover.css";
 import { t, translateDOM } from "/src/core/i18n.js";
+import { renderIcons } from "/src/core/icon.js";
 import { getSettings, saveSettings } from "/src/core/storageHandler.js";
-import { createPopover, showNotification, confirmReset } from "/src/core/ui.js";
+import { createPopover, showNotification, confirmReset, showConfirm } from "/src/core/ui.js";
 import { initButtons } from "/src/core/ui/button.js";
 import { setDropdownValue } from "/src/core/ui/dropdown.js";
 import { clearWallhavenQueue } from "/src/wallpaper/sources/api/wallhavenAPI.js";
@@ -68,6 +69,16 @@ export function createWallhavenSettingsPopover({ trigger, switcher, dataControl 
                 <option value="1y" data-i18n="sp.api.wallhaven.toprange_1y"></option>
             </select>
         </div>
+        <div class="wh_section">
+            <span class="wh_section_title" data-i18n="wallpaper_switcher.clear_history_section"></span>
+            <button type="button" class="btn" id="wh_popover_btn_clear_history" data-variant="danger">
+                <i data-icon="trash"></i>
+                <div class="btn_body">
+                    <span class="btn_title" data-i18n="wallpaper_switcher.clear_history"></span>
+                    <span class="btn_desc" data-i18n="wallpaper_switcher.clear_history_desc"></span>
+                </div>
+            </button>
+        </div>
         <div class="wh_actions">
             <button type="button" class="btn" id="wh_popover_btn_reset" data-i18n="common.reset"></button>
             <button type="button" class="btn" id="wh_popover_btn_apply" data-i18n="bg_editor.btn_apply"></button>
@@ -75,6 +86,7 @@ export function createWallhavenSettingsPopover({ trigger, switcher, dataControl 
     `;
 
     translateDOM(form);
+    renderIcons(form);
 
     // Query select elements before upgrade to keep direct reference to native select
     const resSelect = form.querySelector("#wh_popover_resolution");
@@ -92,6 +104,7 @@ export function createWallhavenSettingsPopover({ trigger, switcher, dataControl 
     const topRangeSection = form.querySelector("#wh_popover_toprange_section");
     const resetBtn = form.querySelector("#wh_popover_btn_reset");
     const applyBtn = form.querySelector("#wh_popover_btn_apply");
+    const clearHistoryBtn = form.querySelector("#wh_popover_btn_clear_history");
 
     const pills = [catGeneral, catAnime, catPeople];
     let savedConfig = {};
@@ -187,6 +200,31 @@ export function createWallhavenSettingsPopover({ trigger, switcher, dataControl 
         setDropdownValue(topRangeSelect, "1M");
         topRangeSection.classList.add("hidden");
         checkDirty();
+    });
+
+    clearHistoryBtn?.addEventListener("click", async () => {
+        const confirmed = await showConfirm(
+            t("wallpaper_switcher.clear_history_modal_msg"),
+            {
+                title: t("wallpaper_switcher.clear_history_modal_title"),
+                okText: t("wallpaper_switcher.clear_history"),
+                cancelText: t("common.cancel"),
+                isDanger: true,
+            }
+        );
+        if (!confirmed) return;
+
+        try {
+            await dataControl.clearSourceHistory("wallhaven");
+            popover.close();
+            showNotification(
+                t("wallpaper_switcher.clear_history_success"),
+                "success"
+            );
+        } catch (err) {
+            console.error("[WallhavenSettingsPopover] Failed to clear history:", err);
+            showNotification(err?.message || "Lỗi khi dọn dẹp lịch sử", "error");
+        }
     });
 
     const popover = createPopover({

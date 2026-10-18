@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <title>Carousel perf — FPS & VRAM</title>
+  </head>
+  <body>
+    <div class="perf">
+      <header class="perf__bar">
+        <h1>Carousel perf — FPS &amp; VRAM realtime</h1>
+        <p class="perf__hint">
+          Trang này dựng <strong>CarouselEngine + carousel.css thật</strong> với
+          200–500 thẻ và ảnh thumbnail sinh tại chỗ. Bấm <em>Tự vuốt</em> để chạy
+          liên tục rồi quan sát HUD. VRAM không có API trình duyệt nào cho đọc, nên
+          HUD hiển thị <strong>số layer đang được promote + ước tính bộ nhớ</strong>;
+          để xem VRAM thật, mở Task Manager của Chrome/Edge (<kbd>Shift</kbd> +
+          <kbd>Esc</kbd>) và nhìn cột <em>GPU memory</em> của tab này.
+        </p>
+        <div class="perf__actions">
+          <label>Thẻ <input id="count" type="number" min="50" max="1000" step="50" value="300" /></label>
+          <label>
+            Ảnh
+            <select id="images">
+              <option value="synthetic" selected>640×360 (sinh tại chỗ)</option>
+              <option value="none">Không ảnh (chỉ đo layer)</option>
+            </select>
+          </label>
+          <label>Notch mỗi <input id="gap" type="number" min="1" max="120" value="4" /> frame</label>
+          <button id="rebuild" type="button">Dựng lại</button>
+          <button id="sweep" type="button">Tự vuốt</button>
+          <label class="perf__check">
+            <input id="force-layers" type="checkbox" />
+            will-change toàn bộ (mô phỏng trước tối ưu)
+          </label>
+        </div>
+      </header>
+
+      <aside class="perf__hud" id="hud">
+        <div class="perf__hud-title">Realtime</div>
+        <dl class="perf__stats">
+          <dt>FPS</dt><dd id="stat-fps">—</dd>
+          <dt>Frame p50</dt><dd id="stat-p50">—</dd>
+          <dt>Frame p95</dt><dd id="stat-p95">—</dd>
+          <dt>Frame max</dt><dd id="stat-max">—</dd>
+          <dt>Long frames</dt><dd id="stat-long">—</dd>
+          <dt>JS heap</dt><dd id="stat-heap">—</dd>
+          <dt>DOM nodes</dt><dd id="stat-nodes">—</dd>
+          <dt>Ảnh đang giữ</dt><dd id="stat-loaded">—</dd>
+          <dt>Layer promoted</dt><dd id="stat-layers">—</dd>
+          <dt>VRAM ước tính</dt><dd id="stat-vram">—</dd>
+          <dt>GPU</dt><dd id="stat-gpu">—</dd>
+          <dt>DPR / viewport</dt><dd id="stat-view">—</dd>
+        </dl>
+        <canvas id="graph" width="300" height="52"></canvas>
+        <div class="perf__hud-note" id="status">Đang khởi động…</div>
+      </aside>
+
+      <main class="perf__stage" id="stage"></main>
+
+      <footer class="perf__note">
+        <p>
+          <strong>Đọc số thế nào:</strong> <code>Layer promoted</code> là số thẻ
+          thực sự được cấp layer GPU. Trước tối ưu, con số này bằng tổng số thẻ
+          (bật checkbox để so sánh). <code>VRAM ước tính</code> = layer ×
+          <code>744×420×4 byte×DPR²</code>, cộng texture thumbnail
+          <code>640×360×4×DPR²</code> cho mỗi ảnh đang giữ — đây là <em>cận trên</em>,
+          không phải số đo của trình duyệt.
+        </p>
+        <p>
+          Mở bằng dev server: <code>npm run dev</code> →
+          <code>http://localhost:5173/tests/carousel-perf/</code>
+        </p>
+      </footer>
+    </div>
+
+    <script type="module" src="./perf.js"></script>
+  </body>
+</html>

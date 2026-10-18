@@ -60,20 +60,22 @@ This document defines the standard four-layer architecture for Yumebako's Wallpa
   - **Never store `blob:` URLs in IndexedDB:** When `_persistCards()` writes `carousel:${sourceId}`, reset every `thumbnailUrl` beginning with `blob:` to `null` to prevent `ERR_FILE_NOT_FOUND` after reload. When reloading a source, call `source.prepareThumb(item)` to recreate a live Object URL from `mediaData`.
   - **Distinguish regular and volatile sources (`isVolatile`):**
     - Volatile sources (`CollectionSource` with `isVolatile = true`) always load the latest list through `source.fetchItems()`.
-    - Remote sources (`isVolatile = false`) load from `carousel:${sourceId}` in `appData`; call `source.fetchItems()` for initial seeding only when the stored list is empty.
+    - Remote sources (`isVolatile = false`) load directly from `carousel:${sourceId}` in `appData`. If the source has no stored items, it stays empty until the user explicitly requests new images via `requestMore()`.
   - **Manage indexes:**
     - On source switch or startup (`switchSource`), first look for a card matching `wallpaperConfig.activeWallpaperId` (or `activeCollectionItemId`) when the source matches the one active on the desktop. Otherwise, use `settings.wallpaperSwitcher.sourceIndices[sourceId]`, falling back to `0`.
     - When scrolling settles (`setHardIndex`), update `wallpaperSwitcher.sourceIndices[activeSourceId]` and `wallpaperConfig` through `saveSettings()`.
     - When deleting a card (`deleteCard`), remove its source data and clean up `media:orig:${id}` and `media:thumb:${id}` from the `mediaData` store. If the list becomes empty, also delete `storeData.current` to prevent a stale card from reappearing during reseeding. Recalculate the neighboring index (prefer the card to the left, `targetIndex - 1`) and update `sourceIndices`.
+  - **History limit (`source.maxCards`):** Remote sources cap their history window (`RemoteSource.maxCards = 100`); the Collection is unbounded. When reaching `maxCards`, `DataControl.requestMore()` blocks further fetching and emits `feed:limit_reached` to prompt the user to clear history. Users can trigger `clearSourceHistory(sourceId)` from source settings popovers, which preserves only the wallpaper currently applied to the desktop and purges other rolled items and their media cache.
   - **Standard Pub/Sub events:**
     - `source:change`: Emitted when switching source tabs begins.
     - `cards:loaded`: Emitted when a source's card list has finished loading.
     - `card:soft`: Emitted as the carousel center moves across cards (`setSoftIndex`).
     - `card:hard`: Emitted when scrolling settles on a card (`setHardIndex` or initial setup with `firstRun: true`).
     - `card:added` / `card:deleted`: Emitted when a card is added or deleted.
+    - `feed:limit_reached`: Emitted when a fetch is attempted while the source is at `maxCards`.
     - `feed:exhausted`: Emitted when a remote source has no more images to load.
     - `state:change`: Emits a `getState()` snapshot whenever the busy/index state changes.
-    - `error`: Emitted when seeding, `fetchMore`, or `deleteCard` fails.
+    - `error`: Emitted when seeding, `fetchMore`, `deleteCard`, or `clearSourceHistory` fails.
 
 ### Layer 3: Source Adapters (`src/wallpaper/sources/`)
 - **Role:** Provide wallpaper data from the local collection (`CollectionSource`) or online APIs (`RemoteSource` -> `PicreSource`, `WallhavenSource`, `UnsplashSource`), along with display metadata (`cardMeta.js`) and action definitions (`sourceActions.js`).

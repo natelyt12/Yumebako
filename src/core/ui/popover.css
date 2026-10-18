@@ -29,15 +29,29 @@
     border-radius: 14px;
     color: var(--text-primary);
 
-    /* Hidden State — cắt sát mép mà panel mọc ra, nên mở/đóng đọc thành một cú
-       quét giống dropdown: không scale, không mờ dần, nội dung không bị bóp méo. */
-    clip-path: inset(0 0 100% 0);
+    overflow: hidden;
+    height: 0;
     visibility: hidden;
     pointer-events: none;
+
     transition:
-        clip-path 0.26s var(--cubic_in),
-        visibility 0s 0.26s;
-    will-change: clip-path;
+        height 0.34s var(--expo_out),
+        visibility 0s 0s;
+    will-change: height;
+}
+
+/* Open State */
+.popover_panel.is-open {
+    visibility: visible;
+    pointer-events: auto;
+}
+
+/* Close State: vẫn hiện trong suốt cú quét đóng, ẩn ngay khi gỡ class. */
+.popover_panel.closing {
+    height: 0 !important;
+    visibility: visible;
+    pointer-events: none;
+    transition: height 0.26s var(--cubic_in);
 }
 
 /* ── Placement (Up / Down) ────────────────────────────────────────────────── */
@@ -45,8 +59,6 @@
 .popover_panel[data-placement="up"] {
     bottom: calc(100% + 8px);
     top: auto;
-    /* Panel mọc ngược lên trên trigger: quét từ mép dưới lên. */
-    clip-path: inset(100% 0 0 0);
 }
 
 .popover_panel[data-placement="down"] {
@@ -72,25 +84,28 @@
     transform: translateX(-50%);
 }
 
-/* ── Open State ──────────────────────────────────────────────────────────── */
+/* ── Inner container pinned to the moving edge so content slides with border ─ */
 
-.popover_panel.is-open {
-    clip-path: inset(0 0 0 0);
-    visibility: visible;
-    pointer-events: auto;
-    transition:
-        clip-path 0.34s var(--expo_out),
-        visibility 0s 0s;
+.popover_inner {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+.popover_panel[data-placement="up"] .popover_inner {
+    bottom: auto;
+    top: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .popover_panel {
-        clip-path: none !important;
-        transition: visibility 0s;
-    }
-
-    .popover_panel[data-placement="up"] {
-        clip-path: none !important;
+    .popover_panel,
+    .popover_panel > * {
+        transform: none !important;
+        transition: none !important;
     }
 }
 }

@@ -4,6 +4,7 @@ import { showConfirm } from "/src/core/ui.js";
 import { resolveCardMeta } from "../../sources/cardMeta.js";
 import { createWallhavenSettingsPopover } from "../popover/WallhavenSettingsPopover.js";
 import { createCollectionSettingsPopover } from "../popover/CollectionSettingsPopover.js";
+import { createPicreSettingsPopover } from "../popover/PicreSettingsPopover.js";
 
 /**
  * SwitcherBar.js
@@ -55,7 +56,10 @@ export class SwitcherBar {
 
         // Subscribe to DataControl events
         this.dataControl.on("state:change", (state) => this.syncState(state));
-        this.dataControl.on("card:soft", ({ card }) => this.syncMetaInfo(card));
+        this.dataControl.on("card:soft", ({ card }) => {
+            this.syncMetaInfo(card);
+            this.hideActions();
+        });
         this.dataControl.on("card:hard", ({ card }) => {
             this.syncMetaInfo(card);
             this.renderActions(card);
@@ -65,6 +69,7 @@ export class SwitcherBar {
             this.syncActiveTab(sourceId);
             this.syncRightSlot(sourceId);
             this.syncMetaInfo(null);
+            this.hideActions();
             this.renderActions(null);
         });
         this.dataControl.on("cards:loaded", () => {
@@ -79,7 +84,7 @@ export class SwitcherBar {
     _bindEvents() {
         // Fetch button (for sources that support fetching more)
         this.fetchBtn?.addEventListener("click", async () => {
-            if (this.dataControl.isBusy) return;
+            if (this.isDataBusy()) return;
             this.fetchBtn.classList.add("is-loading");
             try {
                 await this.dataControl.requestMore();
@@ -90,6 +95,7 @@ export class SwitcherBar {
 
         // Upload button (for Collection)
         this.uploadBtn?.addEventListener("click", () => {
+            if (this.isDataBusy()) return;
             this.switcher?.requestUpload?.();
         });
 
@@ -105,16 +111,27 @@ export class SwitcherBar {
                 switcher: this.switcher,
                 dataControl: this.dataControl,
             });
+            this.picrePopover = createPicreSettingsPopover({
+                trigger: this.settingsBtn,
+                switcher: this.switcher,
+                dataControl: this.dataControl,
+            });
 
             this.settingsBtn.addEventListener("click", (e) => {
                 e.stopPropagation();
                 const activeId = this.dataControl.activeSourceId;
                 if (activeId === "wallhaven") {
                     this.collectionPopover?.close();
+                    this.picrePopover?.close();
                     this.wallhavenPopover?.toggle();
                 } else if (activeId === "collection") {
                     this.wallhavenPopover?.close();
+                    this.picrePopover?.close();
                     this.collectionPopover?.toggle();
+                } else if (activeId === "picre") {
+                    this.wallhavenPopover?.close();
+                    this.collectionPopover?.close();
+                    this.picrePopover?.toggle();
                 }
             });
         }
@@ -126,6 +143,7 @@ export class SwitcherBar {
     closePopovers() {
         this.wallhavenPopover?.close();
         this.collectionPopover?.close();
+        this.picrePopover?.close();
     }
 
     /**
@@ -210,10 +228,11 @@ export class SwitcherBar {
         if (!this.counterEl) return;
 
         const total = state.total ?? state.cardCount ?? this.dataControl.items.length;
-        const text =
-            !total || total === 0
-                ? "0 / 0"
-                : `${state.softIndex + 1} / ${total}`;
+        const currentNum = !total || total === 0 ? 0 : state.softIndex + 1;
+        const maxCards = Number(state.maxCards ?? this.dataControl.activeSource?.maxCards ?? Infinity);
+        const limitSuffix = Number.isFinite(maxCards) ? ` | ${maxCards}` : "";
+
+        const text = `${currentNum} / ${total}${limitSuffix}`;
 
         // `state:change` bắn rất thường, mà gán `textContent` là một lần ghi DOM
         // (thay text node) — chỉ ghi khi chuỗi thật sự đổi.
@@ -247,6 +266,14 @@ export class SwitcherBar {
     /* ── Action Buttons ────────────────────────────────────────────────────── */
 
     /**
+     * Ẩn cụm nút action với hiệu ứng fade out.
+     */
+    hideActions() {
+        if (!this.actionsContainer) return;
+        this.actionsContainer.classList.add("is-hidden");
+    }
+
+    /**
      * Render action buttons for active settled card.
      * @param {Object|null} card
      */
@@ -260,8 +287,12 @@ export class SwitcherBar {
         if (!card || actions.length === 0) {
             this.actionsContainer.innerHTML = "";
             this.actionsContainer.classList.add("hidden");
+            this.actionsContainer.classList.add("is-hidden");
             return;
         }
+
+        // Đảm bảo ở trạng thái ẩn trước khi cập nhật DOM các nút mới
+        this.actionsContainer.classList.add("is-hidden");
 
         // Kiểm tra tính khả dụng của từng action
         const context = { source, dataControl: this.dataControl, switcher: this.switcher };
@@ -303,13 +334,24 @@ export class SwitcherBar {
         });
 
         if (this.actionsContainer.childElementCount > 0) {
+            const wasHidden = this.actionsContainer.classList.contains("hidden");
             this.actionsContainer.classList.remove("hidden");
+            if (wasHidden) {
+                void this.actionsContainer.offsetWidth;
+            }
             renderIcons(this.actionsContainer);
+            this._applyBusyToActions();
+
+            // Kích hoạt fade-in mượt mà khi card đã settle và các nút đã sẵn sàng
+            requestAnimationFrame(() => {
+                if (token === this._token) {
+                    this.actionsContainer.classList.remove("is-hidden");
+                }
+            });
         } else {
             this.actionsContainer.classList.add("hidden");
+            this.actionsContainer.classList.add("is-hidden");
         }
-
-        this._applyBusyToActions();
     }
 
     /**
@@ -360,6 +402,9 @@ export class SwitcherBar {
         // Lấy đúng vị trí thẻ cần xóa TRƯỚC KHI animation rơi thẻ
         const targetIndex = this.dataControl.currentIndex;
         if (targetIndex < 0 || targetIndex >= this.dataControl.items.length) return;
+
+        // Ẩn cụm nút thao tác ngay lập tức (fade out)
+        this.hideActions();
 
         this.setBusy(true);
         try {
@@ -437,21 +482,43 @@ export class SwitcherBar {
     /* ── Busy State ────────────────────────────────────────────────────────── */
 
     /**
+     * Kiểm tra xem hệ thống có đang thực hiện thao tác dữ liệu / CRUD hay không
+     * (thêm thẻ, xóa thẻ, dọn dẹp mảng thẻ, tải lên, đổi nguồn).
+     * @returns {boolean}
+     */
+    isDataBusy() {
+        return Boolean(
+            this._isBusy ||
+            this.dataControl?.isBusy ||
+            (this.dataControl?.status && this.dataControl.status !== "idle") ||
+            this.switcher?._isSwapping ||
+            this.switcher?.carousel?.isDeleting
+        );
+    }
+
+    /**
      * Set busy state across the switcher bar.
      * @param {boolean} busy
      */
     setBusy(busy) {
         this._isBusy = Boolean(busy);
+        const dataBusy = this.isDataBusy();
+
         if (this.fetchBtn) {
-            const isFetching = this.dataControl.status === "fetching";
+            const isFetching = this.dataControl?.status === "fetching";
             this.fetchBtn.classList.toggle("is-loading", isFetching);
-            this.fetchBtn.disabled = this._isBusy;
+            this.fetchBtn.disabled = dataBusy;
         }
+
+        if (this.uploadBtn) {
+            this.uploadBtn.disabled = dataBusy;
+        }
+
         this._applyBusyToActions();
     }
 
     _applyBusyToActions() {
-        if (!this.actionsContainer) return;
+        if (!this.actionsContainer || this.actionsContainer.classList.contains("is-hidden")) return;
         this.actionsContainer.querySelectorAll("button").forEach((btn) => {
             const blocked = btn.dataset.blocked === "1";
             const disabled = this._isBusy || blocked;

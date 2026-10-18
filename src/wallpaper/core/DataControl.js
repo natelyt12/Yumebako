@@ -26,7 +26,7 @@ import { getSettings, saveSettings } from "/src/core/storageHandler.js";
 /**
  * Named events emitted by DataControl.
  *
- * @typedef {"source:change" | "cards:loaded" | "card:soft" | "card:hard" | "card:added" | "card:deleted" | "feed:exhausted" | "state:change" | "error"} DataControlEvent
+ * @typedef {"source:change" | "cards:loaded" | "card:soft" | "card:hard" | "card:added" | "card:deleted" | "feed:exhausted" | "feed:limit_reached" | "state:change" | "error"} DataControlEvent
  */
 
 /**
@@ -46,6 +46,7 @@ import { getSettings, saveSettings } from "/src/core/storageHandler.js";
  * @property {CardItem[]}      items           - Shallow copy of the cards array.
  * @property {boolean}         canGrow         - Whether fetchMore() is available.
  * @property {boolean}         hasExtraSettings - Whether the source has its own settings panel.
+ * @property {number}          maxCards        - Max cards capacity for this source (e.g. 100 or Infinity).
  */
 
 /**
@@ -195,6 +196,7 @@ export class DataControl {
             items: [...this.items],
             canGrow: Boolean(this.activeSource?.canGrow),
             hasExtraSettings: Boolean(this.activeSource?.hasProviderSettings),
+            maxCards: Number(this.activeSource?.maxCards ?? Infinity),
         };
     }
 
@@ -242,28 +244,6 @@ export class DataControl {
             const rawStored = await getFromStore(`carousel:${sourceId}`);
             if (this._switchToken !== switchToken) return;
             storedItems = Array.isArray(rawStored) ? rawStored.filter(Boolean) : [];
-
-            // Nếu nguồn rỗng, gọi fetch ban đầu (seed)
-            if (storedItems.length === 0 && this.activeSource) {
-                try {
-                    const initial = await this.activeSource.fetchItems();
-                    if (this._switchToken !== switchToken) return;
-                    if (Array.isArray(initial) && initial.length > 0) {
-                        storedItems = initial.filter(Boolean);
-                        await this._persistCards(sourceId, storedItems);
-                        if (this._switchToken !== switchToken) return;
-                    }
-                } catch (err) {
-                    if (this._switchToken !== switchToken) return;
-                    console.error(`[DataControl] Failed to seed source [${sourceId}]:`, err);
-                    this.emit("error", {
-                        action: "seed",
-                        sourceId,
-                        error: err,
-                        message: err?.message || "Lỗi khi nạp ảnh ban đầu",
-                    });
-                }
-            }
 
             // Phục hồi thumbnail hợp lệ (Object URL mới trong session hiện tại) cho các thẻ
             if (this.activeSource && typeof this.activeSource.prepareThumb === "function") {
@@ -399,10 +379,20 @@ export class DataControl {
 
     /**
      * Yêu cầu nguồn nạp thêm ảnh mới (khi người dùng đến ô '+' hoặc bấm nút).
-     * @returns {Promise<CardItem|null>} Thẻ mới vừa nạp xong, hoặc null nếu hết/lỗi.
+     * @returns {Promise<CardItem|null>} Thẻ mới vừa nạp xong, hoặc null nếu hết/lỗi/chạm ngưỡng.
      */
     async requestMore() {
         if (this.isBusy || !this.activeSource?.canGrow) return null;
+
+        const cap = Number(this.activeSource?.maxCards);
+        if (Number.isFinite(cap) && this.items.length >= cap) {
+            this.emit("feed:limit_reached", {
+                sourceId: this.activeSourceId,
+                cap,
+                count: this.items.length,
+            });
+            return null;
+        }
 
         const currentSourceId = this.activeSourceId;
         this.isBusy = true;
@@ -448,7 +438,111 @@ export class DataControl {
         }
     }
 
-    /* ── Xóa thẻ (Delete Card) ─────────────────────────────────────────────── */
+    /* ── Dọn dẹp lịch sử ảnh (Clear History) ───────────────────────────────── */
+
+    /**
+     * Dọn dẹp toàn bộ lịch sử cuộn ảnh của nguồn `sourceId`.
+     * Giữ lại duy nhất 1 thẻ ảnh nếu nguồn này đang được áp dụng trên màn hình Desktop.
+     *
+     * @param {string} [sourceId=this.activeSourceId]
+     * @returns {Promise<boolean>}
+     */
+    async clearSourceHistory(sourceId = this.activeSourceId) {
+        if (this.isBusy || !sourceId) return false;
+
+        const source = this.sources.get(sourceId);
+        if (!source) return false;
+
+        this.isBusy = true;
+        this.status = "deleting";
+        this._notifyState();
+
+        try {
+            const isCurrentlyActive = this.activeSourceId === sourceId;
+            let itemsToProcess = [];
+
+            if (isCurrentlyActive) {
+                itemsToProcess = [...this.items];
+            } else {
+                const rawStored = await getFromStore(`carousel:${sourceId}`);
+                itemsToProcess = Array.isArray(rawStored) ? rawStored.filter(Boolean) : [];
+            }
+
+            if (itemsToProcess.length === 0) {
+                return true;
+            }
+
+            // Kiểm tra xem nguồn này có đang đặt hình nền cho Desktop không
+            const wallpaperConfig = getSettings().wallpaperConfig || {};
+            const isDesktopSource = wallpaperConfig.source === sourceId;
+            const appliedId = isDesktopSource
+                ? wallpaperConfig.activeWallpaperId || wallpaperConfig.activeCollectionItemId
+                : null;
+
+            // Tìm thẻ đang được desktop áp dụng (nếu có)
+            let preservedCard = null;
+            if (appliedId) {
+                preservedCard = itemsToProcess.find((c) => c?.id === appliedId) || null;
+            }
+
+            // Các thẻ bị loại bỏ
+            const removedCards = itemsToProcess.filter((c) => c !== preservedCard);
+
+            // Dọn dẹp blob trong DB của các thẻ bị loại bỏ
+            for (const card of removedCards) {
+                if (typeof source?.deleteItem === "function") {
+                    await source.deleteItem(card);
+                }
+                if (card?.id) {
+                    await removeFromStore(`media:orig:${card.id}`, "mediaData");
+                    await removeFromStore(`media:thumb:${card.id}`, "mediaData");
+                    await removeFromStore(`wallpaper_media:${sourceId}:${card.id}`, "mediaData");
+                }
+            }
+
+            const remainingCards = preservedCard ? [preservedCard] : [];
+            await this._persistCards(sourceId, remainingCards);
+
+            // Cập nhật index đã lưu về 0
+            const currentSwitcher = getSettings().wallpaperSwitcher || {};
+            const sourceIndices = { ...(currentSwitcher.sourceIndices || {}) };
+            sourceIndices[sourceId] = 0;
+            saveSettings({
+                wallpaperSwitcher: {
+                    ...currentSwitcher,
+                    sourceIndices,
+                },
+            });
+
+            // Nếu đây là nguồn đang mở trong carousel, cập nhật bộ nhớ tại chỗ và bắn sự kiện
+            if (isCurrentlyActive) {
+                this.items = remainingCards;
+                this.currentIndex = 0;
+                this.softIndex = 0;
+
+                this.emit("cards:loaded", {
+                    sourceId,
+                    items: this.items,
+                    currentIndex: 0,
+                });
+            }
+
+            return true;
+        } catch (err) {
+            console.error(`[DataControl] Error clearing source history for [${sourceId}]:`, err);
+            this.emit("error", {
+                action: "clearSourceHistory",
+                sourceId,
+                error: err,
+                message: err?.message || "Lỗi khi dọn dẹp lịch sử",
+            });
+            return false;
+        } finally {
+            this.isBusy = false;
+            this.status = "idle";
+            this._notifyState();
+        }
+    }
 
     /**
      * Xóa một thẻ khỏi danh sách và giải phóng dữ liệu trong IndexedDB.

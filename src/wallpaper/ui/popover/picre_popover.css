@@ -1,0 +1,42 @@
+@layer features {
+/* ============================================================================
+   PICRE SETTINGS POPOVER FORM
+   ============================================================================ */
+
+.picre_settings_form {
+    width: 380px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-sizing: border-box;
+}
+
+.picre_section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.picre_section_title {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    user-select: none;
+}
+
+.picre_section_title::after {
+    content: "";
+    height: 1px;
+    flex: 1;
+    background: linear-gradient(to right, var(--divider), transparent);
+    opacity: 0.45;
+}
+}
+

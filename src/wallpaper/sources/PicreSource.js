@@ -31,6 +31,10 @@ export class PicreSource extends RemoteSource {
     static storageKey = "data:picre";
     static generateThumbnail = true;
 
+    get hasProviderSettings() {
+        return true;
+    }
+
     async fetchItem() {
         const meta = await fetchPicreMeta();
         if (!meta?.image) return null;

@@ -24,6 +24,17 @@ export class BaseSource {
    */
   static generateThumbnail = false;
 
+  /**
+   * Maximum number of cards kept in this source's window. Remote feeds can be
+   * re-fetched, so they cap their window; the local collection is user data and
+   * stays unbounded.
+   */
+  static maxCards = Infinity;
+
+  get maxCards() {
+    return this.constructor.maxCards ?? Infinity;
+  }
+
   constructor() {
     /** @type {boolean} Guard against concurrent fetches. */
     this.isLoading = false;

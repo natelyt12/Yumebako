@@ -76,6 +76,27 @@ function bindGlobalListeners() {
     });
 }
 
+// Mirrors the `.popover_panel.closing` height transition (0.26s) in popover.css.
+const CLOSE_ANIM_MS = 300;
+
+export function ensurePopoverInner(panel) {
+    let inner = panel.querySelector(":scope > .popover_inner");
+    if (!inner) {
+        inner = document.createElement("div");
+        inner.className = "popover_inner";
+        while (panel.firstChild) {
+            inner.appendChild(panel.firstChild);
+        }
+        panel.appendChild(inner);
+    } else {
+        const nonInnerChildren = Array.from(panel.childNodes).filter((node) => node !== inner);
+        if (nonInnerChildren.length > 0) {
+            nonInnerChildren.forEach((child) => inner.appendChild(child));
+        }
+    }
+    return inner;
+}
+
 /**
  * Creates and binds a Popover instance to a trigger element.
  *
@@ -126,14 +147,18 @@ export function createPopover({
     trigger.setAttribute("aria-haspopup", "dialog");
     trigger.setAttribute("aria-expanded", "false");
 
+    const inner = document.createElement("div");
+    inner.className = "popover_inner";
+
     if (content) {
         if (typeof content === "string") {
-            panel.innerHTML = content;
+            inner.innerHTML = content;
         } else if (content instanceof HTMLElement) {
-            panel.appendChild(content);
+            inner.appendChild(content);
         }
     }
 
+    panel.appendChild(inner);
     wrapper.appendChild(panel);
 
     const instance = {
@@ -142,7 +167,7 @@ export function createPopover({
         wrapper,
 
         get isOpen() {
-            return panel.classList.contains("is-open");
+            return panel.classList.contains("is-open") && !panel.classList.contains("closing");
         },
 
         open() {
@@ -153,6 +178,13 @@ export function createPopover({
                 if (p !== this) p.close();
             });
 
+            if (typeof onOpen === "function") {
+                onOpen(this);
+            }
+
+            clearTimeout(panel._closeTimer);
+            const inner = ensurePopoverInner(panel);
+
             // Portal to document.body to break free from ancestor Backdrop Roots and overflow clipping
             if (panel.parentElement !== document.body) {
                 panel._placeholder = document.createComment("popover-portal-placeholder");
@@ -160,9 +192,41 @@ export function createPopover({
                 document.body.appendChild(panel);
             }
 
-            // Position fixed relative to viewport
             const rect = trigger.getBoundingClientRect();
             const gap = 8;
+            const padding = 8;
+
+            // Measure natural dimensions of inner content without restriction
+            inner.style.position = "static";
+            panel.style.transition = "none";
+            panel.style.height = "auto";
+            panel.style.maxHeight = "none";
+            panel.style.overflow = "hidden";
+            panel.style.visibility = "hidden";
+            panel.style.width = "auto";
+
+            const naturalHeight = panel.offsetHeight || inner.offsetHeight || 200;
+            const naturalWidth = Math.min(panel.offsetWidth || inner.offsetWidth || 380, window.innerWidth - 32);
+
+            const spaceAbove = rect.top - gap - padding;
+            const spaceBelow = window.innerHeight - rect.bottom - gap - padding;
+            const available = Math.max(120, placement === "up" ? spaceAbove : spaceBelow);
+            const targetHeight = Math.min(naturalHeight, available);
+
+            // Anchor inner content to the moving edge so it slides with the frame
+            inner.style.position = "absolute";
+            if (placement === "up") {
+                inner.style.bottom = "auto";
+                inner.style.top = "0";
+            } else {
+                inner.style.top = "auto";
+                inner.style.bottom = "0";
+            }
+
+            // Set initial 0 height and layout coordinates with transition disabled
+            panel.style.height = "0px";
+            panel.style.width = `${Math.round(naturalWidth)}px`;
+            panel.classList.remove("closing");
 
             panel.style.position = "fixed";
 
@@ -185,26 +249,74 @@ export function createPopover({
                 panel.style.right = "auto";
             }
 
+            // Commit initial height = 0 in a single reflow
+            panel.offsetHeight;
+
+            // Restore transition and trigger opening on next paint frame
+            panel.style.removeProperty("transition");
+            panel.style.removeProperty("visibility");
+
             panel.classList.add("is-open");
             trigger.classList.add("popover_active");
             trigger.setAttribute("aria-expanded", "true");
             activePopovers.add(this);
 
-            if (typeof onOpen === "function") {
-                onOpen(this);
-            }
+            requestAnimationFrame(() => {
+                if (panel.classList.contains("is-open") && !panel.classList.contains("closing")) {
+                    panel.style.height = `${targetHeight}px`;
+
+                    clearTimeout(panel._overflowTimer);
+                    panel._overflowTimer = setTimeout(() => {
+                        if (panel.classList.contains("is-open") && !panel.classList.contains("closing")) {
+                            if (naturalHeight > available) {
+                                panel.style.overflowY = "auto";
+                            } else {
+                                panel.style.height = "auto";
+                            }
+                            inner.style.position = "static";
+                        }
+                    }, 360);
+                }
+            });
         },
 
         close() {
-            if (!this.isOpen) return;
+            if (!this.isOpen && !panel.classList.contains("closing")) return;
 
+            clearTimeout(panel._overflowTimer);
+            clearTimeout(panel._closeTimer);
+            const inner = ensurePopoverInner(panel);
+
+            // Lock current height so transition from current height to 0 works
+            const currentHeight = panel.offsetHeight;
+            panel.style.transition = "none";
+            panel.style.height = `${currentHeight}px`;
+
+            inner.style.position = "absolute";
+            if (placement === "up") {
+                inner.style.top = "0";
+                inner.style.bottom = "auto";
+            } else {
+                inner.style.bottom = "0";
+                inner.style.top = "auto";
+            }
+
+            panel.style.overflow = "hidden";
+            panel.offsetHeight;
+
+            panel.style.removeProperty("transition");
             panel.classList.remove("is-open");
+            panel.classList.add("closing");
+            panel.style.height = "0px";
+
             trigger.classList.remove("popover_active");
             trigger.setAttribute("aria-expanded", "false");
             activePopovers.delete(this);
 
-            setTimeout(() => {
+            panel._closeTimer = setTimeout(() => {
                 if (!panel.classList.contains("is-open")) {
+                    panel.classList.remove("closing");
+
                     if (panel._placeholder && panel._placeholder.parentNode) {
                         panel._placeholder.parentNode.insertBefore(panel, panel._placeholder);
                         panel._placeholder.remove();
@@ -215,9 +327,17 @@ export function createPopover({
                     panel.style.removeProperty("bottom");
                     panel.style.removeProperty("left");
                     panel.style.removeProperty("right");
+                    panel.style.removeProperty("width");
+                    panel.style.removeProperty("height");
+                    panel.style.removeProperty("overflow");
+                    panel.style.removeProperty("overflow-y");
+                    if (inner) {
+                        inner.style.removeProperty("position");
+                        inner.style.removeProperty("top");
+                        inner.style.removeProperty("bottom");
+                    }
                 }
-                // Khớp transition đóng của `.popover_panel` trong popover.css (0.26s).
-            }, 300);
+            }, CLOSE_ANIM_MS);
 
             if (typeof onClose === "function") {
                 onClose(this);
@@ -233,11 +353,12 @@ export function createPopover({
         },
 
         setContent(newContent) {
-            panel.innerHTML = "";
+            const inner = ensurePopoverInner(panel);
+            inner.innerHTML = "";
             if (typeof newContent === "string") {
-                panel.innerHTML = newContent;
+                inner.innerHTML = newContent;
             } else if (newContent instanceof HTMLElement) {
-                panel.appendChild(newContent);
+                inner.appendChild(newContent);
             }
         },
 

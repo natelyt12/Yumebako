@@ -91,7 +91,11 @@ export class WallpaperSwitcher {
     });
 
     this.carousel.onStateChange((state) => {
-      this.bar?.setBusy(this._isSwapping || state.status !== "idle");
+      const isBusy = this._isSwapping || state.status === "deleting" || dataControl.isBusy || dataControl.status !== "idle";
+      this.bar?.setBusy(isBusy);
+      if (state.status === "moving" || state.status === "deleting" || !state.isSettled) {
+        this.bar?.hideActions();
+      }
     });
 
     // Khởi tạo component SwitcherBar thống nhất
@@ -120,14 +124,7 @@ export class WallpaperSwitcher {
     });
     dataControl.on("card:added", ({ addedCards, allCards }) => {
       // Sync the carousel using syncItems so only genuinely fresh cards receive the enter animation
-      const source = this.activeSource;
-      const engineItems = (dataControl.items || []).map((item) => ({
-        id: item.id,
-        name: item.title || item.id,
-        sub: item.category || source?.name || "",
-        url: item.thumbnailUrl || item.url || "",
-        card: item,
-      }));
+      const engineItems = this._toEngineItems();
 
       const previousCount = (allCards?.length || 0) - (addedCards?.length || 0);
       const isAtLast = previousCount > 0 && (dataControl.currentIndex === previousCount - 1 || this.carousel.hardIndex === previousCount - 1);
@@ -135,17 +132,28 @@ export class WallpaperSwitcher {
       this.carousel.syncItems(engineItems, dataControl.currentIndex, { silent: true });
       this.bar?.syncCounter();
 
-      // When Collection uploads initial wallpapers from empty state, auto-select the first card
+      // When adding cards to an empty source, auto-select the first card and sync empty state
       const wasEmpty = Array.isArray(allCards) && Array.isArray(addedCards) && allCards.length === addedCards.length;
-      if (this.activeSourceId === "collection" && wasEmpty && allCards.length > 0) {
+      if (wasEmpty && allCards.length > 0) {
         dataControl.setHardIndex(0);
         this.carousel?.scrollToCard(0);
         this.bar?.renderActions(dataControl.activeCard);
+        this.syncEmptyState(false);
       } else if (isAtLast && addedCards && addedCards.length > 0) {
         // Người dùng đang đứng ở ảnh cuối cùng trước khi thêm -> tự động cuộn sang ảnh tiếp theo
         const nextIndex = dataControl.currentIndex + 1;
         this.carousel.scrollToCard(nextIndex);
+        this.syncEmptyState(false);
+      } else {
+        this.syncEmptyState(false);
       }
+    });
+
+    dataControl.on("feed:limit_reached", ({ cap }) => {
+      showNotification(
+        t("wallpaper_switcher.limit_reached", { count: cap }),
+        "warning",
+      );
     });
 
     this.renderFromDataControl();
@@ -202,26 +210,32 @@ export class WallpaperSwitcher {
    */
   renderFromDataControl(animate = true) {
     if (!this.carousel) return;
-    const source = this.activeSource;
-    const items = dataControl.items || [];
 
-    const engineItems = items.map((item) => ({
+    this._silentRender = true;
+    try {
+      this.carousel.setItems(this._toEngineItems(), dataControl.currentIndex, { animate });
+    } finally {
+      this._silentRender = false;
+    }
+
+    this.syncEmptyState((dataControl.items || []).length === 0);
+  }
+
+  /**
+   * Map store cards to the flat item shape CarouselEngine understands.
+   * @returns {Array<Object>}
+   */
+  _toEngineItems() {
+    const source = this.activeSource;
+    return (dataControl.items || []).map((item) => ({
       id: item.id,
       name: item.title || item.id,
       sub: item.category || source?.name || "",
       url: item.thumbnailUrl || item.url || "",
       card: item,
     }));
-
-    this._silentRender = true;
-    try {
-      this.carousel.setItems(engineItems, dataControl.currentIndex, { animate });
-    } finally {
-      this._silentRender = false;
-    }
-
-    this.syncEmptyState(engineItems.length === 0);
   }
+
 
   /**
    * Cập nhật trạng thái hiển thị empty state mượt mà (fade in / out).
@@ -232,6 +246,14 @@ export class WallpaperSwitcher {
     if (!emptyEl) return;
     emptyEl.classList.toggle("is-visible", isEmpty);
     if (isEmpty) {
+      const hintEl = emptyEl.querySelector(".empty-sub");
+      if (hintEl) {
+        const isCollection = this.activeSourceId === "collection";
+        const key = isCollection
+          ? "wallpaper_switcher.empty_hint_collection"
+          : "wallpaper_switcher.empty_hint_remote";
+        hintEl.setAttribute("data-i18n", key);
+      }
       renderIcons(emptyEl);
       translateDOM(emptyEl);
     }
@@ -324,6 +346,7 @@ export class WallpaperSwitcher {
   async selectSource(sourceId) {
     if (!this.availableSources.some((source) => source.id === sourceId)) return;
     if (sourceId === this.activeSourceId && !this._pendingSourceId) return;
+    if (sourceId === this._pendingSourceId) return;
 
     // Highlight straight away so the click feels instant and responsive
     this.bar?.syncActiveTab(sourceId);
@@ -352,6 +375,15 @@ export class WallpaperSwitcher {
 
     try {
       await this.loadSource(sourceId);
+
+      // Neu trong luc load nguon nay ma user da click chon nguon khac (pending)
+      // thi khong apply anh trung gian len san khau
+      if (this._pendingSourceId && this._pendingSourceId !== sourceId) {
+        return;
+      }
+      if (this.activeSourceId !== sourceId) {
+        return;
+      }
 
       const activeCard = dataControl.activeCard;
       if (activeCard) {
@@ -525,6 +557,7 @@ export class WallpaperSwitcher {
     if (!this.isOpen) return;
     this.isOpen = false;
     this.bar?.closePopovers?.();
+    this.bar?.hideActions();
 
     this._pendingSourceId = null;
 

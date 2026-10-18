@@ -181,7 +181,22 @@ body.wp-carousel-dragging * {
     user-select: none;
     transition: none;
     overflow: visible;
+    /* Chỉ thẻ đang giao viewport mới được promote thành layer riêng. Gắn
+       `will-change` cho cả danh sách sẽ tạo một layer GPU cho mỗi thẻ, kể cả
+       thẻ ngoài màn hình — vài trăm ảnh là vài trăm MB VRAM vô ích. Class
+       `is-onscreen` do geometry.js bật/tắt theo toạ độ thật của slot. */
+}
+
+.wallpaper_switcher .carousel-item.is-onscreen {
     will-change: transform, width;
+}
+
+/* Thẻ bị cắt khỏi cửa sổ dữ liệu khi vẫn còn trong viewport: mờ dần rồi
+   syncItems() gỡ node. Thẻ ngoài viewport bị gỡ ngay, không cần animation. */
+.wallpaper_switcher .carousel-item.is-removing {
+    opacity: 0;
+    transition: opacity 200ms var(--ease_in_out, ease);
+    pointer-events: none;
 }
 
 .wallpaper_switcher .carousel-item.buffer {
@@ -222,6 +237,9 @@ body.wp-carousel-dragging * {
     border-radius: 0;
     overflow: hidden;
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+
+.wallpaper_switcher .carousel-item.is-onscreen .card-frame {
     will-change: transform, opacity;
 }
 

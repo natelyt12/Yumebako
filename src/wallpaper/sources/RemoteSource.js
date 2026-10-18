@@ -10,9 +10,13 @@ import { t } from "/src/core/i18n.js";
 function preloadImage(url) {
   return new Promise((resolve) => {
     const img = new Image();
-    img.onload = resolve;
-    img.onerror = resolve;
     img.src = url;
+    if (typeof img.decode === "function") {
+      img.decode().then(resolve).catch(resolve);
+    } else {
+      img.onload = resolve;
+      img.onerror = resolve;
+    }
   });
 }
 
@@ -32,6 +36,8 @@ export class RemoteSource extends BaseSource {
   static providerId = "";
   static storageKey = "";
   static maxCachedBlobs = 6;
+  /** Remote images can be fetched again, so the feed window is bounded. */
+  static maxCards = 100;
 
   constructor() {
     super();
@@ -328,7 +334,8 @@ export class RemoteSource extends BaseSource {
     }
 
     const payload = this.buildPayload(item, blob);
-    await wallpaperRenderer.apply(payload, { firstRun });
+    const applied = await wallpaperRenderer.apply(payload, { firstRun });
+    if (applied === false) return false;
 
     try {
       await this.persistCurrent(payload);
@@ -338,6 +345,7 @@ export class RemoteSource extends BaseSource {
         error,
       );
     }
+    return true;
   }
 
   buildPayload(item, blob) {

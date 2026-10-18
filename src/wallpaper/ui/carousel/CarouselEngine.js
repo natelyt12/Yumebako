@@ -55,6 +55,9 @@ const NAV_COOLDOWN_MS = 80;
 /** Animation duration for collapse after card delete. */
 const COLLAPSE_MS = 600;
 
+/** Thời gian fade của một thẻ bị cắt khỏi cửa sổ dữ liệu (khớp carousel.css). */
+const FADE_OUT_MS = 200;
+
 /**
  * Tần số lò xo suy từ `duration`: ω = SPRING_OMEGA / (duration / 1000).
  *
@@ -274,8 +277,14 @@ export class CarouselEngine {
 
   /** Gán lại ảnh cho một thẻ — dùng khi thumbnail cũ hỏng và được dựng lại. */
   setCardImage(cardEl, url) {
-    const bg = cardEl?.querySelector(".card-bg");
-    if (bg && url) bg.style.backgroundImage = `url('${url}')`;
+    if (!cardEl || !url) return;
+    cardEl._bgUrl = url;
+    cardEl.dataset.bgUrl = url;
+    cardEl._isImageLoaded = true;
+    const bg = cardEl._cachedNodes?.bg || cardEl.querySelector('.card-bg');
+    if (bg) bg.style.backgroundImage = 'url(\x27' + url + '\x27)';
+
+
   }
 
   /* ── Điều hướng ────────────────────────────────────────────────────────── */
@@ -367,6 +376,14 @@ export class CarouselEngine {
       const known = existing.get(item.id);
       if (known) {
         known.dataset.index = i + 1;
+        const newUrl = resolveImageUrl(item);
+        if (known._bgUrl !== newUrl) {
+          known._bgUrl = newUrl;
+          known.dataset.bgUrl = newUrl;
+          if (known._isImageLoaded && known._cachedNodes?.bg) {
+            known._cachedNodes.bg.style.backgroundImage = 'url(\'' + newUrl + '\')';
+          }
+        }
         return known;
       }
 
@@ -491,6 +508,33 @@ export class CarouselEngine {
     // để đồng bộ lại cửa sổ dữ liệu.
     return settled;
   }
+
+  /**
+   * Khoảng index của các thẻ đang giao viewport. Dùng khi cần biết một thẻ cụ thể
+   * (ví dụ thẻ cũ nhất sắp bị cắt) có đang hiện trước mắt người dùng hay không.
+   *
+   * @returns {{ first: number, last: number }} `-1` khi không có thẻ nào.
+   */
+  visibleIndexRange() {
+    const layout = this._liveLayout || this._layoutAt(this.hardIndex);
+    if (!layout || layout.count === 0) return { first: -1, last: -1 };
+
+    const viewportRight = this._screenCenter() * 2;
+    let first = -1;
+    let last = -1;
+
+    for (let i = 0; i < layout.count; i += 1) {
+      const left = layout.lefts[i];
+      const width = layout.widths[i];
+      if (left + width > 0 && left < viewportRight) {
+        if (first === -1) first = i;
+        last = i;
+      }
+    }
+
+    return { first, last };
+  }
+
 
   /** Chuyển đổi qua lại giữa Mode 1 (theo slot) và Mode 2 (bung đủ khung). */
   toggleCurrentCardMode() {
@@ -920,17 +964,25 @@ export class CarouselEngine {
     card.dataset.id = item.id ?? index + 1;
     card.dataset.mode = "1";
 
+    const url = resolveImageUrl(item);
+    card._bgUrl = url;
+    card.dataset.bgUrl = url;
+    card._item = item;
+    card._index = index;
+    card._engine = this;
+    card._isImageLoaded = false;
+
     card.innerHTML = `
       <div class="card-frame">
         ${this._imageFrameHtml(item, index, { animate: false })}
         ${this._overlayHtml(item)}
       </div>
     `;
-    this._probeThumbnail(item, card, index);
 
     card._cachedNodes = {
       overlay: card.querySelector(".carousel-overlay"),
       frame: card.querySelector(".card-frame"),
+      bg: card.querySelector(".card-bg"),
     };
 
     return card;
@@ -940,7 +992,7 @@ export class CarouselEngine {
   _imageFrameHtml(item, index, { animate = false } = {}) {
     const url = escapeHtml(resolveImageUrl(item));
     return `
-          <div class="card-bg${animate ? " card-fade-in" : ""}" style="background-image: url('${url}');"></div>
+          <div class="card-bg${animate ? " card-fade-in" : ""}" ></div>
         `;
   }
 

@@ -91,8 +91,11 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
       cached = {
         overlay: cardEl.querySelector(selectors_.overlay),
         frame: cardEl.querySelector(selectors_.frame),
+        bg: cardEl.querySelector(".card-bg"),
       };
       cardEl._cachedNodes = cached;
+    } else if (!cached.bg) {
+      cached.bg = cardEl.querySelector(".card-bg");
     }
     return cached;
   };
@@ -102,9 +105,52 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
    *
    * @param {HTMLElement} cardEl
    * @param {number} offset - Distance (float) from the card to the continuous center.
+   * @param {number} width - Slot width in px.
+   * @param {number} _index - Card index in the strip.
+   * @param {number} left - Slot's x position in track coordinates.
+   * @param {number} screenCenter - Half the stage width; the stage spans `[0, 2 * screenCenter]`.
    */
-  const defaultCardInfo = (cardEl, offset) => {
+  const defaultCardInfo = (
+    cardEl,
+    offset,
+    width,
+    _index,
+    left,
+    screenCenter,
+  ) => {
     const nodes = getCardElements(cardEl);
+
+    // Chỉ giữ ảnh của thẻ đang giao với viewport. Xét toạ độ thật của slot chứ
+    // không xét offset, nên ảnh ngoài tâm vẫn hiện đủ tới khi trượt hẳn ra khỏi
+    // màn hình; hàm chạy mỗi frame nên resize hay kéo đều nạp lại đúng lúc.
+    if (nodes.bg) {
+      const viewportRight = Number.isFinite(screenCenter)
+        ? screenCenter * 2
+        : Infinity;
+      const shouldLoad = left + width > 0 && left < viewportRight;
+
+      // Bật/tắt layer GPU theo đúng vùng nhìn thấy (xem `will-change` trong
+      // carousel.css). Chỉ ghi class khi trạng thái đổi để không đụng DOM mỗi frame.
+      if (cardEl._onScreen !== shouldLoad) {
+        cardEl._onScreen = shouldLoad;
+        cardEl.classList.toggle("is-onscreen", shouldLoad);
+      }
+
+      if (shouldLoad && !cardEl._isImageLoaded) {
+        cardEl._isImageLoaded = true;
+        const url = cardEl._bgUrl || cardEl.dataset.bgUrl;
+        if (url) {
+          nodes.bg.style.backgroundImage = `url(\x27${url}\x27)`;
+          if (!cardEl._probed && cardEl._engine?.onThumbError) {
+            cardEl._probed = true;
+            cardEl._engine._probeThumbnail(cardEl._item, cardEl, cardEl._index);
+          }
+        }
+      } else if (!shouldLoad && cardEl._isImageLoaded) {
+        cardEl._isImageLoaded = false;
+        nodes.bg.style.backgroundImage = "none";
+      }
+    }
 
     // Độ mờ giảm dần từ thẻ đang chọn ra hai bên (xem `opacityCurve`). Ghi lên
     // `.card-frame` để chỉ tấm ảnh mờ đi, còn nền accent của slot vẫn giữ nguyên.
@@ -249,7 +295,14 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
     // Apply active class and update card info
     for (let i = 0; i < count; i += 1) {
       cards[i].classList.toggle("active", i === closestIndex);
-      cardInfoListener?.(cards[i], Math.abs(i - continuousCenter), widths[i], i);
+      cardInfoListener?.(
+        cards[i],
+        Math.abs(i - continuousCenter),
+        widths[i],
+        i,
+        lefts[i],
+        screenCenter,
+      );
     }
 
     return {
