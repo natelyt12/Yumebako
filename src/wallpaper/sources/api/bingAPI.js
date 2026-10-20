@@ -15,7 +15,7 @@ export async function fetchBingDaily8({ resolution, strict = false } = {}) {
     try {
         const settings = getSettings();
         const config = settings.bingConfig || {};
-        const effectiveResolution = resolution || config.resolution || "uhd";
+        const effectiveResolution = resolution || config.resolution || "1080p";
 
         const url = "https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=8";
 

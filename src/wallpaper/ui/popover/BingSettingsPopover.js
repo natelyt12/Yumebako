@@ -22,8 +22,8 @@ export function createBingSettingsPopover({ trigger, switcher, dataControl }) {
         <div class="bing_section">
             <span class="bing_section_title" data-i18n="sp.api.bing.resolution"></span>
             <select class="native_select" id="bing_popover_resolution">
-                <option value="uhd" data-i18n="sp.api.bing.res_uhd"></option>
                 <option value="1080p" data-i18n="sp.api.bing.res_1080p"></option>
+                <option value="uhd" data-i18n="sp.api.bing.res_uhd"></option>
             </select>
         </div>
 
@@ -51,12 +51,12 @@ export function createBingSettingsPopover({ trigger, switcher, dataControl }) {
     const applyBtn = form.querySelector("#bing_popover_btn_apply");
 
     let savedConfig = {
-        resolution: "uhd",
+        resolution: "1080p",
     };
 
     function getFormValues() {
         return {
-            resolution: resSelect.value || "uhd",
+            resolution: resSelect.value || "1080p",
         };
     }
 
@@ -69,7 +69,7 @@ export function createBingSettingsPopover({ trigger, switcher, dataControl }) {
     function syncFromSettings() {
         const cfg = getSettings().bingConfig || {};
         savedConfig = {
-            resolution: cfg.resolution || "uhd",
+            resolution: cfg.resolution || "1080p",
         };
         setDropdownValue(resSelect, savedConfig.resolution);
         checkDirty();
@@ -85,7 +85,7 @@ export function createBingSettingsPopover({ trigger, switcher, dataControl }) {
 
     resetBtn.addEventListener("click", async () => {
         if (!(await confirmReset())) return;
-        setDropdownValue(resSelect, "uhd");
+        setDropdownValue(resSelect, "1080p");
         checkDirty();
     });
 

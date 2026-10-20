@@ -76,7 +76,7 @@ export class BingSource extends RemoteSource {
 
         const settings = getSettings();
         const config = settings.bingConfig || {};
-        const resolution = config.resolution || "uhd";
+        const resolution = config.resolution || "1080p";
         const todayStr = getTodayDateString();
 
         const isSameDate = storeData.lastDate === todayStr;

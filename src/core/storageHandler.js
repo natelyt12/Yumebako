@@ -102,7 +102,7 @@ import { initDate, initClock } from "/src/core/time.js";
 /**
  * @typedef {Object} BingConfig
 
- * @property {string} resolution - Preferred resolution: "uhd" (4K) | "1080p".
+ * @property {string} resolution - Preferred resolution: "1080p" (Full HD) | "uhd" (4K).
  */
 
 /**
@@ -248,7 +248,7 @@ const defaultSettings = {
   },
   bingConfig: {
 
-    resolution: "uhd",
+    resolution: "1080p",
   },
   collectionConfig: {
     videoSound: false,
