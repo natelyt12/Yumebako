@@ -1,5 +1,6 @@
 import { createSources } from "../sources/registry.js";
-import { getFromStore, saveToStore, removeFromStore } from "/src/core/db.js";
+import { getFromStore, saveToStore } from "/src/core/db.js";
+import { runMediaGC } from "./mediaGC.js";
 import { getSettings, saveSettings } from "/src/core/storageHandler.js";
 
 /**
@@ -227,7 +228,7 @@ export class DataControl {
 
         let storedItems = [];
 
-        if (this.activeSource?.isVolatile) {
+        if (this.activeSource?.isDynamic) {
             // Nguồn biến động (như Collection), luôn lấy danh sách mới nhất từ DB
             try {
                 const fetched = await this.activeSource.fetchItems();
@@ -488,20 +489,22 @@ export class DataControl {
             // Các thẻ bị loại bỏ
             const removedCards = itemsToProcess.filter((c) => c !== preservedCard);
 
-            // Dọn dẹp blob trong DB của các thẻ bị loại bỏ
+            // Giải phóng bộ nhớ RAM các thẻ bị loại bỏ
             for (const card of removedCards) {
                 if (typeof source?.deleteItem === "function") {
                     await source.deleteItem(card);
-                }
-                if (card?.id) {
-                    await removeFromStore(`media:orig:${card.id}`, "mediaData");
-                    await removeFromStore(`media:thumb:${card.id}`, "mediaData");
-                    await removeFromStore(`wallpaper_media:${sourceId}:${card.id}`, "mediaData");
                 }
             }
 
             const remainingCards = preservedCard ? [preservedCard] : [];
             await this._persistCards(sourceId, remainingCards);
+
+            // Kích hoạt dọn dẹp GC chạy ngầm sau khi xóa lịch sử
+            if (typeof window !== "undefined" && typeof window.requestIdleCallback === "function") {
+                window.requestIdleCallback(() => runMediaGC(), { timeout: 4000 });
+            } else {
+                setTimeout(() => runMediaGC(), 1000);
+            }
 
             // Cập nhật index đã lưu về 0
             const currentSwitcher = getSettings().wallpaperSwitcher || {};
@@ -560,19 +563,12 @@ export class DataControl {
         const cardToDelete = this.items[targetIndex];
 
         try {
-            // 1. Nếu source có logic xóa riêng (ví dụ CollectionDb):
+            // 1. Nếu source có logic xóa riêng (ví dụ CollectionDb) hoặc giải phóng RAM
             if (typeof this.activeSource?.deleteItem === "function") {
                 await this.activeSource.deleteItem(cardToDelete);
             }
 
-            // 2. Dọn Blob trong mediaData nếu có
-            if (cardToDelete?.id) {
-                await removeFromStore(`media:orig:${cardToDelete.id}`, "mediaData");
-                await removeFromStore(`media:thumb:${cardToDelete.id}`, "mediaData");
-                await removeFromStore(`wallpaper_media:${this.activeSourceId}:${cardToDelete.id}`, "mediaData");
-            }
-
-            // 3. Xóa khỏi mảng dữ liệu
+            // 2. Xóa khỏi mảng dữ liệu và cập nhật IndexedDB
             this.items.splice(targetIndex, 1);
             await this._persistCards(this.activeSourceId, this.items);
 
@@ -581,8 +577,8 @@ export class DataControl {
                 const storageKey = this.activeSource?.constructor?.storageKey;
                 if (storageKey) {
                     const storeData = await getFromStore(storageKey);
-                    if (storeData && storeData.current) {
-                        storeData.current = null;
+                    if (storeData && storeData.applied) {
+                        storeData.applied = null;
                         await saveToStore(storageKey, storeData);
                     }
                 }

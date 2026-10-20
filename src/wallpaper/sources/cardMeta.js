@@ -127,6 +127,8 @@ export function resolveCardMeta(sourceId, card) {
       srcText = "Unsplash";
     } else if (providerKey === "picre" || rawSource.includes("pic.re")) {
       srcText = "Picre";
+    } else if (providerKey === "bing" || rawSource.includes("bing.com")) {
+      srcText = "Bing";
     } else if (rawSource && /^https?:\/\//i.test(rawSource)) {
       try {
         srcText = new URL(rawSource).hostname.replace(/^www\./, "");
@@ -149,6 +151,10 @@ export function resolveCardMeta(sourceId, card) {
     const sourceUrl = card.sourceUrl || card.source || "";
     const sourceName = getPicreSourceLabel(sourceUrl);
     leftHtml = `<span>${escapeHtml(sourceName)}</span>`;
+  } else if (sourceId === "bing") {
+    // Remote / Bing: <title hoặc copyright>
+    const title = card.title || card.metadata?.copyright || "Bing";
+    leftHtml = `<span>${escapeHtml(title)}</span>`;
   } else {
     // Fallback nguồn khác (Unsplash, etc.)
     const title = card.title || card.category || sourceId;

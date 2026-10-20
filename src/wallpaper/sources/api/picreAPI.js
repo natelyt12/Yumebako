@@ -1,6 +1,6 @@
 import { getFromStore, saveToStore } from "/src/core/db.js";
 
-const PICRE_STORAGE_KEY = "data:picre";
+const PICRE_STORAGE_KEY = "provider_state:picre";
 
 async function fetchImageBlob(url) {
     try {

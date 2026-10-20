@@ -1,6 +1,6 @@
 import { BaseSource } from "./BaseSource.js";
 import { SOURCE_ACTIONS } from "./sourceActions.js";
-import { getFromStore, saveToStore, removeFromStore } from "/src/core/db.js";
+import { getFromStore, saveToStore } from "/src/core/db.js";
 import { getSettings } from "/src/core/storageHandler.js";
 import { wallpaperRenderer } from "/src/wallpaper/core/renderer.js";
 import { generateImageThumbnail } from "/src/core/utils/thumbnailGenerator.js";
@@ -102,35 +102,35 @@ export class RemoteSource extends BaseSource {
     const key = this.constructor.storageKey;
     if (!key) return null;
 
-    const current = (await getFromStore(key))?.current;
-    if (!current?.image) return null;
+    const applied = (await getFromStore(key))?.applied;
+    if (!applied?.image) return null;
 
-    const id = String(current.id ?? current.image);
-    let blob = current.blob instanceof Blob ? current.blob : await this.getBlob({ id, url: current.image });
+    const id = String(applied.id ?? applied.image);
+    let blob = applied.blob instanceof Blob ? applied.blob : await this.getBlob({ id, url: applied.image });
     if (blob instanceof Blob) {
       this.blobCache.set(id, blob);
     }
 
-    const item = this.toCarouselItem(current, {
+    const item = this.toCarouselItem(applied, {
       id,
-      url: current.image,
-      sourceUrl: current.source || "",
-      title: this.getSeedTitle(current),
-      category: current.category || "",
-      thumbnailUrl: current.image,
+      url: applied.image,
+      sourceUrl: applied.source || "",
+      title: this.getSeedTitle(applied),
+      category: applied.category || "",
+      thumbnailUrl: applied.image,
       mediaType: "image",
-      width: current.width || 0,
-      height: current.height || 0,
-      size: current.size || (blob?.size || 0),
-      addedAt: current.last_updated || Date.now(),
+      width: applied.width || 0,
+      height: applied.height || 0,
+      size: applied.size || (blob?.size || 0),
+      addedAt: applied.last_updated || Date.now(),
     });
 
     await this.prepareThumb(item);
     return item;
   }
 
-  getSeedTitle(current) {
-    return current.category || "";
+  getSeedTitle(applied) {
+    return applied.category || "";
   }
 
   /**
@@ -277,13 +277,11 @@ export class RemoteSource extends BaseSource {
   }
 
   /**
-   * Xóa thẻ và dọn sạch Blob liên quan khỏi IndexedDB và bộ nhớ.
+   * Giải phóng tài nguyên bộ nhớ (Object URL và cache) của thẻ khi bị xóa.
    */
   async deleteItem(item) {
     if (!item?.id) return;
     this.releaseItem(item.id);
-    await removeFromStore(`media:orig:${item.id}`, "mediaData");
-    await removeFromStore(`media:thumb:${item.id}`, "mediaData");
   }
 
   releaseItem(id) {
@@ -338,7 +336,7 @@ export class RemoteSource extends BaseSource {
     if (applied === false) return false;
 
     try {
-      await this.persistCurrent(payload);
+      await this.persistApplied(payload);
     } catch (error) {
       console.error(
         `[${this.id}] Failed to persist current wallpaper:`,
@@ -368,12 +366,12 @@ export class RemoteSource extends BaseSource {
     };
   }
 
-  async persistCurrent(payload) {
+  async persistApplied(payload) {
     const key = this.constructor.storageKey;
     if (!key) return;
 
-    const storeData = (await getFromStore(key)) || { queue: [], current: null };
-    storeData.current = {
+    const storeData = (await getFromStore(key)) || { queue: [], applied: null };
+    storeData.applied = {
       id: payload.id,
       image: payload.image,
       blob: payload.blob,
@@ -387,5 +385,9 @@ export class RemoteSource extends BaseSource {
       queue_total: storeData.queue_total,
     };
     await saveToStore(key, storeData);
+  }
+
+  async persistCurrent(payload) {
+    return this.persistApplied(payload);
   }
 }

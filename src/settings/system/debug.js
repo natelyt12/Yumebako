@@ -1,14 +1,26 @@
 import { getSettings, saveSettings } from "/src/core/storageHandler.js";
 import { getFromStore, saveToStore } from "/src/core/db.js";
 import { showNotification, openSidebarSubmenu, showConfirm, showAlert } from "/src/core/ui.js";
+import { initIdbTracker } from "/src/settings/system/debugIdbTracker.js";
 
 export function initDebugSettings() {
+    initIdbTracker();
+    initCarouselTestButtons();
     initI18nDebug();
     initDialogTest();
     initNotifTest();
     initSubmenuTest();
     initUnsplashDebug();
     initDropdownTest();
+}
+
+function initCarouselTestButtons() {
+    document.getElementById("debug_btn_carousel_jitter")?.addEventListener("click", () => {
+        window.open("/tests/carousel-jitter/harness.html", "_blank");
+    });
+    document.getElementById("debug_btn_carousel_perf")?.addEventListener("click", () => {
+        window.open("/tests/carousel-perf/index.html", "_blank");
+    });
 }
 
 export function updateUnsplashVisibility() {
@@ -76,19 +88,19 @@ function initDialogTest() {
 
 function initNotifTest() {
     document.getElementById("test_notif_info")?.addEventListener("click", () => {
-        showNotification("Info Notification: Just a friendly update.", "info");
+        showNotification("Thông tin: Đây là thông báo cập nhật thông thường.", "info");
     });
 
     document.getElementById("test_notif_success")?.addEventListener("click", () => {
-        showNotification("Success Notification: Task completed successfully!", "success");
+        showNotification("Thành công: Tác vụ đã được thực hiện hoàn tất!", "success");
     });
 
     document.getElementById("test_notif_error")?.addEventListener("click", () => {
-        showNotification("Error Notification: Something went wrong!", "error");
+        showNotification("Lỗi: Đã có lỗi xảy ra trong quá trình xử lý!", "error");
     });
 
     document.getElementById("test_notif_warning")?.addEventListener("click", () => {
-        showNotification("Warning Notification: Please check your settings.", "warning");
+        showNotification("Cảnh báo: Vui lòng kiểm tra lại cấu hình của bạn.", "warning");
     });
 }
 
@@ -98,29 +110,29 @@ function initSubmenuTest() {
         div.className = "setting_section";
         div.innerHTML = `
             <p class="setting_title">${titleText}</p>
-            <span class="tooltip">Floating submenu panel: it slides in next to the nav and takes the place of the main menu. Pass a width to make it wider than the sidebar column.</span>
+            <span class="tooltip">Bảng menu phụ nổi: trượt vào bên cạnh thanh điều hướng và chiếm vị trí của menu chính. Nhập độ rộng tùy chỉnh nếu muốn hiển thị rộng hơn cột sidebar.</span>
             <div class="setting_options flex_col gap_8">
-                <button id="sub_action_1">Test action 1</button>
-                <button id="sub_action_2">Test action 2</button>
+                <button id="sub_action_1" class="btn">Thao tác thử nghiệm 1</button>
+                <button id="sub_action_2" class="btn">Thao tác thử nghiệm 2</button>
             </div>
         `;
         div.querySelector("#sub_action_1")?.addEventListener("click", () => {
-            showNotification("Test action 1 clicked inside the submenu", "success");
+            showNotification("Đã nhấn thao tác 1 bên trong menu phụ", "success");
         });
         div.querySelector("#sub_action_2")?.addEventListener("click", () => {
-            showNotification("Test action 2 clicked inside the submenu", "info");
+            showNotification("Đã nhấn thao tác 2 bên trong menu phụ", "info");
         });
         return div;
     };
 
     document.getElementById("test_sidebar_submenu")?.addEventListener("click", () => {
         const inputVal = document.getElementById("test_submenu_width")?.value.trim();
-        const title = inputVal ? `Submenu (${inputVal})` : "Advanced Settings";
-        openSidebarSubmenu(title, createSubmenuContent("Advanced Submenu Details"), { width: inputVal, canPreview: true });
+        const title = inputVal ? `Menu phụ (${inputVal})` : "Cài đặt nâng cao";
+        openSidebarSubmenu(title, createSubmenuContent("Chi tiết menu phụ thử nghiệm"), { width: inputVal, canPreview: true });
     });
 
     document.getElementById("test_sidebar_submenu_fullscreen")?.addEventListener("click", () => {
-        openSidebarSubmenu("Fullscreen Submenu", createSubmenuContent("Fullscreen Submenu Details"), { isFullScreen: true });
+        openSidebarSubmenu("Menu phụ toàn màn hình", createSubmenuContent("Chi tiết menu toàn màn hình"), { isFullScreen: true });
     });
 }
 

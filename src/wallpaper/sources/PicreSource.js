@@ -28,7 +28,7 @@ export class PicreSource extends RemoteSource {
     static id = "picre";
     static label = "Picre";
     static providerId = "picre";
-    static storageKey = "data:picre";
+    static storageKey = "provider_state:picre";
     static generateThumbnail = true;
 
     get hasProviderSettings() {
@@ -53,7 +53,7 @@ export class PicreSource extends RemoteSource {
     }
 
     /** Title of the wallpaper restored from its persisted `current` record. */
-    getSeedTitle(current) {
-        return getSourceLabel(current.source) || "Picre";
+    getSeedTitle(applied) {
+        return getSourceLabel(applied.source) || "Picre";
     }
 }

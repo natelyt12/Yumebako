@@ -75,7 +75,7 @@ export class CollectionSource extends BaseSource {
   }
 
   /** Uploads land in the collection from anywhere in the app, not just here. */
-  get isVolatile() {
+  get isDynamic() {
     return true;
   }
 

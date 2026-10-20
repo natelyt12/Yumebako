@@ -17,7 +17,7 @@ export class UnsplashSource extends RemoteSource {
   static id = "unsplash";
   static label = "Unsplash";
   static providerId = "unsplash";
-  static storageKey = "data:unsplash";
+  static storageKey = "provider_state:unsplash";
 
   /** The Access Key is entered in the Debug tab, so there is something to open. */
   get hasProviderSettings() {
@@ -37,7 +37,7 @@ export class UnsplashSource extends RemoteSource {
     }
 
     const key = this.constructor.storageKey;
-    const storeData = (await getFromStore(key)) || { queue: [], current: null };
+    const storeData = (await getFromStore(key)) || { queue: [], applied: null };
     const queue = Array.isArray(storeData.queue) ? storeData.queue : [];
 
     if (queue.length === 0) {

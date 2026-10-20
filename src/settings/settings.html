@@ -297,44 +297,66 @@
         </div>
 
         <div class="tab_content" id="tab-debug">
-            <p class="setting_title">i18n Debug</p>
+            <!-- IndexedDB Live Tracker -->
+            <p class="setting_title">Theo dõi IndexedDB (Realtime)</p>
             <label class="btn" data-action="toggle">
-                <span>Ignore i18n Translation</span>
+                <div class="btn_body">
+                    <span class="btn_title">Bảng theo dõi IndexedDB</span>
+                    <span class="btn_desc">Bật bảng nổi theo dõi appData và mediaData theo thời gian thực</span>
+                </div>
+                <input type="checkbox" id="debug_idb_tracker" />
+            </label>
+
+            <!-- Carousel Test Suites -->
+            <p class="setting_title">Kiểm thử Carousel</p>
+            <button id="debug_btn_carousel_jitter" class="btn" type="button">
+                <span>Kiểm thử rung lắc Carousel (Jitter Harness)</span>
+            </button>
+            <button id="debug_btn_carousel_perf" class="btn" type="button">
+                <span>Kiểm thử hiệu năng Carousel (Performance)</span>
+            </button>
+
+            <!-- i18n Debug -->
+            <p class="setting_title">Kiểm thử i18n</p>
+            <label class="btn" data-action="toggle">
+                <span>Bỏ qua dịch ngôn ngữ (Hiện mã khóa)</span>
                 <input type="checkbox" id="debug_i18n" />
             </label>
 
-            <p class="setting_title">Unsplash API Key</p>
+            <!-- Unsplash API Key -->
+            <p class="setting_title">Khóa API Unsplash</p>
             <input type="text" id="debug_unsplash_key" placeholder="Nhập Unsplash Access Key"
                 autocomplete="off" />
             <span class="tooltip">Dùng tạm ở đây cho đến khi có Serverless</span>
 
-            <p class="setting_title">Dialog Test</p>
-            <button id="test_dialog_confirm" class="btn">Confirm Dialog</button>
-            <button id="test_dialog_danger" class="btn">Danger Confirm</button>
-            <button id="test_dialog_alert" class="btn">Alert Dialog</button>
+            <!-- Dialog Test -->
+            <p class="setting_title">Kiểm thử Hộp thoại (Dialog)</p>
+            <button id="test_dialog_confirm" class="btn">Hộp thoại xác nhận</button>
+            <button id="test_dialog_danger" class="btn">Hộp thoại nguy hiểm</button>
+            <button id="test_dialog_alert" class="btn">Hộp thoại thông báo</button>
 
-            <p class="setting_title">showNotification</p>
-            <button id="test_notif_info" class="btn">Info</button>
-            <button id="test_notif_success" class="btn">Success</button>
-            <button id="test_notif_error" class="btn">Error</button>
-            <button id="test_notif_warning" class="btn">Warning</button>
+            <!-- showNotification -->
+            <p class="setting_title">Kiểm thử Thông báo (Notification)</p>
+            <button id="test_notif_info" class="btn">Thông tin</button>
+            <button id="test_notif_success" class="btn">Thành công</button>
+            <button id="test_notif_error" class="btn">Lỗi</button>
+            <button id="test_notif_warning" class="btn">Cảnh báo</button>
 
-            <p class="setting_title">Sidebar Submenu</p>
-            <input type="text" id="test_submenu_width" placeholder="Width (e.g. 400px or 350)"
+            <!-- Sidebar Submenu -->
+            <p class="setting_title">Kiểm thử Menu phụ (Sidebar Submenu)</p>
+            <input type="text" id="test_submenu_width" placeholder="Độ rộng (vd: 400px hoặc 350)"
                 autocomplete="off" />
-            <button class="btn" data-action="submenu" id="test_sidebar_submenu">Test Sidebar Submenu</button>
-            <button class="btn" data-action="submenu" id="test_sidebar_submenu_fullscreen">Test Fullscreen
-                Submenu
-                (100vw)</button>
+            <button class="btn" data-action="submenu" id="test_sidebar_submenu">Kiểm thử Menu phụ</button>
+            <button class="btn" data-action="submenu" id="test_sidebar_submenu_fullscreen">Kiểm thử Menu phụ toàn màn hình (100vw)</button>
 
-            <p class="setting_title">Dropdown Test</p>
-            <span style="font-size: 0.82em; color: var(--text-muted);">Custom Dropdown (tự nâng cấp từ
-                &lt;select&gt;):</span>
+            <!-- Dropdown Test -->
+            <p class="setting_title">Kiểm thử Menu thả xuống (Dropdown)</p>
+            <span style="font-size: 0.82em; color: var(--text-muted);">Menu tùy biến (tự nâng cấp từ &lt;select&gt;):</span>
             <select id="test_custom_dropdown" class="native_select">
-                <option value="opt1">Tùy chọn 1 (Option 1)</option>
-                <option value="opt2">Tùy chọn 2 (Option 2)</option>
-                <option value="opt3">Tùy chọn 3 (Option 3)</option>
-                <option value="opt4">Tùy chọn 4 (Option 4)</option>
+                <option value="opt1">Tùy chọn 1</option>
+                <option value="opt2">Tùy chọn 2</option>
+                <option value="opt3">Tùy chọn 3</option>
+                <option value="opt4">Tùy chọn 4</option>
             </select>
         </div> <!-- end #tab-debug -->
     </div> <!-- end .settings_main_view -->

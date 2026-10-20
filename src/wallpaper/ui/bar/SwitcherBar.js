@@ -5,6 +5,7 @@ import { resolveCardMeta } from "../../sources/cardMeta.js";
 import { createWallhavenSettingsPopover } from "../popover/WallhavenSettingsPopover.js";
 import { createCollectionSettingsPopover } from "../popover/CollectionSettingsPopover.js";
 import { createPicreSettingsPopover } from "../popover/PicreSettingsPopover.js";
+import { createBingSettingsPopover } from "../popover/BingSettingsPopover.js";
 
 /**
  * SwitcherBar.js
@@ -116,6 +117,11 @@ export class SwitcherBar {
                 switcher: this.switcher,
                 dataControl: this.dataControl,
             });
+            this.bingPopover = createBingSettingsPopover({
+                trigger: this.settingsBtn,
+                switcher: this.switcher,
+                dataControl: this.dataControl,
+            });
 
             this.settingsBtn.addEventListener("click", (e) => {
                 e.stopPropagation();
@@ -123,15 +129,23 @@ export class SwitcherBar {
                 if (activeId === "wallhaven") {
                     this.collectionPopover?.close();
                     this.picrePopover?.close();
+                    this.bingPopover?.close();
                     this.wallhavenPopover?.toggle();
                 } else if (activeId === "collection") {
                     this.wallhavenPopover?.close();
                     this.picrePopover?.close();
+                    this.bingPopover?.close();
                     this.collectionPopover?.toggle();
                 } else if (activeId === "picre") {
                     this.wallhavenPopover?.close();
                     this.collectionPopover?.close();
+                    this.bingPopover?.close();
                     this.picrePopover?.toggle();
+                } else if (activeId === "bing") {
+                    this.wallhavenPopover?.close();
+                    this.collectionPopover?.close();
+                    this.picrePopover?.close();
+                    this.bingPopover?.toggle();
                 }
             });
         }
@@ -144,6 +158,7 @@ export class SwitcherBar {
         this.wallhavenPopover?.close();
         this.collectionPopover?.close();
         this.picrePopover?.close();
+        this.bingPopover?.close();
     }
 
     /**
@@ -474,8 +489,15 @@ export class SwitcherBar {
         }
         if (this.settingsBtn) {
             this.settingsBtn.classList.toggle("hidden", !hasExtraSettings);
-            const settingsLabel = t("wallpaper_switcher.extra_settings", "Cài đặt nguồn");
-            if (this.settingsBtn.title !== settingsLabel) this.settingsBtn.title = settingsLabel;
+            const sourceName = t(`wallpaper_switcher.source.${id}`, source?.name || id);
+            const settingsLabel = t("wallpaper_switcher.extra_settings", { source: sourceName });
+            const labelSpan = this.settingsBtn.querySelector("span");
+            if (labelSpan && labelSpan.textContent !== settingsLabel) {
+                labelSpan.textContent = settingsLabel;
+            }
+            if (this.settingsBtn.title !== settingsLabel) {
+                this.settingsBtn.title = settingsLabel;
+            }
         }
     }
 

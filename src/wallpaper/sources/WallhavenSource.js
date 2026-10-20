@@ -19,7 +19,7 @@ export class WallhavenSource extends RemoteSource {
   static id = "wallhaven";
   static label = "Wallhaven";
   static providerId = "wallhaven";
-  static storageKey = "data:wallhaven";
+  static storageKey = "provider_state:wallhaven";
 
   /** Categories, purity, sorting and query all live in Settings. */
   get hasProviderSettings() {
@@ -29,7 +29,7 @@ export class WallhavenSource extends RemoteSource {
   /** Take the next wallpaper off the persisted queue, refilling it if empty. */
   async fetchItem() {
     const key = this.constructor.storageKey;
-    const storeData = (await getFromStore(key)) || { queue: [], current: null };
+    const storeData = (await getFromStore(key)) || { queue: [], applied: null };
     const queue = Array.isArray(storeData.queue) ? storeData.queue : [];
 
     if (queue.length === 0) {
@@ -59,7 +59,7 @@ export class WallhavenSource extends RemoteSource {
   }
 
   /** Title of the wallpaper restored from its persisted `current` record. */
-  getSeedTitle(current) {
-    return current.category ? `wallhaven • ${current.category}` : "wallhaven";
+  getSeedTitle(applied) {
+    return applied.category ? `wallhaven • ${applied.category}` : "wallhaven";
   }
 }

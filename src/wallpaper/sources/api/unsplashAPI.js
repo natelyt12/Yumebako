@@ -2,7 +2,7 @@ import { getFromStore, saveToStore } from "/src/core/db.js";
 import { getSettings } from "/src/core/storageHandler.js";
 import { t } from "/src/core/i18n.js";
 
-const UNSPLASH_STORAGE_KEY = "data:unsplash";
+const UNSPLASH_STORAGE_KEY = "provider_state:unsplash";
 
 async function fetchImageBlob(url) {
     try {
@@ -55,17 +55,17 @@ export async function getUnsplashData(refresh = false) {
             return { error: t("sp.api.unsplash.no_key", "Vui lòng nhập Access Key trong tab Debug.") };
         }
 
-        let storeData = await getFromStore(UNSPLASH_STORAGE_KEY) || { queue: [], current: null };
+        let storeData = await getFromStore(UNSPLASH_STORAGE_KEY) || { queue: [], applied: null };
         if (!storeData.queue) storeData.queue = [];
 
-        if (!refresh && storeData.current) {
-            if (!storeData.current.blob || !(storeData.current.blob instanceof Blob)) {
-                const blob = await fetchImageBlob(storeData.current.image);
+        if (!refresh && storeData.applied) {
+            if (!storeData.applied.blob || !(storeData.applied.blob instanceof Blob)) {
+                const blob = await fetchImageBlob(storeData.applied.image);
                 if (!blob) return { error: t("sp.api.unsplash.corrupted_data", "Dữ liệu bị hỏng") };
-                storeData.current.blob = blob;
+                storeData.applied.blob = blob;
                 await saveToStore(UNSPLASH_STORAGE_KEY, storeData);
             }
-            return storeData.current;
+            return storeData.applied;
         }
 
         if (storeData.queue.length === 0) {
@@ -92,7 +92,7 @@ export async function getUnsplashData(refresh = false) {
             return { error: t("sp.api.error", "Lỗi tải ảnh từ Unsplash") };
         }
 
-        storeData.current = {
+        storeData.applied = {
             image: imageUrl,
             blob: blob,
             source: nextItem.links?.html || "https://unsplash.com",
@@ -110,7 +110,7 @@ export async function getUnsplashData(refresh = false) {
         };
 
         await saveToStore(UNSPLASH_STORAGE_KEY, storeData);
-        return storeData.current;
+        return storeData.applied;
     } catch (error) {
         console.error("[unsplashAPI] Error in getUnsplashData:", error);
         return { error: t("sp.api.error", "Lỗi tải ảnh từ Unsplash") };

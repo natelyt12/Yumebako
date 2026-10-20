@@ -7,6 +7,7 @@ import { renderIcons } from "./icon.js";
 import { initButtons } from "./ui/button.js";
 import { wallpaperSwitcher } from "../wallpaper/core/WallpaperSwitcher.js";
 import { dataControl } from "../wallpaper/core/DataControl.js";
+import { scheduleMediaGC } from "../wallpaper/core/mediaGC.js";
 
 let settingsLoaded = false;
 
@@ -114,4 +115,7 @@ export async function start() {
             }
         }
     });
+
+    // 7. Schedule background Media Garbage Collector (GC)
+    scheduleMediaGC();
 }

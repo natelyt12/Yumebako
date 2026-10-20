@@ -80,7 +80,7 @@ export class BaseSource {
    * (the collection) change from other parts of the app; remote feeds keep the
    * window they already materialized.
    */
-  get isVolatile() {
+  get isDynamic() {
     return false;
   }
 

@@ -125,6 +125,10 @@ function initPresentationMode() {
 function initDebug() {
     const resetSettingsBtn = document.getElementById("reset_settings_btn");
 
+    if (getSettings().debugIdbTracker) {
+        import("/src/settings/system/debugIdbTracker.js").then((m) => m.initIdbTracker());
+    }
+
     if (resetSettingsBtn) {
         resetSettingsBtn.addEventListener("click", async () => {
             const confirmed = await showConfirm(t("sp.danger_zone.reset_msg"), {
@@ -138,6 +142,7 @@ function initDebug() {
             if (confirmed) {
                 const { clearStore } = await import("/src/core/db.js");
                 await clearStore();
+                await clearStore("mediaData");
                 localStorage.clear();
                 setTimeout(() => {
                     location.reload();
@@ -226,3 +231,4 @@ subscribe("hideToggleButton", (isDim) => {
         toggleOpacityBox.checked = isDim === true;
     }
 });
+

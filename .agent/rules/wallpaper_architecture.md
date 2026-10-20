@@ -58,13 +58,14 @@ This document defines the standard four-layer architecture for Yumebako's Wallpa
 - **Rules:**
   - **Keep item arrays clean:** `dataControl.items` and the `carousel:${sourceId}` key in IndexedDB (`appData`) contain only real wallpaper card data (`CardItem`).
   - **Never store `blob:` URLs in IndexedDB:** When `_persistCards()` writes `carousel:${sourceId}`, reset every `thumbnailUrl` beginning with `blob:` to `null` to prevent `ERR_FILE_NOT_FOUND` after reload. When reloading a source, call `source.prepareThumb(item)` to recreate a live Object URL from `mediaData`.
-  - **Distinguish regular and volatile sources (`isVolatile`):**
-    - Volatile sources (`CollectionSource` with `isVolatile = true`) always load the latest list through `source.fetchItems()`.
-    - Remote sources (`isVolatile = false`) load directly from `carousel:${sourceId}` in `appData`. If the source has no stored items, it stays empty until the user explicitly requests new images via `requestMore()`.
+  - **Distinguish regular and dynamic sources (`isDynamic`):**
+    - Dynamic sources (`CollectionSource`, `BingSource` with `isDynamic = true`) always load the latest list through `source.fetchItems()`.
+    - Static/history sources (`isDynamic = false`) load directly from `carousel:${sourceId}` in `appData`. If the source has no stored items, it stays empty until the user explicitly requests new images via `requestMore()`.
   - **Manage indexes:**
     - On source switch or startup (`switchSource`), first look for a card matching `wallpaperConfig.activeWallpaperId` (or `activeCollectionItemId`) when the source matches the one active on the desktop. Otherwise, use `settings.wallpaperSwitcher.sourceIndices[sourceId]`, falling back to `0`.
     - When scrolling settles (`setHardIndex`), update `wallpaperSwitcher.sourceIndices[activeSourceId]` and `wallpaperConfig` through `saveSettings()`.
-    - When deleting a card (`deleteCard`), remove its source data and clean up `media:orig:${id}` and `media:thumb:${id}` from the `mediaData` store. If the list becomes empty, also delete `storeData.current` to prevent a stale card from reappearing during reseeding. Recalculate the neighboring index (prefer the card to the left, `targetIndex - 1`) and update `sourceIndices`.
+    - When deleting a card (`deleteCard`), remove its source data and persist the updated card list (orphaned media blobs are purged centrally by Media GC). If the list becomes empty, also delete `storeData.applied` to prevent a stale card from reappearing during reseeding. Recalculate the neighboring index (prefer the card to the left, `targetIndex - 1`) and update `sourceIndices`.
+  - **Media Garbage Collection (`src/wallpaper/core/mediaGC.js`):** Runs automatically in the background on browser idle after page load. Collects all referenced IDs across settings and `appData` stores, purges orphaned blobs from `mediaData`, and logs a diagnostic summary to console.
   - **History limit (`source.maxCards`):** Remote sources cap their history window (`RemoteSource.maxCards = 100`); the Collection is unbounded. When reaching `maxCards`, `DataControl.requestMore()` blocks further fetching and emits `feed:limit_reached` to prompt the user to clear history. Users can trigger `clearSourceHistory(sourceId)` from source settings popovers, which preserves only the wallpaper currently applied to the desktop and purges other rolled items and their media cache.
   - **Standard Pub/Sub events:**
     - `source:change`: Emitted when switching source tabs begins.
@@ -81,7 +82,7 @@ This document defines the standard four-layer architecture for Yumebako's Wallpa
 - **Role:** Provide wallpaper data from the local collection (`CollectionSource`) or online APIs (`RemoteSource` -> `PicreSource`, `WallhavenSource`, `UnsplashSource`), along with display metadata (`cardMeta.js`) and action definitions (`sourceActions.js`).
 - **Single-phase pipeline (`RemoteSource.js`):**
   - When fetching a remote image (`fetchNext`): retrieve metadata (`fetchItem`) -> download the original image exactly once -> store it in the IndexedDB `mediaData` store (`media:orig:${id}`) -> generate a 16:9 thumbnail using Canvas (`generateImageThumbnail`) -> store it in `mediaData` (`media:thumb:${id}`) -> create an Object URL and cache it in `thumbCache`.
-  - When applying a wallpaper (`source.apply(card, { firstRun })`), retrieve the Blob immediately from memory (`blobCache`) or `mediaData` (with no network delay), package the payload, pass it to `wallpaperRenderer.apply()`, and update `persistCurrent()`.
+  - When applying a wallpaper (`source.apply(card, { firstRun })`), retrieve the Blob immediately from memory (`blobCache`) or `mediaData` (with no network delay), package the payload, pass it to `wallpaperRenderer.apply()`, and update `persistApplied()`.
   - Layer 3 is fully headless: it returns plain `CardItem` objects and manages that source's `URL.createObjectURL` / `URL.revokeObjectURL` lifecycle. It must not manipulate the Carousel or SwitcherBar DOM.
 
 ### Layer 4: Desktop Renderer and Visual Pipeline (`src/wallpaper/core/renderer.js` and effect modules)

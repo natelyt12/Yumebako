@@ -2,7 +2,7 @@ import { getFromStore, saveToStore } from "/src/core/db.js";
 import { getSettings } from "/src/core/storageHandler.js";
 import { t } from "/src/core/i18n.js";
 
-const WALLHAVEN_STORAGE_KEY = "data:wallhaven";
+const WALLHAVEN_STORAGE_KEY = "provider_state:wallhaven";
 
 async function fetchImageBlob(url) {
     try {
@@ -71,17 +71,17 @@ export async function clearWallhavenQueue() {
 
 export async function getWallhavenData(refresh = false) {
     try {
-        let storeData = await getFromStore(WALLHAVEN_STORAGE_KEY) || { queue: [], current: null };
+        let storeData = await getFromStore(WALLHAVEN_STORAGE_KEY) || { queue: [], applied: null };
         if (!storeData.queue) storeData.queue = [];
 
-        if (!refresh && storeData.current) {
-            if (!storeData.current.blob || !(storeData.current.blob instanceof Blob)) {
-                const blob = await fetchImageBlob(storeData.current.image);
+        if (!refresh && storeData.applied) {
+            if (!storeData.applied.blob || !(storeData.applied.blob instanceof Blob)) {
+                const blob = await fetchImageBlob(storeData.applied.image);
                 if (!blob) return { error: t("sp.api.wallhaven.corrupted_data") };
-                storeData.current.blob = blob;
+                storeData.applied.blob = blob;
                 await saveToStore(WALLHAVEN_STORAGE_KEY, storeData);
             }
-            return storeData.current;
+            return storeData.applied;
         }
 
         if (storeData.queue.length === 0) {
@@ -103,7 +103,7 @@ export async function getWallhavenData(refresh = false) {
             return { error: t("sp.api.error") };
         }
 
-        storeData.current = {
+        storeData.applied = {
             image: nextItem.path,
             blob: blob,
             source: nextItem.short_url,
@@ -117,7 +117,7 @@ export async function getWallhavenData(refresh = false) {
         };
 
         await saveToStore(WALLHAVEN_STORAGE_KEY, storeData);
-        return storeData.current;
+        return storeData.applied;
     } catch (error) {
         console.error("[wallhavenAPI] Error in getWallhavenData:", error);
         return { error: t("sp.api.error") };

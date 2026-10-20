@@ -1,5 +1,5 @@
 @layer components {
-/* ============================================================================
+  /* ============================================================================
    POPOVER COMPONENT — Blank Canvas Glass Popover
    ============================================================================
    An unstyled, generic glassmorphism popover that snaps directly to any trigger
@@ -7,13 +7,13 @@
    No built-in header, title or close button — provides a clean blank surface.
    ============================================================================ */
 
-.popover_wrapper {
+  .popover_wrapper {
     position: relative;
     display: inline-flex;
     align-items: center;
-}
+  }
 
-.popover_panel {
+  .popover_panel {
     position: absolute;
     z-index: var(--z-dropdown, 40);
     box-sizing: border-box;
@@ -35,58 +35,58 @@
     pointer-events: none;
 
     transition:
-        height 0.34s var(--expo_out),
-        visibility 0s 0s;
+      height 0.34s var(--expo_out),
+      visibility 0s 0s;
     will-change: height;
-}
+  }
 
-/* Open State */
-.popover_panel.is-open {
+  /* Open State */
+  .popover_panel.is-open {
     visibility: visible;
     pointer-events: auto;
-}
+  }
 
-/* Close State: vẫn hiện trong suốt cú quét đóng, ẩn ngay khi gỡ class. */
-.popover_panel.closing {
+  /* Close State: vẫn hiện trong suốt cú quét đóng, ẩn ngay khi gỡ class. */
+  .popover_panel.closing {
     height: 0 !important;
     visibility: visible;
     pointer-events: none;
     transition: height 0.26s var(--cubic_in);
-}
+  }
 
-/* ── Placement (Up / Down) ────────────────────────────────────────────────── */
+  /* ── Placement (Up / Down) ────────────────────────────────────────────────── */
 
-.popover_panel[data-placement="up"] {
+  .popover_panel[data-placement="up"] {
     bottom: calc(100% + 8px);
     top: auto;
-}
+  }
 
-.popover_panel[data-placement="down"] {
+  .popover_panel[data-placement="down"] {
     top: calc(100% + 8px);
     bottom: auto;
-}
+  }
 
-/* ── Alignment (End / Start / Center) ─────────────────────────────────────── */
+  /* ── Alignment (End / Start / Center) ─────────────────────────────────────── */
 
-.popover_panel[data-align="end"] {
+  .popover_panel[data-align="end"] {
     right: 0;
     left: auto;
-}
+  }
 
-.popover_panel[data-align="start"] {
+  .popover_panel[data-align="start"] {
     left: 0;
     right: auto;
-}
+  }
 
-.popover_panel[data-align="center"] {
+  .popover_panel[data-align="center"] {
     left: 50%;
     right: auto;
     transform: translateX(-50%);
-}
+  }
 
-/* ── Inner container pinned to the moving edge so content slides with border ─ */
+  /* ── Inner container pinned to the moving edge so content slides with border ─ */
 
-.popover_inner {
+  .popover_inner {
     position: absolute;
     bottom: 0;
     left: 0;
@@ -94,18 +94,18 @@
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-}
+  }
 
-.popover_panel[data-placement="up"] .popover_inner {
+  .popover_panel[data-placement="up"] .popover_inner {
     bottom: auto;
     top: 0;
-}
+  }
 
-@media (prefers-reduced-motion: reduce) {
+  @media (prefers-reduced-motion: reduce) {
     .popover_panel,
     .popover_panel > * {
-        transform: none !important;
-        transition: none !important;
+      transform: none !important;
+      transition: none !important;
     }
-}
+  }
 }

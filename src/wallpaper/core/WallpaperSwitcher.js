@@ -156,11 +156,18 @@ export class WallpaperSwitcher {
       );
     });
 
+    // Fetch failures (network down, blocked request, expired API key...) used to
+    // only reach the console, leaving the "+" button silently doing nothing.
+    dataControl.on("error", ({ message }) => {
+      showNotification(message || t("wallpaper_switcher.fetch_error"), "error");
+    });
+
     this.renderFromDataControl();
     this._isInitialized = true;
 
     renderIcons(this.container);
     translateDOM(this.container);
+    this.bar?.syncRightSlot(this.activeSourceId);
 
     // Khởi động hình nền chốt ở tâm màn hình cùng hiệu ứng entrance animation
     const initialCard = dataControl.activeCard;

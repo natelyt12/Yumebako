@@ -1,22 +1,23 @@
 {
-    "manifest_version": 3,
-    "name": "Yumebako",
-    "version": "1",
-    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxKmIA1x77HywEuWPzFowDtL7kSYBJnU/vYu0b5G9mHtd3vHUJvIsNKDQ+wplL4hqjVMs9dPKbOSItW5oEPw+YfGJe47m0mwj48hX6nI6ZihJtoVLgNoHuKnQXGDXXCqAkYQ9ruaFf+i97jSBOI1bYYh9JEU3cZjSlUaIMutE7tQOMac4oHiSP/DMl1yxcPPWWF0JMKycNUU0tgsXhDbM+o8W7TG/EgelQYkf5JyuklDKbSSkWNCAlpAC8rMTvLIz6ExBNN4k7twXPI8MGSVr0IIL9jWJz5gJzvbxH9sQ4W9RGEeUdxAJ5iHaK803Mnxhnu8XsvBRWq0XCyJox0Wk4QIDAQAB",
-    "description": "A highly customizable new tab page with useful widgets, dynamic animations, and stunning wallpapers.",
-    "author": "Natelyt",
-    "chrome_url_overrides": {
-        "newtab": "index.html"
-    },
-    "host_permissions": [
-        "https://*.wallhaven.cc/*",
-        "https://*.open-meteo.com/*",
-        "https://*.pic.re/*"
-    ],
-    "permissions": ["storage", "unlimitedStorage"],
-    "icons": {
-        "16": "assets/icons/icon-16.png",
-        "48": "assets/icons/icon-48.png",
-        "128": "assets/icons/icon-128.png"
-    }
+  "manifest_version": 3,
+  "name": "Yumebako",
+  "version": "1",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxKmIA1x77HywEuWPzFowDtL7kSYBJnU/vYu0b5G9mHtd3vHUJvIsNKDQ+wplL4hqjVMs9dPKbOSItW5oEPw+YfGJe47m0mwj48hX6nI6ZihJtoVLgNoHuKnQXGDXXCqAkYQ9ruaFf+i97jSBOI1bYYh9JEU3cZjSlUaIMutE7tQOMac4oHiSP/DMl1yxcPPWWF0JMKycNUU0tgsXhDbM+o8W7TG/EgelQYkf5JyuklDKbSSkWNCAlpAC8rMTvLIz6ExBNN4k7twXPI8MGSVr0IIL9jWJz5gJzvbxH9sQ4W9RGEeUdxAJ5iHaK803Mnxhnu8XsvBRWq0XCyJox0Wk4QIDAQAB",
+  "description": "A highly customizable new tab page with useful widgets, dynamic animations, and stunning wallpapers.",
+  "author": "Natelyt",
+  "chrome_url_overrides": {
+    "newtab": "index.html"
+  },
+  "host_permissions": [
+    "https://*.wallhaven.cc/*",
+    "https://*.open-meteo.com/*",
+    "https://*.pic.re/*",
+    "https://*.bing.com/*"
+  ],
+  "permissions": ["storage", "unlimitedStorage"],
+  "icons": {
+    "16": "assets/icons/icon-16.png",
+    "48": "assets/icons/icon-48.png",
+    "128": "assets/icons/icon-128.png"
+  }
 }

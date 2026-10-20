@@ -100,6 +100,12 @@ import { initDate, initClock } from "/src/core/time.js";
  */
 
 /**
+ * @typedef {Object} BingConfig
+
+ * @property {string} resolution - Preferred resolution: "uhd" (4K) | "1080p".
+ */
+
+/**
  * Full merged application settings object, combining bako_settings and bako_wallpaper.
  *
  * @typedef {Object} AppSettings
@@ -114,6 +120,7 @@ import { initDate, initClock } from "/src/core/time.js";
  * @property {boolean}           presentationMode   - Hide UI chrome for presentations.
  * @property {string}            language           - Locale id (e.g. "en", "vi").
  * @property {{query:string, categories:Object, resolution:string, sorting:string, topRange:string}} wallhavenConfig - Wallhaven search parameters.
+ * @property {BingConfig}        bingConfig         - Bing wallpaper provider parameters.
  * @property {{videoSound:boolean, videoVolume:number}} collectionConfig - Collection wallpaper settings (video audio, volume).
  * @property {string}            unsplashApiKey     - User-supplied Unsplash API key.
  * @property {boolean}           debugI18n          - Highlight missing i18n keys.
@@ -121,157 +128,170 @@ import { initDate, initClock } from "/src/core/time.js";
  * @property {WidgetsConfig}     widgets            - Widget layer configuration.
  */
 
-const WALLPAPER_KEYS = ["wallpaperConfig", "wallpaperSwitcher", "wallpaperPosition", "wavy", "particles", "onload", "wallpapers", "collectionConfig"];
-
+const WALLPAPER_KEYS = [
+  "wallpaperConfig",
+  "wallpaperSwitcher",
+  "wallpaperPosition",
+  "wavy",
+  "particles",
+  "onload",
+  "wallpapers",
+  "collectionConfig",
+];
 
 /**
  * Factory for generating default per-wallpaper effect profile.
  */
 export function getDefaultWallpaperEffects() {
-    return {
-        position: { x: 50, y: 50, zoom: 1, mode: "cover" },
-        filter: { brightness: 1, blur: 0, contrast: 1, saturate: 1, bloom: 0 },
-        wavy: {
-            enabled: false,
-            parallaxEnabled: false,
-            config: {
-                motionType: "noise",
-                scale: 1.04,
-                advanced: false,
-                parallaxInertia: 0.03,
-                parallaxAmplitude: -30,
-                motions: {},
-            },
-        },
-        particles: {
-            enabled: false,
-            dynamic: [],
-            static: [],
-        },
-        onload: {
-            enabled: false,
-            widget_immediate: true,
-            preset: "zoom_in_light",
-            zoom: 1.2,
-            rotate: 0,
-            blur: 10,
-            speed: 3,
-            overlay_speed: 1,
-            bg_easing: "expo_out",
-            advanced: false,
-        },
-    };
+  return {
+    position: { x: 50, y: 50, zoom: 1, mode: "cover" },
+    filter: { brightness: 1, blur: 0, contrast: 1, saturate: 1, bloom: 0 },
+    wavy: {
+      enabled: false,
+      parallaxEnabled: false,
+      config: {
+        motionType: "noise",
+        scale: 1.04,
+        advanced: false,
+        parallaxInertia: 0.03,
+        parallaxAmplitude: -30,
+        motions: {},
+      },
+    },
+    particles: {
+      enabled: false,
+      dynamic: [],
+      static: [],
+    },
+    onload: {
+      enabled: false,
+      widget_immediate: true,
+      preset: "zoom_in_light",
+      zoom: 1.2,
+      rotate: 0,
+      blur: 10,
+      speed: 3,
+      overlay_speed: 1,
+      bg_easing: "expo_out",
+      advanced: false,
+    },
+  };
 }
 
 // Add new settings keys here when introducing new modules.
 const defaultSettings = {
-    // ==========================================
-    // WALLPAPER & EFFECTS (Aesthetics)
-    // ==========================================
-    wallpaperConfig: {
-        source: "picre",
-        activeWallpaperId: null,
-        brightness: 1,
-        blur: 0,
-        contrast: 1,
-        saturate: 1,
-        bloom: 0,
-        mode: "cover",
+  // ==========================================
+  // WALLPAPER & EFFECTS (Aesthetics)
+  // ==========================================
+  wallpaperConfig: {
+    source: "picre",
+    activeWallpaperId: null,
+    brightness: 1,
+    blur: 0,
+    contrast: 1,
+    saturate: 1,
+    bloom: 0,
+    mode: "cover",
+  },
+  // Standalone Wallpaper Switcher (Alt + W) browsing state.
+  // The tab actually opened is the one owning the current desktop wallpaper.
+  // See src/wallpaper/sources/registry.js for tab resolution logic.
+  wallpaperSwitcher: {
+    activeSource: "picre",
+    sourceIndices: {},
+  },
+  wallpaperPosition: { x: 50, y: 50, zoom: 1, mode: "cover" },
+  wavy: {
+    enabled: false,
+    parallaxEnabled: false,
+    config: {
+      motionType: "noise",
+      scale: 1.04,
+      advanced: false,
+      parallaxInertia: 0.03,
+      parallaxAmplitude: -30,
+      // Each generator declares its own defaults in its class (src/wallpaper/motion).
+      // Only the container bag lives here — same pattern as `particles`.
+      motions: {},
     },
-    // Standalone Wallpaper Switcher (Alt + W) browsing state.
-    // The tab actually opened is the one owning the current desktop wallpaper.
-    // See src/wallpaper/sources/registry.js for tab resolution logic.
-    wallpaperSwitcher: {
-        activeSource: "picre",
-        sourceIndices: {},
-    },
-    wallpaperPosition: { x: 50, y: 50, zoom: 1, mode: "cover" },
-    wavy: {
-        enabled: false,
-        parallaxEnabled: false,
-        config: {
-            motionType: "noise",
-            scale: 1.04,
-            advanced: false,
-            parallaxInertia: 0.03,
-            parallaxAmplitude: -30,
-            // Each generator declares its own defaults in its class (src/wallpaper/motion).
-            // Only the container bag lives here — same pattern as `particles`.
-            motions: {}
-        }
-    },
-    particles: {
-        enabled: true,
-        dynamic: [],
-        static: []
-    },
-    onload: {
-        enabled: false,
-        widget_immediate: true,
-        preset: "zoom_in_light",
-        zoom: 1.2,
-        rotate: 0,
-        blur: 10,
-        speed: 3,
-        overlay_speed: 1,
-        // Easing id resolved to a CSS var(--token) at play time. See src/wallpaper/onload/easing.js.
-        bg_easing: "expo_out",
-        advanced: false,
-    },
-    wallpapers: [],
+  },
+  particles: {
+    enabled: true,
+    dynamic: [],
+    static: [],
+  },
+  onload: {
+    enabled: false,
+    widget_immediate: true,
+    preset: "zoom_in_light",
+    zoom: 1.2,
+    rotate: 0,
+    blur: 10,
+    speed: 3,
+    overlay_speed: 1,
+    // Easing id resolved to a CSS var(--token) at play time. See src/wallpaper/onload/easing.js.
+    bg_easing: "expo_out",
+    advanced: false,
+  },
+  wallpapers: [],
 
-    // ── System & Startpage ───────────────────────────────────────────────────
-    tabTitle: "",
-    presentationMode: false,
-    language: "en",
-    wallhavenConfig: {
-        query: "",
-        categories: { general: true, anime: true, people: false },
-        resolution: "any",
-        sorting: "random",
-        topRange: "1M"
+  // ── System & Startpage ───────────────────────────────────────────────────
+  tabTitle: "",
+  presentationMode: false,
+  language: "en",
+  wallhavenConfig: {
+    query: "",
+    categories: { general: true, anime: true, people: false },
+    resolution: "any",
+    sorting: "random",
+    topRange: "1M",
+  },
+  bingConfig: {
+
+    resolution: "uhd",
+  },
+  collectionConfig: {
+    videoSound: false,
+    videoVolume: 1,
+  },
+  unsplashApiKey: "",
+  debugI18n: false,
+  debugIdbTracker: false,
+  hideToggleButton: false,
+  widgets: {
+    enabled: false,
+    grid_size: 10,
+    grid_padding: 0,
+    clock: {
+      enabled: false,
+      position: { ax: 0, ay: 100, x: 0, y: 0, w: null, h: null },
+      config: {
+        format: "24h",
+        add_zero_hour: false,
+        show_seconds: false,
+        show_ampm: true,
+        font: "",
+      },
     },
-    collectionConfig: {
-        videoSound: false,
-        videoVolume: 1,
+    date: {
+      enabled: false,
+      position: { ax: 0, ay: 100, x: 0, y: -80, w: null, h: null },
+      config: {},
     },
-    unsplashApiKey: "",
-    debugI18n: false,
-    hideToggleButton: false,
-    widgets: {
-        enabled: false,
-        grid_size: 10,
-        grid_padding: 0,
-        clock: {
-            enabled: false,
-            position: { ax: 0, ay: 100, x: 0, y: 0, w: null, h: null },
-            config: {
-                format: "24h",
-                add_zero_hour: false,
-                show_seconds: false,
-                show_ampm: true,
-                font: ""
-            }
-        },
-        date: {
-            enabled: false,
-            position: { ax: 0, ay: 100, x: 0, y: -80, w: null, h: null },
-            config: {}
-        },
-        lunar: {
-            enabled: false,
-            position: { ax: 0, ay: 100, x: 0, y: -120, w: null, h: null },
-            config: {}
-        },
-        weather: {
-            enabled: false,
-            position: { ax: 100, ay: 0, x: -20, y: 20, w: null, h: null },
-            config: {
-                fahrenheit: false,
-                manual_location: null
-            }
-        }
-    }
+    lunar: {
+      enabled: false,
+      position: { ax: 0, ay: 100, x: 0, y: -120, w: null, h: null },
+      config: {},
+    },
+    weather: {
+      enabled: false,
+      position: { ax: 100, ay: 0, x: -20, y: 20, w: null, h: null },
+      config: {
+        fahrenheit: false,
+        manual_location: null,
+      },
+    },
+  },
 };
 
 /**
@@ -280,23 +300,23 @@ const defaultSettings = {
  * @returns {boolean}
  */
 function isObject(item) {
-    return item && typeof item === "object" && !Array.isArray(item);
+  return item && typeof item === "object" && !Array.isArray(item);
 }
 
 function deepMerge(target, source) {
-    if (!isObject(target) || !isObject(source)) {
-        return source;
-    }
+  if (!isObject(target) || !isObject(source)) {
+    return source;
+  }
 
-    const output = { ...target };
-    Object.keys(source).forEach((key) => {
-        if (isObject(source[key]) && isObject(target[key])) {
-            output[key] = deepMerge(target[key], source[key]);
-        } else {
-            output[key] = source[key];
-        }
-    });
-    return output;
+  const output = { ...target };
+  Object.keys(source).forEach((key) => {
+    if (isObject(source[key]) && isObject(target[key])) {
+      output[key] = deepMerge(target[key], source[key]);
+    } else {
+      output[key] = source[key];
+    }
+  });
+  return output;
 }
 
 let settingsCache = null;
@@ -308,60 +328,60 @@ const keyListeners = new Map();
  * @returns {AppSettings} The merged configuration object.
  */
 export function getSettings() {
-    if (settingsCache) return settingsCache;
+  if (settingsCache) return settingsCache;
 
-    const storedSystem = localStorage.getItem("bako_settings");
-    const storedWallpaper = localStorage.getItem("bako_wallpaper");
-    
-    if (!storedSystem && !storedWallpaper) {
-        settingsCache = JSON.parse(JSON.stringify(defaultSettings));
-        return settingsCache;
-    }
+  const storedSystem = localStorage.getItem("bako_settings");
+  const storedWallpaper = localStorage.getItem("bako_wallpaper");
 
-    let mergedStored = {};
-    
-    if (storedSystem) {
-        try {
-            mergedStored = { ...mergedStored, ...JSON.parse(storedSystem) };
-        } catch (e) {
-            console.error("Settings: Error parsing bako_settings", e);
-        }
-    }
-    
-    if (storedWallpaper) {
-        try {
-            mergedStored = { ...mergedStored, ...JSON.parse(storedWallpaper) };
-        } catch (e) {
-            console.error("Settings: Error parsing bako_wallpaper", e);
-        }
-    } else if (storedSystem) {
-        // Migration logic: split old bako_settings into two keys
-        const wallpaperMigrate = {};
-        const systemMigrate = { ...mergedStored };
-        let didMigrate = false;
-        
-        WALLPAPER_KEYS.forEach(k => {
-            if (systemMigrate[k] !== undefined) {
-                wallpaperMigrate[k] = systemMigrate[k];
-                delete systemMigrate[k];
-                didMigrate = true;
-            }
-        });
-        
-        if (didMigrate) {
-            localStorage.setItem("bako_settings", JSON.stringify(systemMigrate));
-            localStorage.setItem("bako_wallpaper", JSON.stringify(wallpaperMigrate));
-        }
-    }
+  if (!storedSystem && !storedWallpaper) {
+    settingsCache = JSON.parse(JSON.stringify(defaultSettings));
+    return settingsCache;
+  }
 
+  let mergedStored = {};
+
+  if (storedSystem) {
     try {
-        settingsCache = deepMerge(defaultSettings, mergedStored);
-        return settingsCache;
+      mergedStored = { ...mergedStored, ...JSON.parse(storedSystem) };
     } catch (e) {
-        console.error("Settings: Error deep merging storage, using defaults", e);
-        settingsCache = JSON.parse(JSON.stringify(defaultSettings));
-        return settingsCache;
+      console.error("Settings: Error parsing bako_settings", e);
     }
+  }
+
+  if (storedWallpaper) {
+    try {
+      mergedStored = { ...mergedStored, ...JSON.parse(storedWallpaper) };
+    } catch (e) {
+      console.error("Settings: Error parsing bako_wallpaper", e);
+    }
+  } else if (storedSystem) {
+    // Migration logic: split old bako_settings into two keys
+    const wallpaperMigrate = {};
+    const systemMigrate = { ...mergedStored };
+    let didMigrate = false;
+
+    WALLPAPER_KEYS.forEach((k) => {
+      if (systemMigrate[k] !== undefined) {
+        wallpaperMigrate[k] = systemMigrate[k];
+        delete systemMigrate[k];
+        didMigrate = true;
+      }
+    });
+
+    if (didMigrate) {
+      localStorage.setItem("bako_settings", JSON.stringify(systemMigrate));
+      localStorage.setItem("bako_wallpaper", JSON.stringify(wallpaperMigrate));
+    }
+  }
+
+  try {
+    settingsCache = deepMerge(defaultSettings, mergedStored);
+    return settingsCache;
+  } catch (e) {
+    console.error("Settings: Error deep merging storage, using defaults", e);
+    settingsCache = JSON.parse(JSON.stringify(defaultSettings));
+    return settingsCache;
+  }
 }
 
 /**
@@ -370,48 +390,50 @@ export function getSettings() {
  * @param {Partial<AppSettings>} partialSettings - Partial object containing new updates.
  */
 export function saveSettings(partialSettings) {
-    const current = getSettings();
-    // Shallow merge on save — prevents accidentally clobbering removed array items.
-    const updated = { ...current, ...partialSettings };
-    
-    let currentSystem = {};
-    let currentWallpaper = {};
-    try {
-        currentSystem = JSON.parse(localStorage.getItem("bako_settings")) || {};
-        currentWallpaper = JSON.parse(localStorage.getItem("bako_wallpaper")) || {};
-    } catch (e) {}
+  const current = getSettings();
+  // Shallow merge on save — prevents accidentally clobbering removed array items.
+  const updated = { ...current, ...partialSettings };
 
-    let systemChanged = false;
-    let wallpaperChanged = false;
+  let currentSystem = {};
+  let currentWallpaper = {};
+  try {
+    currentSystem = JSON.parse(localStorage.getItem("bako_settings")) || {};
+    currentWallpaper = JSON.parse(localStorage.getItem("bako_wallpaper")) || {};
+  } catch (e) {}
 
-    Object.keys(partialSettings).forEach(key => {
-        if (WALLPAPER_KEYS.includes(key)) {
-            currentWallpaper[key] = updated[key];
-            wallpaperChanged = true;
-        } else {
-            currentSystem[key] = updated[key];
-            systemChanged = true;
+  let systemChanged = false;
+  let wallpaperChanged = false;
+
+  Object.keys(partialSettings).forEach((key) => {
+    if (WALLPAPER_KEYS.includes(key)) {
+      currentWallpaper[key] = updated[key];
+      wallpaperChanged = true;
+    } else {
+      currentSystem[key] = updated[key];
+      systemChanged = true;
+    }
+  });
+
+  if (systemChanged)
+    localStorage.setItem("bako_settings", JSON.stringify(currentSystem));
+  if (wallpaperChanged)
+    localStorage.setItem("bako_wallpaper", JSON.stringify(currentWallpaper));
+
+  settingsCache = updated;
+  console.debug("Settings: Saved and notifying listeners", partialSettings);
+
+  // Notify per-key subscribers.
+  Object.keys(partialSettings).forEach((key) => {
+    if (keyListeners.has(key)) {
+      keyListeners.get(key).forEach((callback) => {
+        try {
+          callback(updated[key], updated);
+        } catch (e) {
+          console.error(`Error notifying listener for key ${key}:`, e);
         }
-    });
-
-    if (systemChanged) localStorage.setItem("bako_settings", JSON.stringify(currentSystem));
-    if (wallpaperChanged) localStorage.setItem("bako_wallpaper", JSON.stringify(currentWallpaper));
-
-    settingsCache = updated;
-    console.debug("Settings: Saved and notifying listeners", partialSettings);
-
-    // Notify per-key subscribers.
-    Object.keys(partialSettings).forEach((key) => {
-        if (keyListeners.has(key)) {
-            keyListeners.get(key).forEach((callback) => {
-                try {
-                    callback(updated[key], updated);
-                } catch (e) {
-                    console.error(`Error notifying listener for key ${key}:`, e);
-                }
-            });
-        }
-    });
+      });
+    }
+  });
 }
 
 /**
@@ -423,26 +445,26 @@ export function saveSettings(partialSettings) {
  * @returns {() => void} Unsubscribe function.
  */
 export function subscribe(key, callback) {
-    if (!keyListeners.has(key)) {
-        keyListeners.set(key, new Set());
-    }
-    keyListeners.get(key).add(callback);
+  if (!keyListeners.has(key)) {
+    keyListeners.set(key, new Set());
+  }
+  keyListeners.get(key).add(callback);
 
-    // Fire immediately with the current value so callers can do initial setup
-    // without a separate getSettings() call.
-    const currentSettings = getSettings();
-    try {
-        callback(currentSettings[key], currentSettings);
-    } catch (e) {
-        console.error(`Error in initial callback for key ${key}:`, e);
-    }
+  // Fire immediately with the current value so callers can do initial setup
+  // without a separate getSettings() call.
+  const currentSettings = getSettings();
+  try {
+    callback(currentSettings[key], currentSettings);
+  } catch (e) {
+    console.error(`Error in initial callback for key ${key}:`, e);
+  }
 
-    return () => {
-        const set = keyListeners.get(key);
-        if (set) {
-            set.delete(callback);
-        }
-    };
+  return () => {
+    const set = keyListeners.get(key);
+    if (set) {
+      set.delete(callback);
+    }
+  };
 }
 
 /**
@@ -450,64 +472,75 @@ export function subscribe(key, callback) {
  * @param {string} type - 'all', 'wallpaper', or 'system'
  * @returns {Promise<void>}
  */
-export async function exportSettings(type = 'all') {
-    const backupData = { exportType: type };
-    let lsData = {};
-    
-    if (type === 'all' || type === 'system') {
-        const sysData = JSON.parse(localStorage.getItem("bako_settings") || "{}");
-        lsData = { ...lsData, ...sysData };
-        
-        const idbData = await getAllFromStore();
-        // Exclude local API data (heavy images/videos) — they are never part of a backup.
-        const filteredIdbData = idbData ? idbData.filter((item) => item.key !== "local_image_data" && item.key !== "local_video_data") : [];
+export async function exportSettings(type = "all") {
+  const backupData = { exportType: type };
+  let lsData = {};
 
-        // Strip blob fields to keep export file size manageable.
-        for (let item of filteredIdbData) {
-            if (item.key === "data:wallhaven" && item.value?.current?.blob) {
-                delete item.value.current.blob;
-            }
-            if (item.key === "data:picre" && item.value?.blob) {
-                delete item.value.blob;
-            }
-            if (item.key === "data:collection" && Array.isArray(item.value)) {
-                item.value = item.value.filter(bg => bg.type && !bg.type.startsWith("local"));
-                item.value.forEach(bg => {
-                    delete bg.blob;
-                    delete bg.thumbnail;
-                });
-            }
-        }
-        
-        const weatherCacheData = localStorage.getItem("weather_cache");
-        backupData.weatherCache = weatherCacheData ? JSON.parse(weatherCacheData) : null;
-        backupData.indexedDB = filteredIdbData;
+  if (type === "all" || type === "system") {
+    const sysData = JSON.parse(localStorage.getItem("bako_settings") || "{}");
+    lsData = { ...lsData, ...sysData };
+
+    const idbData = await getAllFromStore();
+    // Exclude local API data (heavy images/videos) — they are never part of a backup.
+    const filteredIdbData = idbData
+      ? idbData.filter(
+          (item) =>
+            item.key !== "local_image_data" && item.key !== "local_video_data",
+        )
+      : [];
+
+    // Strip blob fields to keep export file size manageable.
+    for (let item of filteredIdbData) {
+      if (item.key === "provider_state:wallhaven" && item.value?.applied?.blob) {
+        delete item.value.applied.blob;
+      }
+      if (item.key === "provider_state:picre" && item.value?.blob) {
+        delete item.value.blob;
+      }
+      if (item.key === "data:collection" && Array.isArray(item.value)) {
+        item.value = item.value.filter(
+          (bg) => bg.type && !bg.type.startsWith("local"),
+        );
+        item.value.forEach((bg) => {
+          delete bg.blob;
+          delete bg.thumbnail;
+        });
+      }
     }
-    
-    if (type === 'all' || type === 'wallpaper') {
-        const wpData = JSON.parse(localStorage.getItem("bako_wallpaper") || "{}");
-        lsData = { ...lsData, ...wpData };
-    }
-    
-    backupData.localStorage = lsData;
 
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
-    const downloadAnchorNode = document.createElement("a");
+    const weatherCacheData = localStorage.getItem("weather_cache");
+    backupData.weatherCache = weatherCacheData
+      ? JSON.parse(weatherCacheData)
+      : null;
+    backupData.indexedDB = filteredIdbData;
+  }
 
-    const d = initDate();
-    const t = initClock("24h", true);
-    const timestamp = `${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}_${t.hours}${t.minutes}`;
-    
-    let prefix = "bako_backup";
-    if (type === 'wallpaper') prefix = "bako_wallpaper_preset";
-    if (type === 'system') prefix = "bako_startpage_backup";
-    const filename = `${prefix}_${timestamp}.json`;
+  if (type === "all" || type === "wallpaper") {
+    const wpData = JSON.parse(localStorage.getItem("bako_wallpaper") || "{}");
+    lsData = { ...lsData, ...wpData };
+  }
 
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", filename);
-    document.body.appendChild(downloadAnchorNode); // required for firefox
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
+  backupData.localStorage = lsData;
+
+  const dataStr =
+    "data:text/json;charset=utf-8," +
+    encodeURIComponent(JSON.stringify(backupData, null, 2));
+  const downloadAnchorNode = document.createElement("a");
+
+  const d = initDate();
+  const t = initClock("24h", true);
+  const timestamp = `${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}_${t.hours}${t.minutes}`;
+
+  let prefix = "bako_backup";
+  if (type === "wallpaper") prefix = "bako_wallpaper_preset";
+  if (type === "system") prefix = "bako_startpage_backup";
+  const filename = `${prefix}_${timestamp}.json`;
+
+  downloadAnchorNode.setAttribute("href", dataStr);
+  downloadAnchorNode.setAttribute("download", filename);
+  document.body.appendChild(downloadAnchorNode); // required for firefox
+  downloadAnchorNode.click();
+  downloadAnchorNode.remove();
 }
 
 /**
@@ -516,69 +549,80 @@ export async function exportSettings(type = 'all') {
  * @returns {Promise<boolean>} Resolves to true if imported successfully.
  */
 export async function importSettings(jsonString) {
-    try {
-        const importedData = JSON.parse(jsonString);
-        let importedLS = importedData.localStorage || importedData; // fallback: old export format had no wrapper
+  try {
+    const importedData = JSON.parse(jsonString);
+    let importedLS = importedData.localStorage || importedData; // fallback: old export format had no wrapper
 
-        // Restore IndexedDB and weather cache when present (full or system backup).
-        if (Array.isArray(importedData.indexedDB)) {
-            if (importedData.weatherCache) {
-                localStorage.setItem("weather_cache", JSON.stringify(importedData.weatherCache));
-            } else {
-                localStorage.removeItem("weather_cache");
-            }
+    // Restore IndexedDB and weather cache when present (full or system backup).
+    if (Array.isArray(importedData.indexedDB)) {
+      if (importedData.weatherCache) {
+        localStorage.setItem(
+          "weather_cache",
+          JSON.stringify(importedData.weatherCache),
+        );
+      } else {
+        localStorage.removeItem("weather_cache");
+      }
 
-            await clearStore();
-            for (const item of importedData.indexedDB) {
-                if (item && item.key) {
-                    await saveToStore(item.key, item.value);
-                }
-            }
-
-            // Attempt to recover collection item blobs regenerated from IDB.
-            try {
-                await recoverCollectionBlobs();
-            } catch (err) {
-                console.error("Failed to recover collection blobs during import:", err);
-            }
+      await clearStore();
+      await clearStore("mediaData");
+      for (const item of importedData.indexedDB) {
+        if (item && item.key) {
+          await saveToStore(item.key, item.value);
         }
+      }
 
-        // Distribute imported data back into the two storage keys.
-        let currentSystem = {};
-        let currentWallpaper = {};
-        try {
-            currentSystem = JSON.parse(localStorage.getItem("bako_settings")) || {};
-            currentWallpaper = JSON.parse(localStorage.getItem("bako_wallpaper")) || {};
-        } catch (e) {}
-
-        Object.keys(importedLS).forEach(key => {
-            if (WALLPAPER_KEYS.includes(key)) {
-                currentWallpaper[key] = importedLS[key];
-            } else {
-                currentSystem[key] = importedLS[key];
-            }
-        });
-
-        localStorage.setItem("bako_settings", JSON.stringify(currentSystem));
-        localStorage.setItem("bako_wallpaper", JSON.stringify(currentWallpaper));
-
-        // Rebuild cache and notify all active key subscribers.
-        settingsCache = deepMerge(defaultSettings, { ...currentSystem, ...currentWallpaper });
-        console.debug("Settings: Imported successfully, notifying all listeners");
-
-        keyListeners.forEach((callbacks, key) => {
-            callbacks.forEach((callback) => {
-                try {
-                    callback(settingsCache[key], settingsCache);
-                } catch (e) {
-                    console.error(`Error notifying listener for key ${key} during import:`, e);
-                }
-            });
-        });
-
-        return true;
-    } catch (error) {
-        console.error("Settings: Error parsing imported settings:", error);
-        return false;
+      // Attempt to recover collection item blobs regenerated from IDB.
+      try {
+        await recoverCollectionBlobs();
+      } catch (err) {
+        console.error("Failed to recover collection blobs during import:", err);
+      }
     }
+
+    // Distribute imported data back into the two storage keys.
+    let currentSystem = {};
+    let currentWallpaper = {};
+    try {
+      currentSystem = JSON.parse(localStorage.getItem("bako_settings")) || {};
+      currentWallpaper =
+        JSON.parse(localStorage.getItem("bako_wallpaper")) || {};
+    } catch (e) {}
+
+    Object.keys(importedLS).forEach((key) => {
+      if (WALLPAPER_KEYS.includes(key)) {
+        currentWallpaper[key] = importedLS[key];
+      } else {
+        currentSystem[key] = importedLS[key];
+      }
+    });
+
+    localStorage.setItem("bako_settings", JSON.stringify(currentSystem));
+    localStorage.setItem("bako_wallpaper", JSON.stringify(currentWallpaper));
+
+    // Rebuild cache and notify all active key subscribers.
+    settingsCache = deepMerge(defaultSettings, {
+      ...currentSystem,
+      ...currentWallpaper,
+    });
+    console.debug("Settings: Imported successfully, notifying all listeners");
+
+    keyListeners.forEach((callbacks, key) => {
+      callbacks.forEach((callback) => {
+        try {
+          callback(settingsCache[key], settingsCache);
+        } catch (e) {
+          console.error(
+            `Error notifying listener for key ${key} during import:`,
+            e,
+          );
+        }
+      });
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Settings: Error parsing imported settings:", error);
+    return false;
+  }
 }
