@@ -271,10 +271,14 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
     // First pass: compute positions, widths, and find closestIndex
     const widths = new Array(count);
     const lefts = new Array(count);
+    const opacityIndices = new Array(count);
 
     for (let i = 0; i < count; i += 1) {
       const width = (1 - t) * layoutA.widths[i] + t * layoutB.widths[i];
       const left = (1 - t) * layoutA.lefts[i] + t * layoutB.lefts[i];
+      const opacityIndexA = layoutA.opacityIndices?.[i] ?? i;
+      const opacityIndexB = layoutB.opacityIndices?.[i] ?? i;
+      opacityIndices[i] = (1 - t) * opacityIndexA + t * opacityIndexB;
       const safeWidth = Math.max(0, width);
       widths[i] = safeWidth;
       lefts[i] = left;
@@ -297,7 +301,7 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
       cards[i].classList.toggle("active", i === closestIndex);
       cardInfoListener?.(
         cards[i],
-        Math.abs(i - continuousCenter),
+        Math.abs(opacityIndices[i] - continuousCenter),
         widths[i],
         i,
         lefts[i],
@@ -307,7 +311,17 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
 
     return {
       closestIndex,
-      layout: { widths, lefts, count, centerIndex: continuousCenter },
+      layout: {
+        widths,
+        lefts,
+        count,
+        centerIndex: continuousCenter,
+        ...(layoutA.opacityIndices || layoutB.opacityIndices
+          ? {
+              opacityIndices,
+            }
+          : {}),
+      },
     };
   };
 

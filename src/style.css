@@ -6,6 +6,7 @@
    `#setting_wrapper` and `#action_buttons`, which are static markup in
    index.html and must be styled before the settings panel is lazily loaded. */
 @import "./styles/layers.css";
+@import "./styles/fonts.css";
 @import "./styles/variables.css";
 @import "./styles/base.css";
 @import "./styles/controls.css";

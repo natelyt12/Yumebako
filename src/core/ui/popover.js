@@ -183,7 +183,14 @@ export function createPopover({
             }
 
             clearTimeout(panel._closeTimer);
+            clearTimeout(panel._overflowTimer);
+            if (panel._openRaf) {
+                cancelAnimationFrame(panel._openRaf);
+                panel._openRaf = null;
+            }
+
             const inner = ensurePopoverInner(panel);
+            const isClosing = panel.classList.contains("closing");
 
             // Portal to document.body to break free from ancestor Backdrop Roots and overflow clipping
             if (panel.parentElement !== document.body) {
@@ -196,40 +203,12 @@ export function createPopover({
             const gap = 8;
             const padding = 8;
 
-            // Measure natural dimensions of inner content without restriction
-            inner.style.position = "static";
-            panel.style.transition = "none";
-            panel.style.height = "auto";
-            panel.style.maxHeight = "none";
-            panel.style.overflow = "hidden";
-            panel.style.visibility = "hidden";
-            panel.style.width = "auto";
-
-            const naturalHeight = panel.offsetHeight || inner.offsetHeight || 200;
-            const naturalWidth = Math.min(panel.offsetWidth || inner.offsetWidth || 380, window.innerWidth - 32);
-
             const spaceAbove = rect.top - gap - padding;
             const spaceBelow = window.innerHeight - rect.bottom - gap - padding;
             const available = Math.max(120, placement === "up" ? spaceAbove : spaceBelow);
-            const targetHeight = Math.min(naturalHeight, available);
 
-            // Anchor inner content to the moving edge so it slides with the frame
-            inner.style.position = "absolute";
-            if (placement === "up") {
-                inner.style.bottom = "auto";
-                inner.style.top = "0";
-            } else {
-                inner.style.top = "auto";
-                inner.style.bottom = "0";
-            }
-
-            // Set initial 0 height and layout coordinates with transition disabled
-            panel.style.height = "0px";
-            panel.style.width = `${Math.round(naturalWidth)}px`;
-            panel.classList.remove("closing");
-
+            // Anchor popover coordinates relative to trigger
             panel.style.position = "fixed";
-
             if (placement === "up") {
                 panel.style.bottom = `${Math.round(window.innerHeight - rect.top + gap)}px`;
                 panel.style.top = "auto";
@@ -249,6 +228,72 @@ export function createPopover({
                 panel.style.right = "auto";
             }
 
+            if (isClosing) {
+                // Reversing from closing mid-flight: smoothly glide back up from current height
+                const currentHeight = panel.offsetHeight;
+                const naturalHeight = panel._naturalHeight || inner.offsetHeight || 200;
+                const targetHeight = Math.min(naturalHeight, available);
+
+                panel.classList.remove("closing");
+                panel.classList.add("is-open");
+                trigger.classList.add("popover_active");
+                trigger.setAttribute("aria-expanded", "true");
+                activePopovers.add(this);
+
+                // Lock current height and flush so transition reverses continuously without jumping
+                panel.style.transition = "none";
+                panel.style.height = `${currentHeight}px`;
+                panel.offsetHeight;
+
+                // Restore transition and animate to targetHeight
+                panel.style.removeProperty("transition");
+                panel.style.height = `${targetHeight}px`;
+
+                clearTimeout(panel._overflowTimer);
+                panel._overflowTimer = setTimeout(() => {
+                    if (panel.classList.contains("is-open") && !panel.classList.contains("closing")) {
+                        if (naturalHeight > available) {
+                            panel.style.overflowY = "auto";
+                        } else {
+                            panel.style.height = "auto";
+                        }
+                        inner.style.position = "static";
+                    }
+                }, 360);
+                return;
+            }
+
+            // Fresh open from fully closed state: measure natural dimensions
+            inner.style.position = "static";
+            panel.style.transition = "none";
+            panel.style.height = "auto";
+            panel.style.maxHeight = "none";
+            panel.style.overflow = "hidden";
+            panel.style.visibility = "hidden";
+            panel.style.width = "auto";
+
+            const naturalHeight = panel.offsetHeight || inner.offsetHeight || 200;
+            const naturalWidth = Math.min(panel.offsetWidth || inner.offsetWidth || 380, window.innerWidth - 32);
+            panel._naturalHeight = naturalHeight;
+            panel._naturalWidth = naturalWidth;
+
+            const targetHeight = Math.min(naturalHeight, available);
+
+            // Anchor inner content to the moving edge so it slides with the frame
+            inner.style.position = "absolute";
+            if (placement === "up") {
+                inner.style.bottom = "auto";
+                inner.style.top = "0";
+            } else {
+                inner.style.top = "auto";
+                inner.style.bottom = "0";
+            }
+
+            // Set initial 0 height and layout coordinates with transition disabled
+            panel.style.height = "0px";
+            panel.style.width = `${Math.round(naturalWidth)}px`;
+            panel.classList.remove("closing");
+
             // Commit initial height = 0 in a single reflow
             panel.offsetHeight;
 
@@ -261,7 +306,8 @@ export function createPopover({
             trigger.setAttribute("aria-expanded", "true");
             activePopovers.add(this);
 
-            requestAnimationFrame(() => {
+            panel._openRaf = requestAnimationFrame(() => {
+                panel._openRaf = null;
                 if (panel.classList.contains("is-open") && !panel.classList.contains("closing")) {
                     panel.style.height = `${targetHeight}px`;
 
@@ -281,10 +327,14 @@ export function createPopover({
         },
 
         close() {
-            if (!this.isOpen && !panel.classList.contains("closing")) return;
+            if (!this.isOpen) return;
 
             clearTimeout(panel._overflowTimer);
             clearTimeout(panel._closeTimer);
+            if (panel._openRaf) {
+                cancelAnimationFrame(panel._openRaf);
+                panel._openRaf = null;
+            }
             const inner = ensurePopoverInner(panel);
 
             // Lock current height so transition from current height to 0 works

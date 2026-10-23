@@ -26,7 +26,7 @@ async function fetchImageBlob(url) {
  *     nothing" (a feed with nothing left), and an empty batch cannot say which.
  * @returns {Promise<Array>} Raw Wallhaven wallpaper records.
  */
-export async function fetchWallhavenQueue({ strict = false } = {}) {
+export async function fetchWallhavenQueue({ strict = false, page = 1 } = {}) {
     try {
         const s = getSettings().wallhavenConfig || {};
         const categories = s.categories || { general: true, anime: true, people: false };
@@ -41,7 +41,8 @@ export async function fetchWallhavenQueue({ strict = false } = {}) {
             sorting: sorting,
             categories: cats,
             purity: '100',
-            ratios: 'landscape'
+            ratios: 'landscape',
+            page: String(page)
         });
 
         if (sorting === 'toplist') {
@@ -55,7 +56,11 @@ export async function fetchWallhavenQueue({ strict = false } = {}) {
         const response = await fetch(url);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const json = await response.json();
-        return json.data || [];
+        const list = json.data || [];
+        if (json.meta) {
+            list.meta = json.meta;
+        }
+        return list;
     } catch (error) {
         console.error("[wallhavenAPI] Error fetching wallhaven queue:", error);
         if (strict) throw error;
@@ -66,6 +71,8 @@ export async function fetchWallhavenQueue({ strict = false } = {}) {
 export async function clearWallhavenQueue() {
     let storeData = await getFromStore(WALLHAVEN_STORAGE_KEY) || { queue: [], current: null };
     storeData.queue = [];
+    storeData.page = 1;
+    storeData.last_page = null;
     await saveToStore(WALLHAVEN_STORAGE_KEY, storeData);
 }
 

@@ -52,8 +52,11 @@ export async function fetchBingDaily8({ resolution, strict = false } = {}) {
             const cleanTitle = item.title?.trim()
                 || (item.copyright ? item.copyright.split("(")[0].trim() : "Bing Wallpaper");
 
+            const baseId = item.hsh || (urlBase ? urlBase.replace(/^\/th\?id=/, "") : item.startdate);
+            const cardId = `${baseId}_${effectiveResolution}`;
+
             return {
-                id: item.hsh || (urlBase ? urlBase.replace(/^\/th\?id=/, "") : item.startdate),
+                id: cardId,
                 url: origUrl,
                 thumbnailUrl: thumbUrl,
                 sourceUrl,
@@ -80,5 +83,6 @@ export async function clearBingCache() {
     const storeData = (await getFromStore(BING_STORAGE_KEY)) || {};
     storeData.items = [];
     storeData.lastDate = null;
+    storeData.lastResolution = null;
     await saveToStore(BING_STORAGE_KEY, storeData);
 }

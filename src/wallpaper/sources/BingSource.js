@@ -30,6 +30,7 @@ export class BingSource extends RemoteSource {
     static label = "Bing";
     static providerId = "bing";
     static storageKey = BING_STORAGE_KEY;
+    static maxCards = Infinity;
 
     /** Volatile: DataControl always calls fetchItems() to check the date on tab activation. */
     get isDynamic() {
@@ -116,10 +117,8 @@ export class BingSource extends RemoteSource {
                 size: entry.size || 0,
             }));
 
-            // Chạy Single-Phase Pipeline cho 8 ảnh: tải blob gốc & sinh thumbnail 16:9
-            for (const item of items) {
-                await this.processSinglePhasePipeline(item);
-            }
+            // Chạy Single-Phase Pipeline song song cho 8 ảnh: tải blob gốc & sinh thumbnail 16:9
+            await Promise.all(items.map((item) => this.processSinglePhasePipeline(item)));
 
             // Chuẩn bị mảng để lưu vào IndexedDB (reset blob URL thành null theo Anti-Pattern 3)
             const cleanItems = items.map((item) => ({

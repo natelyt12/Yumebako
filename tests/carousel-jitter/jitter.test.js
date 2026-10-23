@@ -128,6 +128,48 @@ async function drain(frameCount, advanceFrame) {
   for (let i = 0; i < frameCount; i += 1) await advanceFrame();
 }
 
+test("setItems silent không phát hard-select, mặc định vẫn phát", async () => {
+  await withScenario(
+    { count: 4, containerWidth: 1600, duration: 600 },
+    async ({ engine }) => {
+      let hardSelectCount = 0;
+      engine.onHardSelect(() => {
+        hardSelectCount += 1;
+      });
+
+      engine.setItems(engine.items, 0, { silent: true });
+      assert.equal(hardSelectCount, 0, "silent render không được phát hard-select");
+
+      engine.setItems(engine.items, 0);
+      assert.equal(hardSelectCount, 1, "mặc định setItems vẫn phát hard-select");
+    },
+  );
+});
+
+test("opacity theo offset vẫn cập nhật khi thẻ mới đang chạy enter animation", async () => {
+  await withScenario(
+    { count: 4, containerWidth: 1600, duration: 600 },
+    async ({ engine, advanceFrame }) => {
+      const nextItems = [...engine.items, { id: "card-new", url: "" }];
+      engine.syncItems(nextItems, 0, { animate: true });
+
+      const newCard = engine.els.at(-1);
+      const frame = newCard.querySelector(".card-frame");
+      const content = newCard.querySelector(".card-content");
+      const initialOpacity = Number(frame.style.opacity);
+
+      assert.ok(content.classList.contains("card-enter-slot"));
+      engine.scrollToCard(engine.count - 1);
+      await drain(20, advanceFrame);
+
+      assert.ok(
+        Number(frame.style.opacity) > initialOpacity,
+        "opacity layout phải tăng khi thẻ mới tiến về tâm, dù enter animation đang chạy",
+      );
+    },
+  );
+});
+
 test("xóa thẻ đang chốt: thu cột không nhảy, promise resolve, index chốt đúng", { timeout: 30000 }, async () => {
   await withScenario(
     { count: 8, containerWidth: 1600, duration: 600 },
@@ -141,10 +183,17 @@ test("xóa thẻ đang chốt: thu cột không nhảy, promise resolve, index c
         outcome = value;
         return value;
       });
+      const rightNeighbourFrame = engine.els[4].querySelector(".card-frame");
       let guard = 0;
       while (outcome === undefined && guard < 300) {
         await advanceFrame();
         guard += 1;
+        if (guard === 45) {
+          assert.ok(
+            Number(rightNeighbourFrame.style.opacity) > 0.88,
+            "opacity của thẻ bên phải phải theo offset đã dịch khi cột thu hẹp",
+          );
+        }
       }
       await pending;
 

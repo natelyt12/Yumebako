@@ -1,6 +1,8 @@
 import { createSources } from "../sources/registry.js";
 import { getFromStore, saveToStore } from "/src/core/db.js";
 import { runMediaGC } from "./mediaGC.js";
+import { describeFetchError } from "./errors.js";
+import { t } from "/src/core/i18n.js";
 import { getSettings, saveSettings } from "/src/core/storageHandler.js";
 
 /**
@@ -25,9 +27,42 @@ import { getSettings, saveSettings } from "/src/core/storageHandler.js";
  */
 
 /**
+ * Bỏ các thẻ trùng `id`, giữ bản xuất hiện đầu tiên.
+ *
+ * Nguồn ảnh remote có thể trả lại ảnh đã có (Wallhaven xếp `random` trả lại
+ * đúng bức cũ khi bộ lọc cạn ảnh), và bản ghi trùng có thể đã nằm sẵn trong
+ * `carousel:*` từ trước. Carousel đối chiếu thẻ theo id, nên một id xuất hiện
+ * hai lần khiến hai slot cùng trỏ về một element DOM: một slot mất ảnh và phần
+ * tử thừa nằm lại dải thành thẻ ma. Chặn ngay khi nạp/ghi để dải không bao giờ
+ * nhận danh sách có trùng.
+ *
+ * Thẻ không có id được giữ nguyên — không có khoá thì không có gì để trùng.
+ *
+ * @param {CardItem[]} cards
+ * @returns {CardItem[]}
+ */
+function uniqueCards(cards) {
+    if (!Array.isArray(cards)) return [];
+
+    const seen = new Set();
+    const unique = [];
+    for (const card of cards) {
+        if (!card) continue;
+        const id = card.id;
+        if (id !== undefined && id !== null && id !== "") {
+            const key = String(id);
+            if (seen.has(key)) continue;
+            seen.add(key);
+        }
+        unique.push(card);
+    }
+    return unique;
+}
+
+/**
  * Named events emitted by DataControl.
  *
- * @typedef {"source:change" | "cards:loaded" | "card:soft" | "card:hard" | "card:added" | "card:deleted" | "feed:exhausted" | "feed:limit_reached" | "state:change" | "error"} DataControlEvent
+ * @typedef {"source:change" | "cards:loaded" | "card:soft" | "card:hard" | "card:added" | "card:deleted" | "card:pruned" | "feed:exhausted" | "feed:limit_reached" | "state:change" | "error"} DataControlEvent
  */
 
 /**
@@ -144,8 +179,8 @@ export class DataControl {
      */
     async init() {
         const settings = getSettings();
-        const defaultSource = settings.wallpaperConfig?.source || "picre";
-        const initialSourceId = this.sources.has(defaultSource) ? defaultSource : "picre";
+        const defaultSource = settings.wallpaperConfig?.source || "bing";
+        const initialSourceId = this.sources.has(defaultSource) ? defaultSource : "bing";
 
         await this.switchSource(initialSourceId);
         return this;
@@ -227,6 +262,8 @@ export class DataControl {
         });
 
         let storedItems = [];
+        /** Chỉ danh sách đọc từ `carousel:*` mới ghi đè ngược lại được. */
+        let storedInCarousel = false;
 
         if (this.activeSource?.isDynamic) {
             // Nguồn biến động (như Collection), luôn lấy danh sách mới nhất từ DB
@@ -245,6 +282,7 @@ export class DataControl {
             const rawStored = await getFromStore(`carousel:${sourceId}`);
             if (this._switchToken !== switchToken) return;
             storedItems = Array.isArray(rawStored) ? rawStored.filter(Boolean) : [];
+            storedInCarousel = true;
 
             // Phục hồi thumbnail hợp lệ (Object URL mới trong session hiện tại) cho các thẻ
             if (this.activeSource && typeof this.activeSource.prepareThumb === "function") {
@@ -257,7 +295,21 @@ export class DataControl {
 
         if (this._switchToken !== switchToken) return;
 
-        this.items = storedItems;
+        // Bản ghi trùng id (ảnh API trả lại, hoặc dữ liệu cũ còn sót trong
+        // `carousel:*`) không được đi vào dải — xem `uniqueCards()`.
+        const unique = uniqueCards(storedItems);
+
+        // Dữ liệu cũ còn trùng thì dọn luôn bản đã lưu: danh sách tự lành sau một
+        // lần mở, thay vì lần nào cũng phải sửa lại trong bộ nhớ.
+        if (unique.length !== storedItems.length && storedInCarousel) {
+            console.warn(
+                `[DataControl] Dropped ${storedItems.length - unique.length} duplicate card(s) from [${sourceId}].`,
+            );
+            await this._persistCards(sourceId, unique);
+            if (this._switchToken !== switchToken) return;
+        }
+
+        this.items = unique;
 
         // Xác định vị trí index mục tiêu
         let resolvedIndex = targetIndex;
@@ -379,21 +431,54 @@ export class DataControl {
     /* ── Lấy thêm ảnh mới (Fetch More) ─────────────────────────────────────── */
 
     /**
-     * Yêu cầu nguồn nạp thêm ảnh mới (khi người dùng đến ô '+' hoặc bấm nút).
-     * @returns {Promise<CardItem|null>} Thẻ mới vừa nạp xong, hoặc null nếu hết/lỗi/chạm ngưỡng.
+     * Lên lịch chạy dọn dẹp blob mồ côi trong IndexedDB (BakoDB/mediaData).
+     * @private
      */
-    async requestMore() {
-        if (this.isBusy || !this.activeSource?.canGrow) return null;
+    _scheduleMediaGC() {
+        if (typeof window !== "undefined" && typeof window.requestIdleCallback === "function") {
+            window.requestIdleCallback(() => runMediaGC(), { timeout: 4000 });
+        } else {
+            setTimeout(() => runMediaGC(), 1000);
+        }
+    }
 
-        const cap = Number(this.activeSource?.maxCards);
-        if (Number.isFinite(cap) && this.items.length >= cap) {
-            this.emit("feed:limit_reached", {
-                sourceId: this.activeSourceId,
-                cap,
-                count: this.items.length,
-            });
+    /**
+     * Xác định vị trí thẻ sẽ bị loại bỏ khi danh sách đạt ngưỡng tối đa (FIFO).
+     * Bỏ qua thẻ đang được áp dụng trên màn hình Desktop (nếu có).
+     * @returns {number|null} Index của thẻ cần loại bỏ, hoặc null nếu không thể loại bỏ.
+     */
+    getPruneCandidateIndex() {
+        if (this.items.length === 0) return null;
+
+        const wallpaperConfig = getSettings().wallpaperConfig || {};
+        const isDesktopSource = wallpaperConfig.source === this.activeSourceId;
+        const appliedId = isDesktopSource
+            ? wallpaperConfig.activeWallpaperId || wallpaperConfig.activeCollectionItemId
+            : null;
+
+        // Nếu thẻ đầu tiên là ảnh Desktop đang áp dụng, bỏ qua và lấy thẻ tiếp theo
+        let pruneIndex = 0;
+        if (appliedId && this.items[0]?.id === appliedId && this.items.length > 1) {
+            pruneIndex = 1;
+        }
+
+        // Nếu tất cả các thẻ đều trùng appliedId, không thể loại bỏ
+        if (appliedId && this.items[pruneIndex]?.id === appliedId) {
             return null;
         }
+
+        return pruneIndex;
+    }
+
+    /**
+     * Yêu cầu nguồn nạp thêm ảnh mới (khi người dùng đến ô '+' hoặc bấm nút).
+     * Tự động xoay vòng FIFO nếu số lượng ảnh chạm trần maxCards.
+     * @param {Object} [options]
+     * @param {(card: CardItem, index: number) => Promise<void>|void} [options.onPruneActive] - Hook chạy hiệu ứng xóa khi thẻ bị cắt là thẻ đang active.
+     * @returns {Promise<CardItem|null>} Thẻ mới vừa nạp xong, hoặc null nếu hết/lỗi.
+     */
+    async requestMore({ onPruneActive } = {}) {
+        if (this.isBusy || !this.activeSource?.canGrow) return null;
 
         const currentSourceId = this.activeSourceId;
         this.isBusy = true;
@@ -411,15 +496,82 @@ export class DataControl {
             }
 
             const validFresh = newItems.filter(Boolean);
-            this.items.push(...validFresh);
+
+            // Chặn tuyệt đối thẻ trùng lặp ID với mảng thẻ hiện có — và trùng
+            // ngay trong cùng một batch, thứ mà bộ lọc theo `existingIds` không
+            // tự bắt được nếu id chỉ lặp lại giữa hai bản ghi mới.
+            const existingIds = new Set(this.items.map((item) => String(item.id)));
+            const uniqueFresh = validFresh.filter((item) => {
+                const key = String(item.id);
+                if (existingIds.has(key)) return false;
+                existingIds.add(key);
+                return true;
+            });
+
+            if (uniqueFresh.length === 0) {
+                // Toàn bộ ảnh trả về đều đã tồn tại trên dải -> coi như nguồn đã hết ảnh mới
+                this.emit("feed:exhausted", { sourceId: this.activeSourceId });
+                return null;
+            }
+
+            // Xoay vòng FIFO nếu tổng số thẻ sau khi nạp vượt quá cap
+            const cap = Number(this.activeSource?.maxCards);
+            let prunedCard = null;
+            if (Number.isFinite(cap)) {
+                while (this.items.length + uniqueFresh.length > cap && this.items.length > 0) {
+                    const pruneIndex = this.getPruneCandidateIndex();
+                    if (pruneIndex === null || pruneIndex < 0 || pruneIndex >= this.items.length) break;
+
+                    const candidate = this.items[pruneIndex];
+                    const isPruningCurrent = pruneIndex === this.currentIndex;
+
+                    if (isPruningCurrent && typeof onPruneActive === "function") {
+                        await onPruneActive(candidate, pruneIndex);
+                    }
+
+                    if (typeof this.activeSource?.deleteItem === "function") {
+                        await this.activeSource.deleteItem(candidate);
+                    }
+
+                    this.items.splice(pruneIndex, 1);
+                    prunedCard = candidate;
+
+                    if (pruneIndex <= this.currentIndex) {
+                        this.currentIndex = Math.max(0, this.currentIndex - 1);
+                        this.softIndex = Math.max(0, this.softIndex - 1);
+                    }
+                }
+            }
+
+            this.items.push(...uniqueFresh);
             await this._persistCards(this.activeSourceId, this.items);
 
-            const latestCard = validFresh[0] || null;
+            if (prunedCard) {
+                const currentSwitcher = getSettings().wallpaperSwitcher || {};
+                const sourceIndices = { ...(currentSwitcher.sourceIndices || {}) };
+                sourceIndices[this.activeSourceId] = this.currentIndex;
+                saveSettings({
+                    wallpaperSwitcher: {
+                        ...currentSwitcher,
+                        sourceIndices,
+                    },
+                });
+
+                this._scheduleMediaGC();
+                this.emit("card:pruned", {
+                    prunedCard,
+                    sourceId: this.activeSourceId,
+                    total: this.items.length,
+                });
+            }
+
+            const latestCard = uniqueFresh[0] || null;
             this.emit("card:added", {
                 newCard: latestCard,
-                addedCards: validFresh,
+                addedCards: uniqueFresh,
                 allCards: this.items,
                 index: this.items.length - 1,
+                prunedCard,
             });
 
             return latestCard;
@@ -429,7 +581,7 @@ export class DataControl {
                 action: "fetchMore",
                 sourceId: this.activeSourceId,
                 error: err,
-                message: err?.message || "Không thể lấy thêm ảnh mới",
+                message: describeFetchError(err, t) || "Không thể lấy thêm ảnh mới",
             });
             return null;
         } finally {
@@ -438,7 +590,6 @@ export class DataControl {
             this._notifyState();
         }
     }
-
     /* ── Dọn dẹp lịch sử ảnh (Clear History) ───────────────────────────────── */
 
     /**
@@ -500,11 +651,7 @@ export class DataControl {
             await this._persistCards(sourceId, remainingCards);
 
             // Kích hoạt dọn dẹp GC chạy ngầm sau khi xóa lịch sử
-            if (typeof window !== "undefined" && typeof window.requestIdleCallback === "function") {
-                window.requestIdleCallback(() => runMediaGC(), { timeout: 4000 });
-            } else {
-                setTimeout(() => runMediaGC(), 1000);
-            }
+            this._scheduleMediaGC();
 
             // Cập nhật index đã lưu về 0
             const currentSwitcher = getSettings().wallpaperSwitcher || {};
@@ -629,15 +776,13 @@ export class DataControl {
     async _persistCards(sourceId, cards) {
         // Chỉ lưu danh sách các object sạch vào appData
         // Không lưu chuỗi `blob:` vào IndexedDB vì object URL sẽ bị hủy sau khi reload trang!
-        const cleanCards = cards
-            .filter(Boolean)
-            .map((c) => {
-                const item = { ...c };
-                if (typeof item.thumbnailUrl === "string" && item.thumbnailUrl.startsWith("blob:")) {
-                    item.thumbnailUrl = null;
-                }
-                return item;
-            });
+        const cleanCards = uniqueCards(cards).map((c) => {
+            const item = { ...c };
+            if (typeof item.thumbnailUrl === "string" && item.thumbnailUrl.startsWith("blob:")) {
+                item.thumbnailUrl = null;
+            }
+            return item;
+        });
         await saveToStore(`carousel:${sourceId}`, cleanCards);
     }
 

@@ -1,6 +1,6 @@
 import { t } from "/src/core/i18n.js";
 import { showNotification } from "/src/core/ui.js";
-import { addToCollection, getCollection } from "/src/wallpaper/sources/api/collectionDb.js";
+import { addToCollection, removeFromCollection, getCollection } from "/src/wallpaper/sources/api/collectionDb.js";
 import { generateImageThumbnail, generateVideoThumbnail } from "/src/core/utils/thumbnailGenerator.js";
 
 /**
@@ -48,15 +48,15 @@ function hasSourcePage(card) {
     return /^https?:\/\//i.test(card?.sourceUrl || "");
 }
 
-/** Kiểm tra xem một thẻ đã tồn tại trong bộ sưu tập chưa (so khớp sourceUrl, url và id). */
-function isCardInCollection(card, source, collection) {
-    if (!Array.isArray(collection) || collection.length === 0 || !card) return false;
+/** Tìm bản ghi tương ứng trong bộ sưu tập (nếu có). */
+function findCollectionEntry(card, source, collection) {
+    if (!Array.isArray(collection) || collection.length === 0 || !card) return null;
 
     const sourceUrl = source?.getSourceUrl ? source.getSourceUrl(card) : (card.sourceUrl || "");
     const cardUrl = card.url || "";
     const cardId = String(card.id || "");
 
-    return collection.some((entry) => {
+    return collection.find((entry) => {
         const meta = entry.metadata || {};
         const entrySource = meta.source || "";
         const entryUrl = meta.url || "";
@@ -67,44 +67,53 @@ function isCardInCollection(card, source, collection) {
         if (cardId && (entryId === cardId || meta.id === cardId)) return true;
 
         return false;
-    });
+    }) || null;
 }
 
-/** Copy the card's media into the personal collection. */
-async function add(card, { source }) {
-    const blob = await source.getBlob(card);
-    if (!blob) {
-        showNotification(t("sp.api.collection.no_blob_to_add", "Không có dữ liệu ảnh để thêm vào bộ sưu tập"), "warning");
-        return;
-    }
+/** Kiểm tra xem một thẻ đã tồn tại trong bộ sưu tập chưa. */
+function isCardInCollection(card, source, collection) {
+    return Boolean(findCollectionEntry(card, source, collection));
+}
 
-    const sourceUrl = source.getSourceUrl(card);
+/** Toggle thêm hoặc xóa ảnh khỏi bộ sưu tập cá nhân. */
+async function toggleCollection(card, context) {
+    const { source } = context;
     const collection = await getCollection();
-    if (isCardInCollection(card, source, collection)) {
-        showNotification(t("sp.api.collection.already_saved", "Ảnh này đã có trong bộ sưu tập"), "info");
-        return;
+    const existing = findCollectionEntry(card, source, collection);
+
+    if (existing) {
+        await removeFromCollection(existing.id);
+        showNotification(t("sp.api.collection.remove_success", "Đã xóa khỏi bộ sưu tập"), "info");
+    } else {
+        const blob = await source.getBlob(card);
+        if (!blob) {
+            showNotification(t("sp.api.collection.no_blob_to_add", "Không có dữ liệu ảnh để thêm vào bộ sưu tập"), "warning");
+            return;
+        }
+
+        const sourceUrl = source.getSourceUrl(card);
+        const isVideo = blob.type.startsWith("video/");
+        const thumbnail = isVideo ? await generateVideoThumbnail(blob) : await generateImageThumbnail(blob);
+
+        await addToCollection({
+            type: isVideo ? "video" : "image",
+            blob,
+            thumbnail,
+            metadata: {
+                id: card.id,
+                provider: source.id,
+                providerName: source.name,
+                source: sourceUrl || card.url || source.id,
+                url: card.url || "",
+                width: card.width,
+                height: card.height,
+                size: blob.size,
+            },
+        });
+
+        showNotification(t("sp.api.collection.add_success", "Đã thêm vào bộ sưu tập thành công!"), "success");
     }
 
-    const isVideo = blob.type.startsWith("video/");
-    const thumbnail = isVideo ? await generateVideoThumbnail(blob) : await generateImageThumbnail(blob);
-
-    await addToCollection({
-        type: isVideo ? "video" : "image",
-        blob,
-        thumbnail,
-        metadata: {
-            id: card.id,
-            provider: source.id,
-            providerName: source.name,
-            source: sourceUrl || card.url || source.id,
-            url: card.url || "",
-            width: card.width,
-            height: card.height,
-            size: blob.size,
-        },
-    });
-
-    showNotification(t("sp.api.collection.add_success", "Đã thêm vào bộ sưu tập thành công!"), "success");
 }
 
 /**
@@ -171,22 +180,26 @@ export const SOURCE_ACTIONS = {
     },
     add: {
         id: "add",
-        icon: "addToCollection",
+        icon: "star",
         labelKey: "sp.api.collection.add_to_collection",
         fallback: "Thêm vào bộ sưu tập",
-        /**
-         * An image that is already in the collection has nothing to add, so the
-         * button stays in place but disabled — the state reads as "nothing to do
-         * here" rather than as a button that vanished.
-         * @returns {Promise<boolean|{ disabled: true, reason: string }>}
-         */
-        async isAvailable(card, { source }) {
+        async resolveState(card, { source }) {
             const collection = await getCollection();
-            return isCardInCollection(card, source, collection)
-                ? { disabled: true, reason: t("sp.api.collection.already_saved", "Ảnh này đã có trong bộ sưu tập") }
-                : true;
+            const inCollection = isCardInCollection(card, source, collection);
+            if (inCollection) {
+                return {
+                    icon: "starFill",
+                    labelKey: "sp.api.collection.remove_from_collection",
+                    fallback: "Bỏ khỏi bộ sưu tập",
+                };
+            }
+            return {
+                icon: "star",
+                labelKey: "sp.api.collection.add_to_collection",
+                fallback: "Thêm vào bộ sưu tập",
+            };
         },
-        run: add,
+        run: toggleCollection,
     },
     remove: {
         id: "remove",

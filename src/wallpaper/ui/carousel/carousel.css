@@ -42,7 +42,7 @@
     --img-enter-start-scale: 0.95;
     --img-enter-end-radius: 0px;
 
-    /* [3] Hiệu ứng 2: thẻ xuất hiện vào slot */
+    /* [3] Hiệu ứng 2: nội dung thẻ xuất hiện vào slot */
     --slot-enter-duration: 0.7s;
     --slot-enter-start-scale: 0.9;
     --slot-enter-start-opacity: 0;
@@ -62,6 +62,12 @@
     cursor: grab;
     user-select: none;
     -webkit-user-select: none;
+    transition: opacity 0.2s var(--smooth);
+}
+
+.wallpaper_switcher .carousel-container.is-swapping {
+    opacity: 0;
+    pointer-events: none;
 }
 
 .wallpaper_switcher .carousel-container.is-empty {
@@ -307,38 +313,25 @@ body.wp-carousel-dragging * {
     }
 }
 
-/* [2] Thẻ vào slot: zoom nhẹ + fade. Độ mờ đích do JS truyền qua
-   `--slot-target-opacity` để không đè lên độ mờ mà layout đã tính. */
-.wallpaper_switcher .card-frame.card-enter-slot {
+/* [2] Nội dung thẻ vào slot: fade độc lập với opacity layout của `.card-frame`. */
+.wallpaper_switcher .card-content {
+    position: absolute;
+    inset: 0;
+}
+
+.wallpaper_switcher .card-content.card-enter-slot {
     animation: wp-card-enter-slot var(--slot-enter-duration, 0.7s) cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes wp-card-enter-slot {
     from {
         opacity: var(--slot-enter-start-opacity, 0);
-        transform: scale(var(--slot-enter-start-scale, 0.7));
+        transform: scale(var(--slot-enter-start-scale, 0.9));
     }
 
     to {
-        opacity: var(--slot-target-opacity, 1);
+        opacity: 1;
         transform: scale(1);
-    }
-}
-
-/* Mode 2 đặt khung bằng translateX(-50%) nên keyframes phải giữ luôn phần bù đó */
-.wallpaper_switcher .carousel-item.mode-2 .card-frame.card-enter-slot {
-    animation: wp-card-enter-slot-mode2 var(--slot-enter-duration, 0.7s) cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-@keyframes wp-card-enter-slot-mode2 {
-    from {
-        opacity: var(--slot-enter-start-opacity, 0);
-        transform: translateX(-50%) scale(var(--slot-enter-start-scale, 0.7));
-    }
-
-    to {
-        opacity: var(--slot-target-opacity, 1);
-        transform: translateX(-50%) scale(1);
     }
 }
 

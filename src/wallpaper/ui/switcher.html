@@ -1,8 +1,15 @@
 <div class="wallpaper_switcher_inner">
     <div class="wallpaper_switcher_top_bar">
         <div class="wallpaper_switcher_top_left">
-            <div class="wallpaper_source_tabs" id="wallpaper_source_tabs"></div>
+            <div class="wallpaper_source_tabs_wrapper" id="wallpaper_source_tabs_wrapper">
+                <div class="wallpaper_source_tabs" id="wallpaper_source_tabs"></div>
+            </div>
             <span class="wallpaper_switcher_counter" id="wallpaper_switcher_counter"></span>
+            <div class="wallpaper_switcher_loader is-hidden" id="wallpaper_switcher_loader" aria-hidden="true">
+                <svg viewBox="25 25 50 50">
+                    <circle r="20" cy="50" cx="50"></circle>
+                </svg>
+            </div>
         </div>
         <div class="wallpaper_switcher_top_right">
             <div class="wallpaper_switcher_meta_info" id="wallpaper_switcher_meta_info"></div>
@@ -29,7 +36,7 @@
         <div class="wallpaper_source_actions hidden is-hidden" id="wallpaper_switcher_actions"></div>
         <div class="wallpaper_switcher_controls" id="wallpaper_switcher_controls">
             <button type="button" class="btn wallpaper_fetch_btn hidden" id="wallpaper_fetch_btn" data-i18n-title="wallpaper_switcher.get_new_image" title="Lấy ảnh mới">
-                <i data-icon="changeWallpaper"></i>
+                <i data-icon="arrowClockwise"></i>
                 <span data-i18n="wallpaper_switcher.get_new_image">Lấy ảnh mới</span>
             </button>
             <button type="button" class="btn wallpaper_upload_btn hidden" id="wallpaper_upload_btn" data-i18n-title="sp.api.collection.upload_btn" title="Tải lên ảnh / video">

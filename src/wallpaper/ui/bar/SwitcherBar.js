@@ -1,6 +1,7 @@
 import { renderIcons } from "/src/core/icon.js";
 import { t } from "/src/core/i18n.js";
 import { showConfirm } from "/src/core/ui.js";
+import { getSettings, saveSettings } from "/src/core/storageHandler.js";
 import { resolveCardMeta } from "../../sources/cardMeta.js";
 import { createWallhavenSettingsPopover } from "../popover/WallhavenSettingsPopover.js";
 import { createCollectionSettingsPopover } from "../popover/CollectionSettingsPopover.js";
@@ -31,8 +32,10 @@ export class SwitcherBar {
         this.dataControl = dataControl;
         this.switcher = switcher;
 
+        this.tabsWrapper = container.querySelector("#wallpaper_source_tabs_wrapper");
         this.tabsContainer = container.querySelector("#wallpaper_source_tabs");
         this.counterEl = container.querySelector("#wallpaper_switcher_counter");
+        this.loaderEl = container.querySelector("#wallpaper_switcher_loader");
         this.metaInfoEl = container.querySelector("#wallpaper_switcher_meta_info");
         this.actionsContainer = container.querySelector("#wallpaper_switcher_actions");
         this.fetchBtn = container.querySelector("#wallpaper_fetch_btn");
@@ -87,10 +90,12 @@ export class SwitcherBar {
         this.fetchBtn?.addEventListener("click", async () => {
             if (this.isDataBusy()) return;
             this.fetchBtn.classList.add("is-loading");
+            this.syncLoader();
             try {
                 await this.dataControl.requestMore();
             } finally {
                 this.fetchBtn.classList.remove("is-loading");
+                this.syncLoader();
             }
         });
 
@@ -168,6 +173,7 @@ export class SwitcherBar {
     syncState(state) {
         this.setBusy(state.isBusy || state.status !== "idle");
         this.syncCounter(state);
+        this.syncLoader(state);
         this.syncMetaInfo(state.softCard || state.activeCard);
         this.syncActiveTab(state.sourceId);
         this.syncRightSlot(state.sourceId);
@@ -208,7 +214,27 @@ export class SwitcherBar {
             this.tabButtons.set(source.id, btn);
         });
 
+        this.syncCompactTabsWidth();
         renderIcons(this.tabsContainer);
+    }
+
+    /**
+     * Đồng bộ footprint chiều rộng của wrapper ở trạng thái thu gọn,
+     * giúp các element kế bên (counter, loader) không bị dịch chuyển khi hover mở rộng.
+     */
+    syncCompactTabsWidth() {
+        if (!this.tabsWrapper || !this.tabsContainer) return;
+
+        requestAnimationFrame(() => {
+            const activeTab = this.tabsContainer.querySelector(".wallpaper_source_tab.active");
+            if (activeTab) {
+                const activeRect = activeTab.getBoundingClientRect();
+                const activeW = activeRect.width || 80;
+                // Container padding: 3px left + 3px right = 6px
+                const totalW = Math.ceil(activeW + 6);
+                this.tabsWrapper.style.width = totalW + "px";
+            }
+        });
     }
 
     /**
@@ -218,6 +244,7 @@ export class SwitcherBar {
         this.tabButtons.forEach((btn, id) => {
             btn.classList.toggle("active", id === activeSourceId);
         });
+        this.syncCompactTabsWidth();
     }
 
     /**
@@ -252,6 +279,24 @@ export class SwitcherBar {
         // `state:change` bắn rất thường, mà gán `textContent` là một lần ghi DOM
         // (thay text node) — chỉ ghi khi chuỗi thật sự đổi.
         if (this.counterEl.textContent !== text) this.counterEl.textContent = text;
+    }
+
+    /* ── Loader ────────────────────────────────────────────────────────────── */
+
+    /**
+     * Đồng bộ trạng thái hiển thị của loader spinner cạnh counter.
+     * @param {Object} [state]
+     */
+    syncLoader(state = this.dataControl?.getState()) {
+        if (!this.loaderEl) return;
+        const status = state?.status ?? this.dataControl?.status;
+        const isLoading =
+            status === "fetching" ||
+            status === "switching" ||
+            Boolean(this.switcher?._isSwapping);
+
+        this.loaderEl.classList.toggle("is-hidden", !isLoading);
+        this.loaderEl.setAttribute("aria-hidden", String(!isLoading));
     }
 
     /* ── Meta Info (Top Bar) ───────────────────────────────────────────────── */
@@ -311,23 +356,33 @@ export class SwitcherBar {
 
         // Kiểm tra tính khả dụng của từng action
         const context = { source, dataControl: this.dataControl, switcher: this.switcher };
-        const verdicts = await Promise.all(
-            actions.map((action) => (action.isAvailable ? action.isAvailable(card, context) : true))
+        const states = await Promise.all(
+            actions.map(async (action) => {
+                const verdict = action.isAvailable ? await action.isAvailable(card, context) : true;
+                const resolved =
+                    verdict === false || !action.resolveState
+                        ? null
+                        : await action.resolveState(card, context);
+                return { verdict, resolved };
+            })
         );
 
         if (token !== this._token) return;
 
         this.actionsContainer.innerHTML = "";
         actions.forEach((action, index) => {
-            const verdict = verdicts[index];
+            const { verdict, resolved } = states[index];
             if (verdict === false) return;
 
             const btn = document.createElement("button");
             btn.type = "button";
             btn.className = "btn wallpaper_action";
             if (action.danger) btn.setAttribute("data-variant", "danger");
-            btn.innerHTML = `<i data-icon="${action.icon}"></i><span></span>`;
-            const label = t(action.labelKey, action.fallback);
+            btn.innerHTML = `<i data-icon="${resolved?.icon ?? action.icon}"></i><span></span>`;
+            const label = t(
+                resolved?.labelKey ?? action.labelKey,
+                resolved?.fallback ?? action.fallback
+            );
             btn.querySelector("span").textContent = label;
             btn.dataset.actionTitle = label;
 
@@ -525,6 +580,8 @@ export class SwitcherBar {
     setBusy(busy) {
         this._isBusy = Boolean(busy);
         const dataBusy = this.isDataBusy();
+
+        this.syncLoader();
 
         if (this.fetchBtn) {
             const isFetching = this.dataControl?.status === "fetching";

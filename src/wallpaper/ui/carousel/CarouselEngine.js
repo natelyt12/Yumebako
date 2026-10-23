@@ -39,7 +39,7 @@ import {
   resolveDragTarget,
   splitVirtualIndex,
 } from "./physics.js";
-import { escapeHtml, resolveImageUrl } from "./items.js";
+import { resolveImageUrl } from "./items.js";
 
 /**
  * Ngưỡng gom delta chuột để tính là một bậc cuộn.
@@ -172,6 +172,7 @@ export class CarouselEngine {
     this._softListeners = new Set();
     this._hardListeners = new Set();
     this._stateListeners = new Set();
+    this._suppressHardSelect = false;
 
     this._applyAccentBg();
     this._bindInput();
@@ -241,38 +242,43 @@ export class CarouselEngine {
    * @param {Array<Object>} items
    * @param {number} [index=0]
    * @param {Object} [options]
-   * @param {boolean} [options.animate=false] - Chạy hiệu ứng thẻ vào slot cho toàn bộ dải.
+   * @param {boolean} [options.silent=false] - Không phát hard-select cho lần dựng lại này.
    */
-  setItems(items, index = 0, { animate = false } = {}) {
-    this._cancelAnimation();
-    this._setSettled(true);
-    this._anim = null;
-    this._drag = null;
-    // Dải sắp được dựng lại từ đầu: bỏ layout cũ để không dùng nhầm nó làm điểm xuất phát.
-    this._liveLayout = null;
+  setItems(items, index = 0, { silent = false } = {}) {
+    const wasSuppressingHardSelect = this._suppressHardSelect;
+    this._suppressHardSelect ||= silent;
 
-    this.items = Array.isArray(items) ? [...items] : [];
-    const valid = this._clamp(Number(index) || 0);
-    this.hardIndex = valid;
-    this.softIndex = valid;
-    this.continuousIndex = valid;
+    try {
+      this._cancelAnimation();
+      this._setSettled(true);
+      this._anim = null;
+      this._drag = null;
+      // Dải sắp được dựng lại từ đầu: bỏ layout cũ để không dùng nhầm nó làm điểm xuất phát.
+      this._liveLayout = null;
 
-    this._renderAll();
-    this._recenterLayout();
+      this.items = this._uniqueItems(items);
+      const valid = this._clamp(Number(index) || 0);
+      this.hardIndex = valid;
+      this.softIndex = valid;
+      this.continuousIndex = valid;
 
-    if (this.count === 0) {
-      this.viewfinder?.classList.add("is-hidden");
-      this.container?.classList.add("is-empty");
-    } else {
-      this.viewfinder?.classList.remove("is-hidden");
-      this.container?.classList.remove("is-empty");
+      this._renderAll();
+      this._recenterLayout();
+
+      if (this.count === 0) {
+        this.viewfinder?.classList.add("is-hidden");
+        this.container?.classList.add("is-empty");
+      } else {
+        this.viewfinder?.classList.remove("is-hidden");
+        this.container?.classList.remove("is-empty");
+      }
+
+      if (silent) this._notifyState();
+      else this._notifyHard();
+      return this;
+    } finally {
+      this._suppressHardSelect = wasSuppressingHardSelect;
     }
-
-    // Only trigger full row entrance animation when explicitly requested (e.g. initial seed)
-    if (animate) this.triggerEnterAnimation("all");
-
-    this._notifyHard();
-    return this;
   }
 
   /** Gán lại ảnh cho một thẻ — dùng khi thumbnail cũ hỏng và được dựng lại. */
@@ -283,8 +289,6 @@ export class CarouselEngine {
     cardEl._isImageLoaded = true;
     const bg = cardEl._cachedNodes?.bg || cardEl.querySelector('.card-bg');
     if (bg) bg.style.backgroundImage = 'url(\x27' + url + '\x27)';
-
-
   }
 
   /* ── Điều hướng ────────────────────────────────────────────────────────── */
@@ -312,12 +316,21 @@ export class CarouselEngine {
   }
 
   /** Bỏ mọi chuyển động đang chạy và đứng ngay tại thẻ đã chốt. */
-  stop() {
+  stop({ immediate = false } = {}) {
     this._cancelAnimation();
     this._anim = null;
-    this.continuousIndex = this.hardIndex;
-    this._recenterLayout();
+    this._drag = null;
     this._setSettled(true);
+    if (immediate) {
+      this.resetToHard();
+    }
+  }
+
+  /** Đặt lại dải về đúng vị trí thẻ đã chốt (hardIndex). */
+  resetToHard() {
+    this.continuousIndex = this.hardIndex;
+    this.softIndex = this.hardIndex;
+    this._recenterLayout();
   }
 
   /** Đo lại tâm rồi đặt lại layout tại vị trí đang chốt (dùng khi resize). */
@@ -357,12 +370,16 @@ export class CarouselEngine {
     this._drag = null;
     this._liveLayout = null;
 
-    const next = Array.isArray(items) ? [...items] : [];
-    const wanted = new Set(next.map((item) => item.id));
+    const next = this._uniqueItems(items);
+    const wanted = new Set(next.map((item, i) => this._cardKey(item, i)));
 
     // Thẻ bị xoá thường đã tự rời DOM ở pha thu cột; những thẻ bị cắt khỏi danh
     // sách vì lý do khác (cửa sổ dài quá giới hạn) thì được gỡ ở đây.
-    this.els.forEach((el) => {
+    //
+    // Duyệt toàn bộ track chứ không chỉ `this.els`: một node lỡ nằm ngoài mảng
+    // (lần đồng bộ trước lệch) sẽ không bao giờ được gỡ nếu chỉ duyệt `els` —
+    // nó nằm lại dải mãi như một cái thẻ ma, không layout nào ghi tới nữa.
+    this._collectEls().forEach((el) => {
       if (!wanted.has(el.dataset.id)) el.remove();
     });
 
@@ -373,7 +390,7 @@ export class CarouselEngine {
 
     const fresh = [];
     const ordered = next.map((item, i) => {
-      const known = existing.get(item.id);
+      const known = existing.get(this._cardKey(item, i));
       if (known) {
         known.dataset.index = i + 1;
         const newUrl = resolveImageUrl(item);
@@ -433,12 +450,14 @@ export class CarouselEngine {
   setActive(isActive) {
     this.isActive = Boolean(isActive);
     if (!this.isActive) {
-      this._endDrag();
-      this._cancelAnimation();
-      // Bỏ lò xo đang chạy: để lại thì cú lướt sau thừa hưởng vận tốc của một
-      // chuyển động vừa bị huỷ.
-      this._anim = null;
-      this._setSettled(true);
+      if (this._drag) {
+        this._endDrag();
+      } else if (
+        !this._anim &&
+        Math.abs(this.continuousIndex - this.hardIndex) > SPRING_POS_EPS
+      ) {
+        this.scrollToCard(this._clamp(Math.round(this.continuousIndex)));
+      }
     }
   }
 
@@ -504,6 +523,7 @@ export class CarouselEngine {
     if (frame) animateUnpinDrop(frame, () => this._collapseDeleted(index));
     else this._collapseDeleted(index);
 
+
     // Bên gọi (adapter của store) cần biết lúc nào thẻ đã thực sự rời danh sách
     // để đồng bộ lại cửa sổ dữ liệu.
     return settled;
@@ -560,11 +580,10 @@ export class CarouselEngine {
   /* ── Hiệu ứng ──────────────────────────────────────────────────────────── */
 
   /**
-   * Hiệu ứng "thẻ vào slot": zoom nhẹ + fade, dùng được cho một thẻ, nhiều thẻ
-   * hay toàn bộ dải. Độ mờ đích lấy từ chính style hiện tại của khung, nên hiệu
-   * ứng không phá độ mờ mà layout đã tính theo khoảng cách tới tâm.
+   * Hiệu ứng "thẻ vào slot": zoom nhẹ + fade, tách opacity animation khỏi
+   * `.card-frame` để layout tiếp tục cập nhật độ mờ theo khoảng cách tới tâm.
    *
-   * @param {number|HTMLElement|HTMLElement[]|"all"} [target=thẻ đang chốt]
+   * @param {number|HTMLElement|HTMLElement[]} [target=thẻ đang chốt]
    */
   triggerEnterAnimation(target) {
     let targets = [];
@@ -572,8 +591,6 @@ export class CarouselEngine {
       if (this.els[this.hardIndex]) targets = [this.els[this.hardIndex]];
     } else if (typeof target === "number") {
       if (this.els[target]) targets = [this.els[target]];
-    } else if (target === "all") {
-      targets = [...this.els];
     } else if (target instanceof HTMLElement) {
       targets = [target];
     } else if (Array.isArray(target)) {
@@ -581,15 +598,11 @@ export class CarouselEngine {
     }
 
     targets.forEach((cardEl) => {
-      const frame = cardEl.querySelector?.(".card-frame") || cardEl;
-      if (!frame) return;
+      const content = cardEl.querySelector?.(".card-content");
+      if (!content) return;
 
-      const targetOpacity =
-        frame.style.opacity || getComputedStyle(frame).opacity || "1";
-      frame.style.setProperty("--slot-target-opacity", targetOpacity);
-      this._restartAnimation(frame, "card-enter-slot", {
+      this._restartAnimation(content, "card-enter-slot", {
         durationVar: "--slot-enter-duration",
-        onEnd: () => frame.style.removeProperty("--slot-target-opacity"),
       });
     });
   }
@@ -843,6 +856,9 @@ export class CarouselEngine {
     // còn lại nhận đúng chỗ của chúng trong danh sách tương lai.
     const widths = new Array(this.count);
     const lefts = new Array(this.count);
+    // DOM indexes remain uncompressed until the collapse ends; track each
+    // surviving card's eventual index so its opacity follows its visual slot.
+    const opacityIndices = new Array(this.count);
     let futureIdx = 0;
     for (let i = 0; i < this.count; i += 1) {
       if (i === index) {
@@ -850,9 +866,11 @@ export class CarouselEngine {
         // trượt sang trái thay vì nhảy.
         widths[i] = 0;
         lefts[i] = start.lefts[i];
+        opacityIndices[i] = nextActive;
       } else {
         widths[i] = future.widths[futureIdx];
         lefts[i] = future.lefts[futureIdx];
+        opacityIndices[i] = futureIdx;
         futureIdx += 1;
       }
     }
@@ -861,6 +879,7 @@ export class CarouselEngine {
       lefts,
       count: this.count,
       centerIndex: nextActive,
+      opacityIndices,
     };
 
     let startTime = 0;
@@ -878,7 +897,7 @@ export class CarouselEngine {
 
       this.hardIndex = this._clamp(nextActive);
       this.softIndex = this.hardIndex;
-      this.continuousIndex = this.hardIndex;
+    this.continuousIndex = this.hardIndex;
 
       this.isDeleting = false;
       this._recenterLayout();
@@ -951,6 +970,52 @@ export class CarouselEngine {
   }
 
   /**
+   * Khoá định danh của một thẻ — cũng là `dataset.id` của node trong DOM.
+   *
+   * `dataset` luôn là chuỗi, nên id dạng số và dạng chuỗi của cùng một bản ghi
+   * phải quy về cùng một khoá; lệch kiểu thì mỗi lần đồng bộ lại gỡ rồi dựng
+   * lại thẻ, ảnh đã tải mất theo. Thẻ không có id dùng vị trí, và tiền tố `#`
+   * để không đụng id thật nào trùng với số thứ tự.
+   *
+   * @param {Object} item
+   * @param {number} [index] - Vị trí dùng làm khoá dự phòng; bỏ trống thì trả `null`.
+   * @returns {string|null}
+   */
+  _cardKey(item, index = -1) {
+    const id = item?.id;
+    if (id !== undefined && id !== null && id !== "") return String(id);
+    return index >= 0 ? `#${index}` : null;
+  }
+
+  /**
+   * Bỏ các thẻ trùng khoá, giữ bản xuất hiện đầu tiên.
+   *
+   * Động cơ đối chiếu thẻ theo khoá, nên hai bản ghi cùng khoá sẽ cùng trỏ về
+   * một element DOM: một slot mất ảnh, element bị ghi layout hai lần và bản còn
+   * lại trong track thành thẻ ma. Nguồn ảnh remote có thể trả lại ảnh đã có
+   * (Wallhaven xếp random trả lại đúng bức cũ khi bộ lọc cạn ảnh), nên chặn ở
+   * đây là chốt cuối cùng trước khi dải bị vỡ.
+   *
+   * @param {Array<Object>} items
+   * @returns {Array<Object>}
+   */
+  _uniqueItems(items) {
+    if (!Array.isArray(items)) return [];
+
+    const seen = new Set();
+    const unique = [];
+    for (const item of items) {
+      const key = this._cardKey(item);
+      if (key !== null) {
+        if (seen.has(key)) continue;
+        seen.add(key);
+      }
+      unique.push(item);
+    }
+    return unique;
+  }
+
+  /**
    * Dựng DOM cho một thẻ ảnh: `.card-bg` (ảnh nền) + `.carousel-overlay` (meta).
    *
    * Thẻ ra đời ở trạng thái tĩnh: hiệu ứng "vào slot" do `triggerEnterAnimation`
@@ -961,7 +1026,7 @@ export class CarouselEngine {
     const card = document.createElement("div");
     card.className = "carousel-item mode-1";
     card.dataset.index = index + 1;
-    card.dataset.id = item.id ?? index + 1;
+    card.dataset.id = this._cardKey(item, index);
     card.dataset.mode = "1";
 
     const url = resolveImageUrl(item);
@@ -974,8 +1039,10 @@ export class CarouselEngine {
 
     card.innerHTML = `
       <div class="card-frame">
-        ${this._imageFrameHtml(item, index, { animate: false })}
-        ${this._overlayHtml(item)}
+        <div class="card-content">
+          ${this._imageFrameHtml()}
+          ${this._overlayHtml()}
+        </div>
       </div>
     `;
 
@@ -988,12 +1055,9 @@ export class CarouselEngine {
     return card;
   }
 
-  /** Lớp ảnh của thẻ. `animate` bật hiệu ứng zoom khi ảnh vừa được thay. */
-  _imageFrameHtml(item, index, { animate = false } = {}) {
-    const url = escapeHtml(resolveImageUrl(item));
-    return `
-          <div class="card-bg${animate ? " card-fade-in" : ""}" ></div>
-        `;
+  /** Lớp ảnh của thẻ; animation được kích hoạt sau khi node đã vào DOM. */
+  _imageFrameHtml() {
+    return `<div class="card-bg"></div>`;
   }
 
   /**
@@ -1101,6 +1165,7 @@ export class CarouselEngine {
   }
 
   _notifyHard() {
+    if (this._suppressHardSelect) return;
     const item = this.items[this.hardIndex] || null;
     this._hardListeners.forEach((callback) =>
       callback(this.hardIndex, this.els[this.hardIndex], item),

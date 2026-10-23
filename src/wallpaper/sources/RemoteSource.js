@@ -4,18 +4,29 @@ import { getFromStore, saveToStore } from "/src/core/db.js";
 import { getSettings } from "/src/core/storageHandler.js";
 import { wallpaperRenderer } from "/src/wallpaper/core/renderer.js";
 import { generateImageThumbnail } from "/src/core/utils/thumbnailGenerator.js";
+import { NetworkError, isNetworkError } from "/src/wallpaper/core/errors.js";
 import { t } from "/src/core/i18n.js";
 
-/** Resolve once the browser has the image decoded and ready to paint. */
+/**
+ * Resolve once the browser has the image decoded (and ready to paint), or
+ * `false` when it never arrived — offline, DNS, a 404, a dead blob URL.
+ *
+ * `decode()` rejects on failure; a `background-image` (which is how the cards
+ * paint) fires no event at all, so this is the only way to tell "loading" from
+ * "broken" before handing the item to the carousel.
+ *
+ * @param {string} url
+ * @returns {Promise<boolean>}
+ */
 function preloadImage(url) {
   return new Promise((resolve) => {
     const img = new Image();
     img.src = url;
     if (typeof img.decode === "function") {
-      img.decode().then(resolve).catch(resolve);
+      img.decode().then(() => resolve(true)).catch(() => resolve(false));
     } else {
-      img.onload = resolve;
-      img.onerror = resolve;
+      img.onload = () => resolve(true);
+      img.onerror = () => resolve(false);
     }
   });
 }
@@ -159,9 +170,19 @@ export class RemoteSource extends BaseSource {
    * 1. Kiểm tra / Tải ảnh gốc -> lưu vào mediaData (`media:orig:${id}`)
    * 2. Tự tạo thumbnail 16:9 -> lưu vào mediaData (`media:thumb:${id}`)
    * 3. Gán blob URL vào item.thumbnailUrl
+   *
+   * Ném lỗi khi thẻ không còn ảnh nào vẽ được (mất mạng, ảnh gốc 404): thà báo
+   * cho người dùng biết còn hơn trả về một thẻ chỉ hiện ra như khung rỗng.
+   *
+   * @throws {import("../core/errors.js").NetworkError|Error}
    */
   async processSinglePhasePipeline(item) {
     if (!item?.id) return;
+
+    /** Ảnh của thẻ đã nằm trên máy (blob trong RAM/DB) hay chỉ có URL mạng. */
+    let hasLocalMedia = false;
+    /** Lỗi của bước tải ảnh gốc, để phân biệt mất mạng với ảnh hỏng/404. */
+    let pipelineError = null;
 
     try {
       // 1. Lấy hoặc tải ảnh gốc
@@ -191,17 +212,27 @@ export class RemoteSource extends BaseSource {
         const displayBlob = thumbBlob instanceof Blob ? thumbBlob : origBlob;
         const thumbUrl = this._createObjectUrl(displayBlob);
         if (thumbUrl) {
+          hasLocalMedia = true;
           item.thumbnailUrl = thumbUrl;
           this.thumbCache.set(item.id, thumbUrl);
         }
       }
     } catch (err) {
+      pipelineError = err;
       console.warn(`[RemoteSource] Single-Phase Pipeline warning for [${item.id}]:`, err);
       // Giữ nguyên thumbnailUrl dự phòng của item nếu có lỗi tải mạng
     }
 
     if (item.thumbnailUrl) {
-      await preloadImage(item.thumbnailUrl).catch(() => {});
+      const reachable = await preloadImage(item.thumbnailUrl);
+
+      // Không có ảnh trên máy, URL dự phòng của nguồn cũng không vẽ được: thẻ
+      // này chỉ có thể hiện ra như một khung rỗng. Ném lỗi để nơi gọi báo cho
+      // người dùng, còn hơn thêm một khung trắng vào dải.
+      if (!reachable && !hasLocalMedia) {
+        if (pipelineError && !isNetworkError(pipelineError)) throw pipelineError;
+        throw new NetworkError(pipelineError);
+      }
     }
   }
 

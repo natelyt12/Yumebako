@@ -10,6 +10,7 @@ import { createSources } from "../sources/index.js";
 import { SwitcherBar } from "../ui/bar/SwitcherBar.js";
 import { CarouselEngine } from "../ui/carousel/CarouselEngine.js";
 import { dataControl } from "./DataControl.js";
+import { describeFetchError } from "./errors.js";
 
 import switcherHtml from "../ui/switcher.html?raw";
 import "../ui/switcher.css";
@@ -39,15 +40,8 @@ const CAROUSEL_DURATION = 600;
 export class WallpaperSwitcher {
   constructor() {
     this.isOpen = false;
-    this._isInitialized = false;
     /** True while a source swap animation is in flight. */
     this._isSwapping = false;
-    /**
-     * True while the orchestrator itself is redrawing the carousel. A settle
-     * raised in that window is bookkeeping, not a user choice, so it must not
-     * reach the desktop.
-     */
-    this._silentRender = false;
     this._pendingSourceId = null;
 
     // Source adapters (Collection, Wallhaven, Unsplash, Picre...) — see ./sources/registry.js
@@ -91,9 +85,12 @@ export class WallpaperSwitcher {
     });
 
     this.carousel.onStateChange((state) => {
-      const isBusy = this._isSwapping || state.status === "deleting" || dataControl.isBusy || dataControl.status !== "idle";
-      this.bar?.setBusy(isBusy);
-      if (state.status === "moving" || state.status === "deleting" || !state.isSettled) {
+      // Khi dải đang lướt, đang xóa hoặc chưa settle: ẩn ngay cụm action (Master Visibility)
+      if (
+        state.status === "moving" ||
+        state.status === "deleting" ||
+        !state.isSettled
+      ) {
         this.bar?.hideActions();
       }
     });
@@ -107,7 +104,8 @@ export class WallpaperSwitcher {
 
     this.bindEvents();
 
-    const initialSourceId = dataControl.activeSourceId || this.resolveInitialSourceId();
+    const initialSourceId =
+      dataControl.activeSourceId || this.resolveInitialSourceId();
     this.activeSourceId = initialSourceId;
     if (!dataControl.activeSourceId) {
       dataControl.activeSourceId = initialSourceId;
@@ -127,13 +125,21 @@ export class WallpaperSwitcher {
       const engineItems = this._toEngineItems();
 
       const previousCount = (allCards?.length || 0) - (addedCards?.length || 0);
-      const isAtLast = previousCount > 0 && (dataControl.currentIndex === previousCount - 1 || this.carousel.hardIndex === previousCount - 1);
+      const isAtLast =
+        previousCount > 0 &&
+        (dataControl.currentIndex === previousCount - 1 ||
+          this.carousel.hardIndex === previousCount - 1);
 
-      this.carousel.syncItems(engineItems, dataControl.currentIndex, { silent: true });
+      this.carousel.syncItems(engineItems, dataControl.currentIndex, {
+        silent: true,
+      });
       this.bar?.syncCounter();
 
       // When adding cards to an empty source, auto-select the first card and sync empty state
-      const wasEmpty = Array.isArray(allCards) && Array.isArray(addedCards) && allCards.length === addedCards.length;
+      const wasEmpty =
+        Array.isArray(allCards) &&
+        Array.isArray(addedCards) &&
+        allCards.length === addedCards.length;
       if (wasEmpty && allCards.length > 0) {
         dataControl.setHardIndex(0);
         this.carousel?.scrollToCard(0);
@@ -147,6 +153,13 @@ export class WallpaperSwitcher {
       } else {
         this.syncEmptyState(false);
       }
+    });
+
+    dataControl.on("card:pruned", ({ total }) => {
+      showNotification(
+        t("wallpaper_switcher.pruned_notice", { count: total }),
+        "info",
+      );
     });
 
     dataControl.on("feed:limit_reached", ({ cap }) => {
@@ -163,7 +176,6 @@ export class WallpaperSwitcher {
     });
 
     this.renderFromDataControl();
-    this._isInitialized = true;
 
     renderIcons(this.container);
     translateDOM(this.container);
@@ -188,7 +200,15 @@ export class WallpaperSwitcher {
     );
   }
 
+  /** Source the user most recently requested, including a queued switch. */
+  get requestedSourceId() {
+    return this._pendingSourceId || this.activeSourceId;
+  }
 
+  /** True while the carousel is fading/loading a different source. */
+  get isSourceTransitioning() {
+    return this._isSwapping;
+  }
 
   /** Sources the user can actually browse right now (see `BaseSource.isAvailable`). */
   get availableSources() {
@@ -197,12 +217,12 @@ export class WallpaperSwitcher {
 
   /**
    * The tab to open on: the source that owns the current desktop wallpaper,
-   * so the carousel opens with that exact image selected. Wallhaven is the
+   * so the carousel opens with that exact image selected. Bing is the
    * fallback, matching the default `wallpaperConfig.source`.
    */
   resolveInitialSourceId() {
     const available = this.availableSources;
-    const applied = getSettings().wallpaperConfig?.source || "wallhaven";
+    const applied = getSettings().wallpaperConfig?.source || "bing";
     const stored = getSettings().wallpaperSwitcher?.activeSource;
 
     if (available.some((source) => source.id === applied)) return applied;
@@ -215,15 +235,13 @@ export class WallpaperSwitcher {
    * @param {boolean} [animate=false] - Whether to play the card-enter-slot animation.
    *   Pass true to play the card-enter-slot animation.
    */
-  renderFromDataControl(animate = true) {
+  renderFromDataControl(animate = false) {
     if (!this.carousel) return;
 
-    this._silentRender = true;
-    try {
-      this.carousel.setItems(this._toEngineItems(), dataControl.currentIndex, { animate });
-    } finally {
-      this._silentRender = false;
-    }
+    this.carousel.setItems(this._toEngineItems(), dataControl.currentIndex, {
+      animate,
+      silent: true,
+    });
 
     this.syncEmptyState((dataControl.items || []).length === 0);
   }
@@ -242,7 +260,6 @@ export class WallpaperSwitcher {
       card: item,
     }));
   }
-
 
   /**
    * Cập nhật trạng thái hiển thị empty state mượt mà (fade in / out).
@@ -288,31 +305,50 @@ export class WallpaperSwitcher {
         error,
       );
       showNotification(
-        error?.message || t("sp.api.error", { provider: source.name }),
+        describeFetchError(error, t) ||
+          t("sp.api.error", { provider: source.name }),
         "error",
       );
     }
 
-    if (source.id === "collection") this.syncWallpapersStorage(dataControl.items);
+    if (source.id === "collection")
+      this.syncWallpapersStorage(dataControl.items);
   }
 
   /**
    * Bar's right-hand button: ask the current source for items.
    */
   async requestUpload() {
-    await dataControl.requestMore();
+    await dataControl.requestMore({
+      onPruneActive: async () => {
+        this.bar?.hideActions();
+        if (this.carousel) {
+          await this.carousel.deleteActiveCard();
+        }
+      },
+    });
   }
 
   /**
    * The carousel came to rest: apply the centered wallpaper to the desktop.
    */
   async handleHardSelect(index, item) {
-    if (this._silentRender || this._isSwapping || dataControl.status === "deleting" || this.carousel?.isDeleting) return;
+    if (
+      this._isSwapping ||
+      dataControl.status === "deleting" ||
+      this.carousel?.isDeleting
+    )
+      return;
     // Xóa thẻ chạy carousel trước rồi store sau, nên giữa hai bước mảng `items`
     // của store còn giữ bản ghi cũ: một lượt chốt lệch thẻ là chốt của pha dọn
     // dẹp, không phải lựa chọn của người dùng. Bỏ qua ở đây — SwitcherBar chốt
     // lại thẻ kế cận sau khi store xóa xong.
-    if (item ? dataControl.items[index]?.id !== item.id : dataControl.items.length > 0) return;
+    if (
+      item
+        ? dataControl.items[index]?.id !== item.id
+        : dataControl.items.length > 0
+    )
+      return;
     dataControl.setHardIndex(index);
   }
 
@@ -377,10 +413,18 @@ export class WallpaperSwitcher {
 
     this._isSwapping = true;
     this.bar?.setBusy(true);
+    this.bar?.hideActions();
 
+    const FADE_DURATION_MS = 200;
     const startTime = Date.now();
 
+    // Fade out carousel wrapper before swapping content
+    this.carouselEl.classList.add("is-swapping");
+
     try {
+      // Wait for fadeout animation to complete
+      await new Promise((r) => setTimeout(r, FADE_DURATION_MS));
+
       await this.loadSource(sourceId);
 
       // Neu trong luc load nguon nay ma user da click chon nguon khac (pending)
@@ -407,17 +451,25 @@ export class WallpaperSwitcher {
       if (elapsed < 400) {
         await new Promise((r) => setTimeout(r, 400 - elapsed));
       }
+
+      const hasNext =
+        this._pendingSourceId && this._pendingSourceId !== this.activeSourceId;
+
+      if (!hasNext) {
+        // Fade in new source content
+        this.carouselEl.classList.remove("is-swapping");
+      }
+
       this._isSwapping = false;
       this.bar?.setBusy(false);
 
-      if (this._pendingSourceId && this._pendingSourceId !== this.activeSourceId) {
+      if (hasNext) {
         const nextSourceId = this._pendingSourceId;
         this._pendingSourceId = null;
         this.selectSource(nextSourceId);
       }
     }
   }
-
 
   /**
    * Synchronize collection items with the per-wallpaper profiles stored in LocalStorage.
@@ -458,14 +510,18 @@ export class WallpaperSwitcher {
     });
 
     // Close button click
-    const closeBtn = this.container.querySelector("#wallpaper_switcher_close_btn");
+    const closeBtn = this.container.querySelector(
+      "#wallpaper_switcher_close_btn",
+    );
     closeBtn?.addEventListener("click", (e) => {
       e.stopPropagation();
       this.close();
     });
 
     // Settings button click (opens settings panel)
-    const settingsBtn = this.container.querySelector("#wallpaper_switcher_settings_btn");
+    const settingsBtn = this.container.querySelector(
+      "#wallpaper_switcher_settings_btn",
+    );
     settingsBtn?.addEventListener("click", (e) => {
       e.stopPropagation();
       this.close();
@@ -567,6 +623,7 @@ export class WallpaperSwitcher {
     this.bar?.hideActions();
 
     this._pendingSourceId = null;
+    this.carouselEl?.classList.remove("is-swapping");
 
     // Restore action buttons
     const actionButtons = document.getElementById("action_buttons");
@@ -578,7 +635,6 @@ export class WallpaperSwitcher {
       actionButtons?.classList.remove("toggle_hidden");
     }
 
-    this.carousel?.stop();
     // Input is gated on the engine being active: while the switcher is hidden,
     // wheel and drag events must not reach it at all.
     this.carousel?.setActive(false);

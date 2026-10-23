@@ -6,7 +6,7 @@ import { initDate, initClock } from "/src/core/time.js";
 
 /**
  * @typedef {Object} WallpaperConfig
- * @property {string}      source              - Active source id (e.g. "picre", "collection").
+ * @property {string}      source              - Active source id (e.g. "bing", "collection").
  * @property {string|null} activeWallpaperId   - Id of the currently applied wallpaper card.
  * @property {string|null} [activeCollectionItemId] - Id within the collection source (when source === "collection").
  * @property {number}      brightness          - CSS filter: brightness multiplier (1 = normal).
@@ -184,7 +184,7 @@ const defaultSettings = {
   // WALLPAPER & EFFECTS (Aesthetics)
   // ==========================================
   wallpaperConfig: {
-    source: "picre",
+    source: "bing",
     activeWallpaperId: null,
     brightness: 1,
     blur: 0,
@@ -197,7 +197,7 @@ const defaultSettings = {
   // The tab actually opened is the one owning the current desktop wallpaper.
   // See src/wallpaper/sources/registry.js for tab resolution logic.
   wallpaperSwitcher: {
-    activeSource: "picre",
+    activeSource: "bing",
     sourceIndices: {},
   },
   wallpaperPosition: { x: 50, y: 50, zoom: 1, mode: "cover" },
@@ -247,7 +247,6 @@ const defaultSettings = {
     topRange: "1M",
   },
   bingConfig: {
-
     resolution: "1080p",
   },
   collectionConfig: {
@@ -491,7 +490,10 @@ export async function exportSettings(type = "all") {
 
     // Strip blob fields to keep export file size manageable.
     for (let item of filteredIdbData) {
-      if (item.key === "provider_state:wallhaven" && item.value?.applied?.blob) {
+      if (
+        item.key === "provider_state:wallhaven" &&
+        item.value?.applied?.blob
+      ) {
         delete item.value.applied.blob;
       }
       if (item.key === "provider_state:picre" && item.value?.blob) {

@@ -78,7 +78,7 @@ export function createCarouselScenario({
   }
 
   const engine = new CarouselEngine({ container, track, duration });
-  engine.setItems(makeItems(count), 0, { animate: false });
+  engine.setItems(makeItems(count), 0);
   engine.setActive(true);
 
   return {

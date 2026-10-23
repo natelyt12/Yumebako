@@ -167,7 +167,7 @@ async function rebuild() {
     const { root, container, track } = createStage();
     root.classList.toggle("force-layers", ui.forceLayers.checked);
     const engine = new CarouselEngine({ container, track, duration: 600 });
-    engine.setItems(makeItems(count, urls), 0, { animate: false });
+    engine.setItems(makeItems(count, urls), 0);
     engine.setActive(true);
     current = { root, container, track, engine, count };
 
