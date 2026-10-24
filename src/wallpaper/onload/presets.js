@@ -70,7 +70,7 @@ export class BasePreset {
             { key: "blur", group: "bg", label: t("onload_anim.blur_label"), dataI18n: "onload_anim.blur_label", min: 0, max: 30, step: 1, unit: "px", defaultValue: 0 },
             { key: "rotate", group: "bg", label: t("onload_anim.rotate_label"), dataI18n: "onload_anim.rotate_label", min: -45, max: 45, step: 1, unit: "deg", defaultValue: 0 },
             { key: "speed", group: "bg", label: t("onload_anim.speed_label"), dataI18n: "onload_anim.speed_label", min: 0.5, max: 5, step: 0.5, unit: "s", defaultValue: 1 },
-            { key: "overlay_speed", group: "overlay", label: t("onload_anim.overlay_speed_label"), dataI18n: "onload_anim.overlay_speed_label", min: 0, max: 5, step: 0.1, unit: "s", defaultValue: 0.8 },
+            { key: "overlay_speed", group: "overlay", label: t("onload_anim.overlay_speed_label"), dataI18n: "onload_anim.overlay_speed_label", min: 0, max: 5, step: 0.1, unit: "s", defaultValue: 0.4 },
         ];
     }
 
@@ -88,7 +88,7 @@ export class BasePreset {
 export class DefaultPreset extends BasePreset {
     static ID = "default";
     static LABEL_KEY = "onload_anim.default_preset";
-    static DEFAULTS = { ...SHARED_DEFAULTS, zoom: 1, rotate: 0, blur: 0, speed: 1, overlay_speed: 0.8 };
+    static DEFAULTS = { ...SHARED_DEFAULTS, zoom: 1, rotate: 0, blur: 0, speed: 1, overlay_speed: 0.4 };
 }
 
 /** Default preset: a gentle zoom-in with a light blur fade. */

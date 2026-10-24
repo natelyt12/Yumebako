@@ -56,6 +56,10 @@ export class SwitcherBar {
         this._bindEvents();
         this.renderTabs();
         this.syncState(this.dataControl.getState());
+        if (this.dataControl.activeCard) {
+            this.syncMetaInfo(this.dataControl.activeCard);
+            this.renderActions(this.dataControl.activeCard);
+        }
         renderIcons(this.container);
 
         // Subscribe to DataControl events

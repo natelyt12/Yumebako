@@ -12,7 +12,7 @@ This document defines the standard four-layer architecture for Yumebako's Wallpa
 ┌──────────────────────────────────────────────────────────┐
 │  LAYER 1: UI (WallpaperSwitcher, CarouselEngine,         │
 │             SwitcherBar, CSS)                            │
-│  - Render real image cards (no virtual '+' card)         │
+│  - Render real image cards                               │
 │  - Handle drag, wheel, and keyboard gestures             │
 │  - Send Soft Select and Hard Select to Layer 2           │
 │  - Keep SwitcherBar fully reactive to Layer 2 events     │
@@ -45,6 +45,7 @@ This document defines the standard four-layer architecture for Yumebako's Wallpa
 ## 2. Layer Responsibilities and Boundaries
 
 ### Layer 1: UI (`src/wallpaper/ui/`, `src/wallpaper/core/WallpaperSwitcher.js`)
+
 - **Role:** Present the interface, 3D carousel motion (`CarouselEngine`), bottom control bar (`SwitcherBar`), and open/close coordinator (`WallpaperSwitcher`).
 - **Rules:**
   - **Do not access the database or fetch external APIs directly:** Route all image loading, deletion, and source-switching requests through `dataControl` methods (`requestMore()`, `deleteCard()`, `switchSource()`).
@@ -54,6 +55,7 @@ This document defines the standard four-layer architecture for Yumebako's Wallpa
   - When scrolling settles, `CarouselEngine` emits `onHardSelect`. Programmatic full-list renders must use `setItems(..., { silent: true })` so they do not masquerade as user selections. `WallpaperSwitcher` must check that source switching and deletion are inactive before calling `dataControl.setHardIndex(index)`.
 
 ### Layer 2: Data Control (`src/wallpaper/core/DataControl.js`)
+
 - **Role:** The centralized data coordinator and single source of truth.
 - **Rules:**
   - **Keep item arrays clean:** `dataControl.items` and the `carousel:${sourceId}` key in IndexedDB (`appData`) contain only real wallpaper card data (`CardItem`), and every `id` appears **at most once**.
@@ -80,6 +82,7 @@ This document defines the standard four-layer architecture for Yumebako's Wallpa
     - `error`: Emitted when seeding, `fetchMore`, `deleteCard`, or `clearSourceHistory` fails.
 
 ### Layer 3: Source Adapters (`src/wallpaper/sources/`)
+
 - **Role:** Provide wallpaper data from the local collection (`CollectionSource`) or online APIs (`RemoteSource` -> `PicreSource`, `WallhavenSource`, `UnsplashSource`), along with display metadata (`cardMeta.js`) and action definitions (`sourceActions.js`).
 - **Single-phase pipeline (`RemoteSource.js`):**
   - When fetching a remote image (`fetchNext`): retrieve metadata (`fetchItem`) -> download the original image exactly once -> store it in the IndexedDB `mediaData` store (`media:orig:${id}`) -> generate a 16:9 thumbnail using Canvas (`generateImageThumbnail`) -> store it in `mediaData` (`media:thumb:${id}`) -> create an Object URL and cache it in `thumbCache`.
@@ -88,6 +91,7 @@ This document defines the standard four-layer architecture for Yumebako's Wallpa
   - Layer 3 is fully headless: it returns plain `CardItem` objects and manages that source's `URL.createObjectURL` / `URL.revokeObjectURL` lifecycle. It must not manipulate the Carousel or SwitcherBar DOM.
 
 ### Layer 4: Desktop Renderer and Visual Pipeline (`src/wallpaper/core/renderer.js` and effect modules)
+
 - **Role:** Render the wallpaper and visual effect layers on the desktop.
 - **Module boundaries:**
   - **`core/renderer.js` (`wallpaperRenderer`):** Listens to `dataControl.on("card:hard", ...)` and calls `source.apply(card, { firstRun })`. Manages smooth transitions through the `.overlay` layer (`_fadeToOverlay`), assigns `blob:` URLs to `.image` / `.video`, revokes old Object URLs, and triggers `applyOnloadAnimation()` on the first run (`firstRun`). It must not store settings state or control Layer 1 or Layer 2.
@@ -98,6 +102,7 @@ This document defines the standard four-layer architecture for Yumebako's Wallpa
 ---
 
 ## 3. Anti-Patterns
+
 1. **STRICTLY FORBIDDEN:** Reintroducing `SwitcherStore.js`, `ProviderManager`, or any fragmented store. All Switcher state belongs in `DataControl.js`.
 2. **STRICTLY FORBIDDEN:** Adding action cards or virtual UI cards to the database or `dataControl.items`.
 3. **STRICTLY FORBIDDEN:** Storing `blob:...` URLs directly in IndexedDB (`carousel:${sourceId}`), because Object URLs become invalid after a page reload.

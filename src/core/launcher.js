@@ -61,27 +61,28 @@ export async function start() {
   initButtons();
   renderIcons();
 
-  // 2. Load core components (i18n and widgets)
-  const i18nPromise = initI18n();
-
-  if (immediate) {
-    await Promise.all([i18nPromise, initWidget()]);
-  } else {
-    await i18nPromise;
-    document.addEventListener(
-      "onload-animation-complete",
-      () => {
-        initWidget();
-      },
-      { once: true },
-    );
-  }
-
-  // 3. Khởi tạo DataControl trước để nạp dữ liệu sạch (Tầng 2 -> Tầng 3 -> IndexedDB)
+  // 2. Kh?i t?o DataControl tr??c (T?ng 2 -> T?ng 3 -> T?ng 4) ?? render Desktop Wallpaper ngay
   window.dataControl = dataControl;
-  await dataControl.init();
+  const dataControlPromise = dataControl.init();
 
-  // 4. Khởi tạo Wallpaper Switcher (Tầng 1) và áp dụng hình nền ban đầu (Tầng 4)
+  // 3. Load core components (i18n v? widgets) ch?y song song
+  const i18nPromise = initI18n();
+  const widgetPromise = immediate
+    ? Promise.all([i18nPromise, initWidget()])
+    : i18nPromise.then(() => {
+        document.addEventListener(
+          "onload-animation-complete",
+          () => {
+            initWidget();
+          },
+          { once: true },
+        );
+      });
+
+  // Ch? c? DataControl v? i18n s?n s?ng tr??c khi d?ng Switcher (T?ng 1)
+  await Promise.all([dataControlPromise, widgetPromise]);
+
+  // 4. Kh?i t?o Wallpaper Switcher (T?ng 1)
   window.wallpaperSwitcher = wallpaperSwitcher;
   await wallpaperSwitcher.init();
 

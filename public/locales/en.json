@@ -376,7 +376,7 @@
     "wallpaper_switcher.empty_hint_remote": "Click the \"Get new image\" button below to start rolling wallpapers",
     "wallpaper_switcher.empty_title": "No wallpapers yet",
     "wallpaper_switcher.error.no_url": "Could not resolve the image URL",
-    "wallpaper_switcher.extra_settings": "{{source}} Configuration",
+    "wallpaper_switcher.extra_settings": "{{source}} configuration",
     "wallpaper_switcher.feed_exhausted": "It seems no wallpapers were received from this source. Try changing your search query or source settings",
     "wallpaper_switcher.fetch_error": "Couldn't fetch a new wallpaper. Please try again.",
     "wallpaper_switcher.get_new_image": "Get new image",

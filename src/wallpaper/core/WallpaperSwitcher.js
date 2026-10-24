@@ -180,17 +180,6 @@ export class WallpaperSwitcher {
     renderIcons(this.container);
     translateDOM(this.container);
     this.bar?.syncRightSlot(this.activeSourceId);
-
-    // Khởi động hình nền chốt ở tâm màn hình cùng hiệu ứng entrance animation
-    const initialCard = dataControl.activeCard;
-    if (initialCard) {
-      dataControl.emit("card:hard", {
-        index: dataControl.currentIndex,
-        card: initialCard,
-        sourceId: this.activeSourceId,
-        firstRun: true,
-      });
-    }
   }
   /** The source adapter currently feeding the carousel. */
   get activeSource() {
@@ -604,6 +593,10 @@ export class WallpaperSwitcher {
     await this.loadSource(this.activeSourceId);
 
     this.isOpen = true;
+    if (this.container.classList.contains("preload")) {
+      void this.container.offsetWidth;
+      this.container.classList.remove("preload");
+    }
     this.container.classList.add("active");
     this.toggleBtn.classList.add("active");
     this.carousel?.setActive(true);

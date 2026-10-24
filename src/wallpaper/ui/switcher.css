@@ -32,6 +32,11 @@
     transition: none;
   }
 
+  .wallpaper_switcher.preload,
+  .wallpaper_switcher.preload .wallpaper_switcher_inner {
+    transition: none !important;
+  }
+
   .wallpaper_switcher_inner {
     position: relative;
     width: 100%;
@@ -46,7 +51,7 @@
     padding: 12px 0 20px 0;
     /* Không fade khi mở/đóng: bảng trượt lên là đủ, độ mờ đã do từng thẻ trong
        carousel đảm nhiệm (xem `geometry.js`). */
-    transform: translateY(100%);
+    transform: translateY(calc(100% + 50px));
     transition: transform 0.45s var(--cubic_in);
   }
 

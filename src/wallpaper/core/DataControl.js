@@ -183,6 +183,18 @@ export class DataControl {
         const initialSourceId = this.sources.has(defaultSource) ? defaultSource : "bing";
 
         await this.switchSource(initialSourceId);
+
+        // Kh?i ??ng h?nh n?n ch?t ? t?m m?n h?nh c?ng hi?u ?ng entrance animation (T?ng 2 SSOT)
+        const initialCard = this.activeCard;
+        if (initialCard) {
+            this.emit("card:hard", {
+                index: this.currentIndex,
+                card: initialCard,
+                sourceId: this.activeSourceId,
+                firstRun: true,
+            });
+        }
+
         return this;
     }
 

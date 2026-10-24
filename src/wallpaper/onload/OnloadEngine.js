@@ -201,7 +201,7 @@ export class OnloadEngine {
             blur: 0,
             speed: 1,
             bgEasing: `var(--${DEFAULT_BG_EASING})`,
-            overlaySpeed: 0.8,
+            overlaySpeed: 0.4,
             overlayEasing: `var(--${OVERLAY_FADE_EASING})`,
             isPreview: false,
             onComplete: null,
