@@ -3,7 +3,7 @@ import { getFromStore, saveToStore } from "/src/core/db.js";
 import { runMediaGC } from "./mediaGC.js";
 import { describeFetchError } from "./errors.js";
 import { t } from "/src/core/i18n.js";
-import { getSettings, saveSettings } from "/src/core/storageHandler.js";
+import { getSettings, saveSettings, subscribe, getDefaultWallpaperEffects } from "/src/core/storageHandler.js";
 
 /**
  * A single wallpaper card item managed by DataControl.
@@ -112,6 +112,8 @@ export class DataControl {
 
         /** @type {boolean} */
         this.isBusy = false;
+        /** Cờ đánh dấu khi renderer đang nạp effect của card vào settings để tránh ghi đè ngược */
+        this.isApplyingCardEffects = false;
         /** @type {"idle" | "fetching" | "deleting" | "switching"} */
         this.status = "idle";
 
@@ -183,6 +185,40 @@ export class DataControl {
         const initialSourceId = this.sources.has(defaultSource) ? defaultSource : "bing";
 
         await this.switchSource(initialSourceId);
+
+        // Lắng nghe thay đổi hiệu ứng từ UI Settings để tự động cập nhật vào hình nền active
+        subscribe("wallpaperConfig", (conf) => {
+            if (this.isApplyingCardEffects || !conf) return;
+            this.updateActiveCardEffects({
+                filter: {
+                    brightness: conf.brightness,
+                    blur: conf.blur,
+                    contrast: conf.contrast,
+                    saturate: conf.saturate,
+                    bloom: conf.bloom,
+                },
+            });
+        });
+
+        subscribe("wallpaperPosition", (pos) => {
+            if (this.isApplyingCardEffects || !pos) return;
+            this.updateActiveCardEffects({ position: pos });
+        });
+
+        subscribe("wavy", (wavy) => {
+            if (this.isApplyingCardEffects || !wavy) return;
+            this.updateActiveCardEffects({ wavy });
+        });
+
+        subscribe("particles", (particles) => {
+            if (this.isApplyingCardEffects || !particles) return;
+            this.updateActiveCardEffects({ particles });
+        });
+
+        subscribe("onload", (onload) => {
+            if (this.isApplyingCardEffects || !onload) return;
+            this.updateActiveCardEffects({ onload });
+        });
 
         // Kh?i ??ng h?nh n?n ch?t ? t?m m?n h?nh c?ng hi?u ?ng entrance animation (T?ng 2 SSOT)
         const initialCard = this.activeCard;
@@ -307,6 +343,13 @@ export class DataControl {
 
         if (this._switchToken !== switchToken) return;
 
+        storedItems = storedItems.map((item) => {
+            if (item && !item.effects) {
+                item.effects = getDefaultWallpaperEffects();
+            }
+            return item;
+        });
+
         // Bản ghi trùng id (ảnh API trả lại, hoặc dữ liệu cũ còn sót trong
         // `carousel:*`) không được đi vào dải — xem `uniqueCards()`.
         const unique = uniqueCards(storedItems);
@@ -402,36 +445,26 @@ export class DataControl {
         this.softIndex = index;
 
         const card = this.items[index] || null;
+        if (card && !card.effects) {
+            card.effects = getDefaultWallpaperEffects();
+        }
 
-        // Lưu vết cài đặt hình nền và vị trí index của nguồn hiện tại
+        // Chỉ lưu vết vị trí index của nguồn hiện tại trên Switcher
+        // Hiệu ứng và activeWallpaperId sẽ được renderer lưu sau khi overlay đã che kín màn hình
         const currentSettings = getSettings();
-        const currentConfig = currentSettings.wallpaperConfig || {};
         const currentSwitcher = currentSettings.wallpaperSwitcher || {};
         const sourceIndices = { ...(currentSwitcher.sourceIndices || {}) };
         sourceIndices[this.activeSourceId] = index;
 
-        const settingsUpdate = {
+        saveSettings({
             wallpaperSwitcher: {
                 ...currentSwitcher,
                 activeSource: this.activeSourceId,
                 sourceIndices,
             },
-        };
+        });
 
-        if (card?.id) {
-            const hasChanged = currentConfig.activeWallpaperId !== card.id || currentConfig.source !== this.activeSourceId;
-            if (hasChanged) {
-                settingsUpdate.wallpaperConfig = {
-                    ...currentConfig,
-                    source: this.activeSourceId,
-                    activeWallpaperId: card.id,
-                    activeCollectionItemId: this.activeSourceId === "collection" ? card.id : currentConfig.activeCollectionItemId,
-                };
-            }
-        }
-
-        saveSettings(settingsUpdate);
-
+        // Phát event card:hard để Renderer bắt đầu fade overlay và áp dụng hiệu ứng trong bóng tối
         this.emit("card:hard", {
             index,
             card,
@@ -784,6 +817,42 @@ export class DataControl {
     }
 
     /* ── Private Helpers ───────────────────────────────────────────────────── */
+
+    /**
+     * Cập nhật bộ hiệu ứng riêng của thẻ đang hoạt động (active card).
+     * @param {Object} partialEffects
+     */
+    async updateActiveCardEffects(partialEffects) {
+        const card = this.activeCard;
+        if (!card) return;
+
+        if (!card.effects) {
+            card.effects = getDefaultWallpaperEffects();
+        }
+
+        for (const [key, val] of Object.entries(partialEffects)) {
+            if (val && typeof val === "object" && !Array.isArray(val)) {
+                card.effects[key] = { ...(card.effects[key] || {}), ...val };
+            } else {
+                card.effects[key] = val;
+            }
+        }
+
+        if (this.activeSourceId) {
+            await this._persistCards(this.activeSourceId, this.items);
+        }
+
+        if (this.activeSourceId === "collection") {
+            try {
+                const { updateCollectionItemEffects } = await import("../sources/api/collectionDb.js");
+                await updateCollectionItemEffects(card.id, card.effects);
+            } catch (err) {
+                console.error("[DataControl] Error syncing collection item effects:", err);
+            }
+        }
+
+        this.emit("card:effects_changed", { card, effects: card.effects });
+    }
 
     async _persistCards(sourceId, cards) {
         // Chỉ lưu danh sách các object sạch vào appData

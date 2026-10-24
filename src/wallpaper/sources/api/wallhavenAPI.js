@@ -57,6 +57,10 @@ export async function fetchWallhavenQueue({ strict = false, page = 1 } = {}) {
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const json = await response.json();
         const list = json.data || [];
+        const appliedQuery = query.trim();
+        for (const item of list) {
+            item.query = appliedQuery;
+        }
         if (json.meta) {
             list.meta = json.meta;
         }
@@ -119,6 +123,7 @@ export async function getWallhavenData(refresh = false) {
             size: nextItem.file_size,
             last_updated: Date.now(),
             category: nextItem.category,
+            query: nextItem.query || "",
             queue_left: storeData.queue.length,
             queue_total: storeData.queue_total || 24
         };

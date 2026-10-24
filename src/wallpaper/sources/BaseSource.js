@@ -1,4 +1,12 @@
+import { getDefaultWallpaperEffects } from "/src/core/storageHandler.js";
 import { t } from "/src/core/i18n.js";
+import {
+  formatResolution,
+  getResolutionBadge,
+  formatFileSize,
+  formatDate,
+  escapeHtml,
+} from "./cardMeta.js";
 
 /** @typedef {import("/src/wallpaper/core/DataControl.js").CardItem} CardItem */
 
@@ -192,6 +200,7 @@ export class BaseSource {
       height: 0,
       size: 0,
       addedAt: Date.now(),
+      effects: raw?.effects ? JSON.parse(JSON.stringify(raw.effects)) : getDefaultWallpaperEffects(),
       ...overrides,
     };
   }
@@ -202,5 +211,62 @@ export class BaseSource {
     const url = URL.createObjectURL(blob);
     this._objectUrls.add(url);
     return url;
+  }
+
+  // ─── Chip Info (Collapsed & Hover Expand) ─────────────────────────────────
+
+  /**
+   * Trả về HTML chuỗi tóm tắt cho chip thu gọn ở thanh Top Bar.
+   * @param {CardItem} card
+   * @returns {string}
+   */
+  getChipSummary(card) {
+    if (!card) return "";
+    const badge = getResolutionBadge(card.width, card.height);
+    const res = formatResolution(card.width, card.height);
+    const size = formatFileSize(card.size);
+
+    const parts = [];
+    if (size) parts.push(escapeHtml(size));
+    if (badge) parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
+    else if (res) parts.push(escapeHtml(res));
+
+    return parts.join('<span class="card-meta-sep">•</span>');
+  }
+
+  /**
+   * Trả về danh sách chi tiết (Label - Value) cho dropdown mở rộng khi hover.
+   * @param {CardItem} card
+   * @returns {Array<{ label: string, value: string, stacked?: boolean }>}
+   */
+  getChipDetails(card) {
+    if (!card) return [];
+    const details = [];
+
+    const badge = getResolutionBadge(card.width, card.height);
+    const res = formatResolution(card.width, card.height);
+    if (res) {
+      const badgeHtml = badge ? ` <span class="meta_badge">${escapeHtml(badge)}</span>` : "";
+      details.push({
+        label: t("sp.meta.resolution", "Độ phân giải"),
+        value: `${escapeHtml(res)}${badgeHtml}`,
+        html: true,
+      });
+    }
+
+    const size = formatFileSize(card.size);
+    if (size) {
+      details.push({
+        label: t("sp.meta.filesize", "Dung lượng"),
+        value: size,
+      });
+    }
+
+    details.push({
+      label: t("sp.meta.source", "Nguồn ảnh"),
+      value: this.name,
+    });
+
+    return details;
   }
 }

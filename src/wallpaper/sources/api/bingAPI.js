@@ -49,8 +49,11 @@ export async function fetchBingDaily8({ resolution, strict = false } = {}) {
                 sourceUrl = `https://www.bing.com${sourceUrl.startsWith("/") ? "" : "/"}${sourceUrl}`;
             }
 
-            const cleanTitle = item.title?.trim()
-                || (item.copyright ? item.copyright.split("(")[0].trim() : "Bing Wallpaper");
+            const rawTitle = item.title?.trim();
+            const copyrightSubject = item.copyright ? item.copyright.split("(")[0].trim() : "";
+            const cleanTitle = (rawTitle && !/^info$/i.test(rawTitle) && !/^bing\b/i.test(rawTitle))
+                ? rawTitle
+                : (copyrightSubject || rawTitle || "Bing Wallpaper");
 
             const baseId = item.hsh || (urlBase ? urlBase.replace(/^\/th\?id=/, "") : item.startdate);
             const cardId = `${baseId}_${effectiveResolution}`;

@@ -216,7 +216,7 @@ const defaultSettings = {
     },
   },
   particles: {
-    enabled: true,
+    enabled: false,
     dynamic: [],
     static: [],
   },

@@ -185,6 +185,6 @@ export function initializeFilterSettings() {
 /**
  * Apply the saved filter config on page load.
  */
-export function applyWallpaperFilters() {
-    applyFilterConfig(getSettings().wallpaperConfig || {});
+export function applyWallpaperFilters(config) {
+    applyFilterConfig(config || getSettings().wallpaperConfig || {});
 }

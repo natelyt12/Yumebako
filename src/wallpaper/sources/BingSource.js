@@ -3,6 +3,14 @@ import { SOURCE_ACTIONS } from "./sourceActions.js";
 import { fetchBingDaily8, BING_STORAGE_KEY } from "/src/wallpaper/sources/api/bingAPI.js";
 import { getFromStore, saveToStore } from "/src/core/db.js";
 import { getSettings } from "/src/core/storageHandler.js";
+import { t } from "/src/core/i18n.js";
+import {
+    formatResolution,
+    getResolutionBadge,
+    formatFileSize,
+    formatDate,
+    escapeHtml,
+} from "./cardMeta.js";
 
 /**
  * Format local date as YYYYMMDD string.
@@ -115,6 +123,9 @@ export class BingSource extends RemoteSource {
                 width: entry.width || (resolution === "uhd" ? 3840 : 1920),
                 height: entry.height || (resolution === "uhd" ? 2160 : 1080),
                 size: entry.size || 0,
+                copyright: entry.copyright || "",
+                startDate: entry.startDate || "",
+                raw: entry,
             }));
 
             // Chạy Single-Phase Pipeline song song cho 8 ảnh: tải blob gốc & sinh thumbnail 16:9
@@ -146,6 +157,97 @@ export class BingSource extends RemoteSource {
 
     /** Title of the wallpaper restored from its persisted `applied` record. */
     getSeedTitle(applied) {
-        return applied.title || applied.category || "Bing";
+        return this._getCleanTitle(applied);
+    }
+
+    /** Trích xuất tiêu đề thực tế của ảnh Bing, tránh trường hợp API trả về "Info" */
+    _getCleanTitle(card) {
+        const rawTitle = card?.title?.trim();
+        if (rawTitle && !/^info$/i.test(rawTitle) && !/^bing\b/i.test(rawTitle)) {
+            return rawTitle;
+        }
+        const copyright = card?.copyright || card?.raw?.copyright;
+        if (copyright) {
+            const subject = copyright.split("(")[0].trim();
+            if (subject && !/^info$/i.test(subject)) return subject;
+        }
+        return (rawTitle && !/^info$/i.test(rawTitle)) ? rawTitle : "Bing";
+    }
+
+    // ─── Chip Info (Collapsed & Hover Expand) ─────────────────────────────────
+
+    getChipSummary(card) {
+        if (!card) return "";
+        const title = this._getCleanTitle(card);
+        const dateStr = formatDate(card.startDate || card.raw?.startDate);
+        const badge = getResolutionBadge(card.width, card.height);
+
+        const parts = [
+            `<span>${escapeHtml(title)}</span>`,
+        ];
+
+        if (dateStr) {
+            parts.push(`<span>${escapeHtml(dateStr)}</span>`);
+        } else if (badge) {
+            parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
+        }
+
+        return parts.join('<span class="card-meta-sep">•</span>');
+    }
+
+    getChipDetails(card) {
+        if (!card) return [];
+        const details = [];
+
+        const title = this._getCleanTitle(card);
+        if (title) {
+            details.push({
+                label: t("sp.meta.title", "Tiêu đề"),
+                value: title,
+            });
+        }
+
+        const dateStr = formatDate(card.startDate || card.raw?.startDate);
+        if (dateStr) {
+            details.push({
+                label: t("sp.meta.date_released", "Ngày phát hành"),
+                value: dateStr,
+            });
+        }
+
+        const badge = getResolutionBadge(card.width, card.height);
+        const res = formatResolution(card.width, card.height);
+        if (res) {
+            const badgeHtml = badge ? ` <span class="meta_badge">${escapeHtml(badge)}</span>` : "";
+            details.push({
+                label: t("sp.meta.resolution", "Độ phân giải"),
+                value: `${escapeHtml(res)}${badgeHtml}`,
+                html: true,
+            });
+        }
+
+        const size = formatFileSize(card.size);
+        if (size) {
+            details.push({
+                label: t("sp.meta.filesize", "Dung lượng"),
+                value: size,
+            });
+        }
+
+        const copyright = card.copyright || card.raw?.copyright;
+        if (copyright) {
+            details.push({
+                label: t("sp.meta.copyright", "Bản quyền"),
+                value: copyright,
+                stacked: true,
+            });
+        }
+
+        details.push({
+            label: t("sp.meta.source", "Nguồn ảnh"),
+            value: "Microsoft Bing",
+        });
+
+        return details;
     }
 }

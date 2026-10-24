@@ -1,7 +1,7 @@
 import { BaseSource } from "./BaseSource.js";
 import { SOURCE_ACTIONS } from "./sourceActions.js";
 import { getFromStore, saveToStore } from "/src/core/db.js";
-import { getSettings } from "/src/core/storageHandler.js";
+import { getSettings, getDefaultWallpaperEffects } from "/src/core/storageHandler.js";
 import { wallpaperRenderer } from "/src/wallpaper/core/renderer.js";
 import { generateImageThumbnail } from "/src/core/utils/thumbnailGenerator.js";
 import { NetworkError, isNetworkError } from "/src/wallpaper/core/errors.js";
@@ -388,6 +388,7 @@ export class RemoteSource extends BaseSource {
       height: item.height,
       size: blob.size,
       category: item.category,
+      effects: item.effects || getDefaultWallpaperEffects(),
       metadata: {
         provider: this.providerId,
         providerName: this.name,

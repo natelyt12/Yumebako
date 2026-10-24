@@ -29,6 +29,23 @@ export function formatResolution(width, height) {
 }
 
 /**
+ * Suy ra chuẩn badge phân giải (4K UHD, 2K QHD, FHD, HD) dựa trên kích thước ngang/dọc.
+ * @param {number} width
+ * @param {number} height
+ * @returns {string} Ví dụ: "4K UHD", "2K QHD", "FHD", "HD", hoặc ""
+ */
+export function getResolutionBadge(width, height) {
+  if (!width || !height) return "";
+  const maxDim = Math.max(width, height);
+  const minDim = Math.min(width, height);
+  if (maxDim >= 3840 || minDim >= 2160) return "4K UHD";
+  if (maxDim >= 2560 || minDim >= 1440) return "2K QHD";
+  if (maxDim >= 1920 || minDim >= 1080) return "FHD";
+  if (maxDim >= 1280 || minDim >= 720) return "HD";
+  return "";
+}
+
+/**
  * Định dạng dung lượng file (bytes -> KB/MB/GB).
  * @param {number} bytes
  * @returns {string} Ví dụ: "2.4 MB", "850 KB"
@@ -45,8 +62,47 @@ export function formatFileSize(bytes) {
   return `${size >= 100 || unitIndex === 0 ? Math.round(size) : size.toFixed(1)} ${units[unitIndex]}`;
 }
 
-function escapeHtml(str) {
-  if (!str) return "";
+/**
+ * Định dạng ngày (YYYYMMDD hoặc timestamp) thành DD/MM/YYYY.
+ * @param {string|number|Date} val
+ * @returns {string}
+ */
+export function formatDate(val) {
+  if (!val) return "";
+  if (typeof val === "string" && /^\d{8}$/.test(val)) {
+    const y = val.slice(0, 4);
+    const m = val.slice(4, 6);
+    const d = val.slice(6, 8);
+    return `${d}/${m}/${y}`;
+  }
+  const date = new Date(val);
+  if (isNaN(date.getTime())) return String(val);
+  const d = String(date.getDate()).padStart(2, "0");
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const y = date.getFullYear();
+  return `${d}/${m}/${y}`;
+}
+
+/**
+ * Rút gọn số lượng lớn (ví dụ: 12500 -> 12.5k).
+ * @param {number} num
+ * @returns {string}
+ */
+export function formatNumber(num) {
+  if (num === null || num === undefined || isNaN(num)) return "";
+  const n = Number(num);
+  if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+  if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, "") + "k";
+  return String(n);
+}
+
+/**
+ * Escape chuỗi HTML an toàn.
+ * @param {any} str
+ * @returns {string}
+ */
+export function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
   return String(str)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -77,7 +133,7 @@ export function getPicreSourceLabel(url) {
 }
 
 /**
- * Xử lý và trả về HTML cho 2 vế của thẻ: Left (nguồn) và Right (thông số kỹ thuật codeblock).
+ * Xử lý và trả về HTML cho 2 vế của thẻ (hàm fallback tương thích ngược).
  * @param {string} sourceId
  * @param {Object} card
  * @returns {{ leftHtml: string, rightHtml: string }}
@@ -85,8 +141,6 @@ export function getPicreSourceLabel(url) {
 export function resolveCardMeta(sourceId, card) {
   if (!card) return { leftHtml: "", rightHtml: "" };
 
-  // ── VẾ PHẢI (Right - Cố định chung mọi nguồn) ───────────────────────────
-  // Cấu trúc: <span><file_size></span> • <span><resolution></span>
   const sizeStr = formatFileSize(card.size);
   const resStr =
     formatResolution(card.width, card.height) || card.resolution || "";
@@ -97,14 +151,11 @@ export function resolveCardMeta(sourceId, card) {
 
   const rightHtml = codeBlocks.join('<span class="card-meta-sep">•</span>');
 
-  // ── VẾ TRÁI (Left - Thay đổi theo nguồn) ────────────────────────────────
   let leftHtml = "";
-
   if (sourceId === "collection") {
-    // Collection: <type ảnh> • <nguồn>
     const isVideo = card.mediaType === "video" || card.type?.includes("video");
     const typeText = t(
-      `sp.api.collection.${isVideo ? "typeVideo" : "typeImage"}`,
+      `sp.meta.${isVideo ? "type_video" : "type_image"}`,
       isVideo ? "Video" : "Ảnh",
     );
 
@@ -133,30 +184,29 @@ export function resolveCardMeta(sourceId, card) {
       try {
         srcText = new URL(rawSource).hostname.replace(/^www\./, "");
       } catch {
-        srcText = t("sp.api.collection.sourceLocal", "Trên máy");
+        srcText = t("sp.meta.local_device", "Trên máy tính");
       }
     } else {
-      srcText = t("sp.api.collection.sourceLocal", "Trên máy");
+      srcText = t("sp.meta.local_device", "Trên máy tính");
     }
 
     leftHtml = `<span>${escapeHtml(typeText)}</span><span class="card-meta-sep">•</span><span>${escapeHtml(srcText)}</span>`;
   } else if (sourceId === "wallhaven") {
-    // Remote / Wallhaven: <search query>
-    const settings = getSettings();
+    const cardQuery = card.query !== undefined ? card.query : card.raw?.query;
     const wallhavenQuery =
-      settings?.api_config?.wallhaven?.query || card.category || "Wallhaven";
+      (typeof cardQuery === "string" ? cardQuery.trim() : null) ||
+      getSettings()?.wallhavenConfig?.query?.trim() ||
+      card.category ||
+      t("sp.meta.random", "Ngẫu nhiên");
     leftHtml = `<span>${escapeHtml(wallhavenQuery)}</span>`;
   } else if (sourceId === "picre") {
-    // Remote / Picre: <tên nguồn> (từ PICRE_SOURCE_MAP)
     const sourceUrl = card.sourceUrl || card.source || "";
     const sourceName = getPicreSourceLabel(sourceUrl);
     leftHtml = `<span>${escapeHtml(sourceName)}</span>`;
   } else if (sourceId === "bing") {
-    // Remote / Bing: <title hoặc copyright>
     const title = card.title || card.metadata?.copyright || "Bing";
     leftHtml = `<span>${escapeHtml(title)}</span>`;
   } else {
-    // Fallback nguồn khác (Unsplash, etc.)
     const title = card.title || card.category || sourceId;
     leftHtml = `<span>${escapeHtml(title)}</span>`;
   }

@@ -1,6 +1,8 @@
 import { applyOnloadAnimation } from "/src/wallpaper/onload/index.js";
 import { dataControl } from "/src/wallpaper/core/DataControl.js";
-import { getSettings, subscribe } from "/src/core/storageHandler.js";
+import { getSettings, saveSettings, subscribe, getDefaultWallpaperEffects } from "/src/core/storageHandler.js";
+import { applyWallpaperFilters } from "./filter.js";
+import { applyWallpaperPosition } from "../bgEditor.js";
 
 /**
  * renderer.js
@@ -103,6 +105,36 @@ class WallpaperRenderer {
         this.currentType = data.type;
         this.currentBlobUrl = newBlobUrl;
         this.hasActiveBackground = true;
+
+        // Áp dụng bộ hiệu ứng riêng của hình nền này trong lúc overlay đang che kín màn hình
+        const effects = data.effects || getDefaultWallpaperEffects();
+        applyWallpaperFilters(effects.filter);
+        applyWallpaperPosition(effects.position);
+
+        dataControl.isApplyingCardEffects = true;
+        try {
+            const currentConf = getSettings().wallpaperConfig || {};
+            saveSettings({
+                wallpaperPosition: effects.position,
+                wallpaperConfig: {
+                    ...currentConf,
+                    source: dataControl.activeSourceId || currentConf.source,
+                    activeWallpaperId: data.id,
+                    activeCollectionItemId: dataControl.activeSourceId === "collection" ? data.id : currentConf.activeCollectionItemId,
+                    brightness: effects.filter?.brightness ?? 1,
+                    contrast: effects.filter?.contrast ?? 1,
+                    saturate: effects.filter?.saturate ?? 1,
+                    bloom: effects.filter?.bloom ?? 0,
+                    blur: effects.filter?.blur ?? 0,
+                    mode: effects.position?.mode || currentConf.mode || "cover",
+                },
+                wavy: effects.wavy,
+                particles: effects.particles,
+                onload: effects.onload,
+            });
+        } finally {
+            dataControl.isApplyingCardEffects = false;
+        }
 
         if (data.type === "video") {
             const collectionConfig = getSettings().collectionConfig || {};

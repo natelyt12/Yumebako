@@ -1,17 +1,13 @@
 import { RemoteSource } from "./RemoteSource.js";
 import { fetchPicreMeta } from "/src/wallpaper/sources/api/picreAPI.js";
-
-const SOURCE_MAP = [
-    { match: "pixiv.net", label: "Pixiv" },
-    { match: "deviantart.com", label: "DeviantArt" },
-];
-
-function getSourceLabel(url) {
-    if (!url) return "";
-    const lower = url.toLowerCase();
-    const entry = SOURCE_MAP.find((s) => lower.includes(s.match));
-    return entry ? entry.label : url;
-}
+import { t } from "/src/core/i18n.js";
+import {
+    getPicreSourceLabel,
+    formatResolution,
+    getResolutionBadge,
+    formatFileSize,
+    escapeHtml,
+} from "./cardMeta.js";
 
 /**
  * PicreSource.js
@@ -43,17 +39,78 @@ export class PicreSource extends RemoteSource {
             id: meta.image.split("/").pop(),
             url: meta.image,
             sourceUrl: meta.source || "",
-            title: getSourceLabel(meta.source) || "Picre",
+            title: getPicreSourceLabel(meta.source) || "Picre",
             category: "Picre",
             thumbnailUrl: meta.image,
             width: meta.width || 0,
             height: meta.height || 0,
             size: meta.file_size || 0,
+            raw: meta,
         });
     }
 
     /** Title of the wallpaper restored from its persisted `current` record. */
     getSeedTitle(applied) {
-        return getSourceLabel(applied.source) || "Picre";
+        return getPicreSourceLabel(applied.source) || "Picre";
+    }
+
+    // ─── Chip Info (Collapsed & Hover Expand) ─────────────────────────────────
+
+    getChipSummary(card) {
+        if (!card) return "";
+        const platform = getPicreSourceLabel(card.sourceUrl || card.source) || "Picre";
+        const badge = getResolutionBadge(card.width, card.height);
+        const size = formatFileSize(card.size);
+
+        const parts = [
+            `<span>${escapeHtml(platform)}</span>`,
+        ];
+
+        if (badge) {
+            parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
+        } else if (size) {
+            parts.push(`<span>${escapeHtml(size)}</span>`);
+        }
+
+        return parts.join('<span class="card-meta-sep">•</span>');
+    }
+
+    getChipDetails(card) {
+        if (!card) return [];
+        const details = [];
+
+        const platform = getPicreSourceLabel(card.sourceUrl || card.source);
+        if (platform) {
+            details.push({
+                label: t("sp.meta.platform", "Nền tảng"),
+                value: platform,
+            });
+        }
+
+        const badge = getResolutionBadge(card.width, card.height);
+        const res = formatResolution(card.width, card.height);
+        if (res) {
+            const badgeHtml = badge ? ` <span class="meta_badge">${escapeHtml(badge)}</span>` : "";
+            details.push({
+                label: t("sp.meta.resolution", "Độ phân giải"),
+                value: `${escapeHtml(res)}${badgeHtml}`,
+                html: true,
+            });
+        }
+
+        const size = formatFileSize(card.size);
+        if (size) {
+            details.push({
+                label: t("sp.meta.filesize", "Dung lượng"),
+                value: size,
+            });
+        }
+
+        details.push({
+            label: t("sp.meta.source", "Nguồn ảnh"),
+            value: "pic.re",
+        });
+
+        return details;
     }
 }

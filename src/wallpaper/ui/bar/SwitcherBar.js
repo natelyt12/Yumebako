@@ -2,7 +2,7 @@ import { renderIcons } from "/src/core/icon.js";
 import { t } from "/src/core/i18n.js";
 import { showConfirm } from "/src/core/ui.js";
 import { getSettings, saveSettings } from "/src/core/storageHandler.js";
-import { resolveCardMeta } from "../../sources/cardMeta.js";
+import { resolveCardMeta, escapeHtml } from "../../sources/cardMeta.js";
 import { createWallhavenSettingsPopover } from "../popover/WallhavenSettingsPopover.js";
 import { createCollectionSettingsPopover } from "../popover/CollectionSettingsPopover.js";
 import { createPicreSettingsPopover } from "../popover/PicreSettingsPopover.js";
@@ -36,7 +36,11 @@ export class SwitcherBar {
         this.tabsContainer = container.querySelector("#wallpaper_source_tabs");
         this.counterEl = container.querySelector("#wallpaper_switcher_counter");
         this.loaderEl = container.querySelector("#wallpaper_switcher_loader");
-        this.metaInfoEl = container.querySelector("#wallpaper_switcher_meta_info");
+        this.metaWrapperEl = container.querySelector("#wallpaper_switcher_meta_wrapper");
+        this.metaSizerEl = container.querySelector("#wallpaper_switcher_meta_sizer");
+        this.metaCardEl = container.querySelector("#wallpaper_switcher_meta_card");
+        this.metaHeaderEl = container.querySelector("#wallpaper_switcher_meta_header");
+        this.metaBodyEl = container.querySelector("#wallpaper_switcher_meta_body");
         this.actionsContainer = container.querySelector("#wallpaper_switcher_actions");
         this.fetchBtn = container.querySelector("#wallpaper_fetch_btn");
         this.uploadBtn = container.querySelector("#wallpaper_upload_btn");
@@ -56,6 +60,11 @@ export class SwitcherBar {
         this._bindEvents();
         this.renderTabs();
         this.syncState(this.dataControl.getState());
+        if (this.metaWrapperEl) {
+            this.metaWrapperEl.addEventListener("mouseenter", () => {
+                this._updateMetaExpandedHeight();
+            });
+        }
         if (this.dataControl.activeCard) {
             this.syncMetaInfo(this.dataControl.activeCard);
             this.renderActions(this.dataControl.activeCard);
@@ -251,20 +260,6 @@ export class SwitcherBar {
         this.syncCompactTabsWidth();
     }
 
-    /**
-     * Chuyển tab kế tiếp / trước đó (phím tắt ArrowUp/ArrowDown).
-     */
-    stepTab(direction) {
-        const sources = this.switcher?.availableSources || [];
-        if (sources.length < 2) return;
-
-        const ids = sources.map((s) => s.id);
-        const currentTargetId = this.switcher?._pendingSourceId || this.dataControl.activeSourceId;
-        const currentIndex = ids.indexOf(currentTargetId);
-        const nextIndex = (currentIndex + direction + ids.length) % ids.length;
-        this.switcher?.selectSource(ids[nextIndex]);
-    }
-
     /* ── Counter ───────────────────────────────────────────────────────────── */
 
     /**
@@ -306,25 +301,91 @@ export class SwitcherBar {
     /* ── Meta Info (Top Bar) ───────────────────────────────────────────────── */
 
     /**
-     * Đồng bộ thông tin ảnh đang chọn (loại, nguồn, dung lượng, độ phân giải) lên Top Bar.
+     * Đồng bộ thông tin ảnh đang chọn lên Top Bar.
+     * Sử dụng kiến trúc Morphing Container (biến hình từ chip thu gọn sang panel chi tiết khi hover).
      * @param {Object|null} [card]
      */
     syncMetaInfo(card = this.dataControl.softCard || this.dataControl.activeCard) {
-        if (!this.metaInfoEl) return;
+        if (!this.metaWrapperEl) return;
         if (!card) {
-            if (this.metaInfoEl.innerHTML !== "") this.metaInfoEl.innerHTML = "";
+            if (this.metaHeaderEl) this.metaHeaderEl.innerHTML = "";
+            if (this.metaSizerEl) this.metaSizerEl.innerHTML = "";
+            if (this.metaBodyEl) this.metaBodyEl.innerHTML = "";
+            this.metaWrapperEl.classList.add("is-empty");
             return;
         }
 
-        const meta = resolveCardMeta(this.dataControl.activeSourceId, card);
-        const parts = [];
-        if (meta.leftHtml) parts.push(`<div class="wallpaper_meta_part">${meta.leftHtml}</div>`);
-        if (meta.rightHtml) parts.push(`<div class="wallpaper_meta_part">${meta.rightHtml}</div>`);
-        const html = parts.join('<span class="wallpaper_meta_sep">•</span>');
+        this.metaWrapperEl.classList.remove("is-empty");
 
-        if (this.metaInfoEl.innerHTML !== html) {
-            this.metaInfoEl.innerHTML = html;
+        const source = this.dataControl.activeSource || this.dataControl.sources.get(this.dataControl.activeSourceId);
+        let summaryHtml = "";
+        if (source && typeof source.getChipSummary === "function") {
+            summaryHtml = source.getChipSummary(card);
         }
+
+        // Fallback tương thích nếu nguồn chưa định nghĩa getChipSummary
+        if (!summaryHtml) {
+            const meta = resolveCardMeta(this.dataControl.activeSourceId, card);
+            const parts = [];
+            if (meta.leftHtml) parts.push(`<div class="wallpaper_meta_part">${meta.leftHtml}</div>`);
+            if (meta.rightHtml) parts.push(`<div class="wallpaper_meta_part">${meta.rightHtml}</div>`);
+            summaryHtml = parts.join('<span class="wallpaper_meta_sep">•</span>');
+        }
+
+        const summaryContentHtml = `<div class="meta_summary_content">${summaryHtml}</div>`;
+        if (this.metaHeaderEl && this.metaHeaderEl.innerHTML !== summaryContentHtml) {
+            this.metaHeaderEl.innerHTML = summaryContentHtml;
+        }
+        if (this.metaSizerEl && this.metaSizerEl.innerHTML !== summaryContentHtml) {
+            this.metaSizerEl.innerHTML = summaryContentHtml;
+        }
+
+        // Tạo nội dung chi tiết cho phần thân morph khi hover
+        if (this.metaBodyEl) {
+            const details = (source && typeof source.getChipDetails === "function")
+                ? source.getChipDetails(card)
+                : [];
+
+            if (details.length > 0) {
+                const rowsHtml = details.map((item) => {
+                    const stackedClass = item.stacked ? " is-stacked" : "";
+                    const valueHtml = item.html ? item.value : escapeHtml(item.value);
+                    return `
+                        <div class="meta_detail_row${stackedClass}">
+                            <span class="meta_label">${escapeHtml(item.label)}</span>
+                            <span class="meta_value">${valueHtml}</span>
+                        </div>
+                    `;
+                }).join("");
+
+                const bodyHtml = `<div class="meta_details_list">${rowsHtml}</div>`;
+                if (this.metaBodyEl.innerHTML !== bodyHtml) {
+                    this.metaBodyEl.innerHTML = bodyHtml;
+                }
+
+                this._updateMetaExpandedHeight();
+            } else {
+                this.metaBodyEl.innerHTML = "";
+            }
+        }
+
+        renderIcons(this.metaWrapperEl);
+    }
+
+    /**
+     * Cập nhật chiều cao mở rộng thực tế của thẻ morph dựa trên nội dung chi tiết.
+     */
+    _updateMetaExpandedHeight() {
+        if (!this.metaBodyEl || !this.metaCardEl) return;
+        const update = () => {
+            const h = this.metaBodyEl.offsetHeight;
+            if (h > 0) {
+                // Viền trên 1px + viền dưới 1px = 2px
+                this.metaCardEl.style.setProperty("--meta-expanded-h", `${h + 2}px`);
+            }
+        };
+        update();
+        requestAnimationFrame(update);
     }
 
     /* ── Action Buttons ────────────────────────────────────────────────────── */

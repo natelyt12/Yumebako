@@ -108,6 +108,14 @@ async function toggleCollection(card, context) {
                 width: card.width,
                 height: card.height,
                 size: blob.size,
+                title: card.title || "",
+                category: card.category || "",
+                query: card.query !== undefined ? card.query : (card.raw?.query || ""),
+                raw: card.raw || null,
+                copyright: card.copyright || "",
+                startDate: card.startDate || "",
+                user: card.user || null,
+                addedAt: Date.now(),
             },
         });
 

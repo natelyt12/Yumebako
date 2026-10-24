@@ -671,9 +671,9 @@ export function toggleBgEditorVisibility(state) {
 /**
  * Apply wallpaper position state (zoom, transform-origin, background-position) on page load.
  */
-export function applyWallpaperPosition() {
+export function applyWallpaperPosition(customState) {
     const settings = getSettings();
-    const state = settings.wallpaperPosition || { x: 50, y: 50, zoom: 1, mode: "cover" };
+    const state = customState || settings.wallpaperPosition || { x: 50, y: 50, zoom: 1, mode: "cover" };
     const realLayers = document.querySelectorAll(".image");
     const videoLayers = document.querySelectorAll(".video");
 

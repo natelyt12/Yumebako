@@ -198,9 +198,6 @@ export function openSidebarSubmenu(title, contentNode, options = {}) {
 
     if (!wrapper || !submenuView) return;
 
-    // The panel has no visible header, so the title only feeds its accessible name.
-    submenuView.setAttribute("aria-label", title);
-
     let submenuBody = submenuView.querySelector(".submenu_body");
     if (!submenuBody) {
         submenuBody = document.createElement("div");

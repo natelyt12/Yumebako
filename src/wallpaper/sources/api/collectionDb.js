@@ -1,3 +1,4 @@
+import { getDefaultWallpaperEffects } from "/src/core/storageHandler.js";
 import { generateImageThumbnail, generateVideoThumbnail } from "/src/core/utils/thumbnailGenerator.js";
 import { getFromStore, saveToStore } from "/src/core/db.js";
 
@@ -35,6 +36,7 @@ export async function addToCollection(item) {
         blob: item.blob,
         thumbnail: item.thumbnail || null,
         metadata: item.metadata || {},
+        effects: item.effects ? JSON.parse(JSON.stringify(item.effects)) : getDefaultWallpaperEffects(),
     };
     collection.push(newItem);
     await saveToStore(COLLECTION_KEY, collection);
@@ -56,6 +58,7 @@ export async function addBatchToCollection(items) {
         blob: item.blob,
         thumbnail: item.thumbnail || null,
         metadata: item.metadata || {},
+        effects: item.effects ? JSON.parse(JSON.stringify(item.effects)) : getDefaultWallpaperEffects(),
     }));
     collection.push(...newItems);
     await saveToStore(COLLECTION_KEY, collection);
@@ -126,5 +129,20 @@ export async function recoverCollectionBlobs() {
     if (updated) {
         await saveToStore(COLLECTION_KEY, collection);
         window.dispatchEvent(new CustomEvent("wallpaper-collection-updated", { detail: { collection } }));
+    }
+}
+
+/**
+ * Update effects profile for a collection item.
+ * @param {string} id
+ * @param {Object} effects
+ */
+export async function updateCollectionItemEffects(id, effects) {
+    if (!id || !effects) return;
+    const collection = await getCollection();
+    const item = collection.find((it) => String(it.id) === String(id));
+    if (item) {
+        item.effects = JSON.parse(JSON.stringify(effects));
+        await saveToStore(COLLECTION_KEY, collection);
     }
 }

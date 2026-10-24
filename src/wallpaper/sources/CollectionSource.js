@@ -8,7 +8,7 @@ import {
   removeFromCollection,
 } from "/src/wallpaper/sources/api/collectionDb.js";
 import { wallpaperRenderer } from "/src/wallpaper/core/renderer.js";
-import { getSettings } from "/src/core/storageHandler.js";
+import { getSettings, getDefaultWallpaperEffects } from "/src/core/storageHandler.js";
 import { showNotification } from "/src/core/ui.js";
 import {
   generateImageThumbnail,
@@ -16,6 +16,15 @@ import {
   getImageDimensions,
 } from "/src/core/utils/thumbnailGenerator.js";
 import { t } from "/src/core/i18n.js";
+import {
+  formatResolution,
+  getResolutionBadge,
+  formatFileSize,
+  formatDate,
+  formatNumber,
+  getPicreSourceLabel,
+  escapeHtml,
+} from "./cardMeta.js";
 
 const FALLBACK_THUMB = "/image/fallback.jpg";
 const VIDEO_HARD_LIMIT = 500 * 1024 * 1024;
@@ -227,7 +236,12 @@ export class CollectionSource extends BaseSource {
       raw.type === "video" ||
       (raw.blob instanceof Blob && raw.blob.type.startsWith("video/"));
     return await wallpaperRenderer.apply(
-      { ...raw, id: item.id, type: isVideo ? "video" : "image" },
+      {
+        ...raw,
+        id: item.id,
+        type: isVideo ? "video" : "image",
+        effects: item.effects || raw.effects || getDefaultWallpaperEffects(),
+      },
       { firstRun },
     );
   }
@@ -270,6 +284,7 @@ export class CollectionSource extends BaseSource {
       width: metadata.width || 0,
       height: metadata.height || 0,
       size: metadata.size || (raw.blob instanceof Blob ? raw.blob.size : 0),
+      raw,
     });
   }
 
@@ -347,5 +362,246 @@ export class CollectionSource extends BaseSource {
     }
 
     return srcVal ? `${mediaType} • ${srcVal}` : mediaType;
+  }
+
+  // ─── Chip Info (Collapsed & Hover Expand) ─────────────────────────────────
+
+  _getCleanBingTitle(meta, card) {
+    const rawTitle = meta?.title?.trim() || card?.title?.trim();
+    if (rawTitle && !/^info$/i.test(rawTitle) && !/^bing\b/i.test(rawTitle)) {
+      return rawTitle;
+    }
+    const copyright = meta?.copyright || card?.copyright || card?.raw?.copyright;
+    if (copyright) {
+      const subject = copyright.split("(")[0].trim();
+      if (subject && !/^info$/i.test(subject)) return subject;
+    }
+    return (rawTitle && !/^info$/i.test(rawTitle)) ? rawTitle : "Bing";
+  }
+
+  getChipSummary(card) {
+    if (!card) return "";
+    const meta = card.metadata || {};
+    const provider = meta.provider || (card.local ? "local" : "");
+    const badge = getResolutionBadge(card.width, card.height);
+    const size = formatFileSize(card.size);
+
+    // TH 1: Ảnh lưu từ bên ngoài (Unsplash, Bing, Wallhaven, Picre...)
+    if (provider && provider !== "local") {
+      if (provider === "unsplash") {
+        const author = meta.user?.name || "";
+        const photoBy = t("sp.meta.photo_by", "Photo by");
+        const parts = [
+          author ? `<span>${escapeHtml(photoBy)} <strong>${escapeHtml(author)}</strong></span>` : `<span>Unsplash</span>`
+        ];
+        if (badge) parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
+        return parts.join('<span class="card-meta-sep">•</span>');
+      }
+
+      if (provider === "bing") {
+        const title = this._getCleanBingTitle(meta, card);
+        const dateStr = formatDate(meta.startDate || card.startDate);
+        const parts = [`<span>${escapeHtml(title)}</span>`];
+        if (dateStr) parts.push(`<span>${escapeHtml(dateStr)}</span>`);
+        else if (badge) parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
+        return parts.join('<span class="card-meta-sep">•</span>');
+      }
+
+      if (provider === "wallhaven") {
+        const query = (meta.query && meta.query.trim()) || meta.title || meta.category || t("sp.meta.random", "Ngẫu nhiên");
+        const parts = [`<span>${escapeHtml(query)}</span>`];
+        if (badge) parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
+        return parts.join('<span class="card-meta-sep">•</span>');
+      }
+
+      if (provider === "picre") {
+        const platform = getPicreSourceLabel(meta.source || card.sourceUrl);
+        const parts = [`<span>${escapeHtml(platform)}</span>`];
+        if (badge) parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
+        return parts.join('<span class="card-meta-sep">•</span>');
+      }
+
+      const name = meta.providerName || provider;
+      const parts = [`<span>${escapeHtml(name)}</span>`];
+      if (badge) parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
+      return parts.join('<span class="card-meta-sep">•</span>');
+    }
+
+    // TH 2: Tải lên từ máy tính
+    const isVideo = card.mediaType === "video" || card.type?.includes("video");
+    const typeLabel = t(`sp.meta.${isVideo ? "type_video" : "type_image"}`, isVideo ? "Video" : "Hình ảnh");
+    const parts = [`<span>${escapeHtml(typeLabel)}</span>`];
+    if (badge) parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
+    else if (size) parts.push(`<span>${escapeHtml(size)}</span>`);
+
+    return parts.join('<span class="card-meta-sep">•</span>');
+  }
+
+  getChipDetails(card) {
+    if (!card) return [];
+    const details = [];
+    const meta = card.metadata || {};
+    const provider = meta.provider || (card.local ? "local" : "");
+    const isVideo = card.mediaType === "video" || card.type?.includes("video");
+
+    // TH 1: Ảnh lưu từ bên ngoài
+    if (provider && provider !== "local") {
+      if (provider === "unsplash") {
+        const author = meta.user?.name;
+        const username = meta.user?.username;
+        if (author) {
+          details.push({
+            label: t("sp.meta.author", "Tác giả"),
+            value: username ? `${author} (@${username})` : author,
+          });
+        }
+        if (meta.user?.location || meta.location) {
+          details.push({
+            label: t("sp.meta.location", "Địa điểm"),
+            value: meta.user?.location || meta.location,
+          });
+        }
+      } else if (provider === "bing") {
+        const title = this._getCleanBingTitle(meta, card);
+        if (title) {
+          details.push({
+            label: t("sp.meta.title", "Tiêu đề"),
+            value: title,
+          });
+        }
+        const dateStr = formatDate(meta.startDate);
+        if (dateStr) {
+          details.push({
+            label: t("sp.meta.date_released", "Ngày phát hành"),
+            value: dateStr,
+          });
+        }
+        if (meta.copyright) {
+          details.push({
+            label: t("sp.meta.copyright", "Bản quyền"),
+            value: meta.copyright,
+            stacked: true,
+          });
+        }
+      } else if (provider === "wallhaven") {
+        const queryVal = (meta.query && meta.query.trim()) || t("sp.meta.random", "Ngẫu nhiên");
+        details.push({
+          label: t("sp.meta.query", "Từ khóa"),
+          value: queryVal,
+        });
+        if (meta.category) {
+          const catKey = `sp.api.wallhaven.cat_${meta.category.toLowerCase()}`;
+          details.push({
+            label: t("sp.meta.category", "Phân loại"),
+            value: t(catKey, meta.category),
+          });
+        }
+        if (meta.favorites !== undefined || meta.views !== undefined) {
+          const stats = [];
+          if (meta.favorites !== undefined) {
+            stats.push(`<span class="meta_stat_item"><i data-icon="heart"></i> <span>${escapeHtml(formatNumber(meta.favorites))}</span></span>`);
+          }
+          if (meta.views !== undefined) {
+            stats.push(`<span class="meta_stat_item"><i data-icon="eye"></i> <span>${escapeHtml(formatNumber(meta.views))}</span></span>`);
+          }
+          details.push({
+            label: t("sp.meta.favorites", "Yêu thích"),
+            value: stats.join(""),
+            html: true,
+          });
+        }
+      } else if (provider === "picre") {
+        const platform = getPicreSourceLabel(meta.source || card.sourceUrl);
+        if (platform) {
+          details.push({
+            label: t("sp.meta.platform", "Nền tảng"),
+            value: platform,
+          });
+        }
+      }
+
+      // Thông số kỹ thuật & Nguồn lưu
+      const badge = getResolutionBadge(card.width, card.height);
+      const res = formatResolution(card.width, card.height);
+      if (res) {
+        const badgeHtml = badge ? ` <span class="meta_badge">${escapeHtml(badge)}</span>` : "";
+        details.push({
+          label: t("sp.meta.resolution", "Độ phân giải"),
+          value: `${escapeHtml(res)}${badgeHtml}`,
+          html: true,
+        });
+      }
+
+      const size = formatFileSize(card.size);
+      if (size) {
+        details.push({
+          label: t("sp.meta.filesize", "Dung lượng"),
+          value: size,
+        });
+      }
+
+      details.push({
+        label: t("sp.meta.source", "Nguồn ảnh"),
+        value: meta.providerName || provider,
+      });
+
+      const dateSaved = formatDate(meta.addedAt || card.addedAt || Number(String(card.id).split("_")[0]));
+      if (dateSaved) {
+        details.push({
+          label: t("sp.meta.date_saved", "Ngày lưu"),
+          value: dateSaved,
+        });
+      }
+
+      return details;
+    }
+
+    // TH 2: Tải lên từ máy tính
+    const fileName = meta.name || card.title || "";
+    if (fileName) {
+      details.push({
+        label: t("sp.meta.filename", "Tên file"),
+        value: fileName,
+      });
+    }
+
+    details.push({
+      label: t("sp.meta.media_type", "Loại media"),
+      value: t(`sp.meta.${isVideo ? "type_video" : "type_image"}`, isVideo ? "Video" : "Hình ảnh"),
+    });
+
+    details.push({
+      label: t("sp.meta.source", "Nguồn gốc"),
+      value: t("sp.meta.local_device", "Trên máy tính"),
+    });
+
+    const badge = getResolutionBadge(card.width, card.height);
+    const res = formatResolution(card.width, card.height);
+    if (res) {
+      const badgeHtml = badge ? ` <span class="meta_badge">${escapeHtml(badge)}</span>` : "";
+      details.push({
+        label: t("sp.meta.resolution", "Độ phân giải"),
+        value: `${escapeHtml(res)}${badgeHtml}`,
+        html: true,
+      });
+    }
+
+    const size = formatFileSize(card.size);
+    if (size) {
+      details.push({
+        label: t("sp.meta.filesize", "Dung lượng"),
+        value: size,
+      });
+    }
+
+    const dateAdded = formatDate(meta.addedAt || card.addedAt || Number(String(card.id).split("_")[0]));
+    if (dateAdded) {
+      details.push({
+        label: t("sp.meta.date_added", "Ngày thêm"),
+        value: dateAdded,
+      });
+    }
+
+    return details;
   }
 }

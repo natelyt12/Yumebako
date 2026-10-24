@@ -7,6 +7,7 @@ import caretRightIcon from "@phosphor-icons/core/assets/regular/caret-right.svg?
 import caretLeftIcon from "@phosphor-icons/core/assets/regular/caret-left.svg?raw";
 import imageIcon from "@phosphor-icons/core/assets/regular/image.svg?raw";
 import eyeIcon from "@phosphor-icons/core/assets/regular/eye.svg?raw";
+import heartIcon from "@phosphor-icons/core/assets/regular/heart.svg?raw";
 import arrowCounterClockwiseIcon from "@phosphor-icons/core/assets/regular/arrow-counter-clockwise.svg?raw";
 import minusIcon from "@phosphor-icons/core/assets/regular/minus.svg?raw";
 import trashIcon from "@phosphor-icons/core/assets/regular/trash.svg?raw";
@@ -54,7 +55,8 @@ export const Icons = {
   chevronRight: withSize(caretRightIcon, 32),
   chevronLeft: withSize(caretLeftIcon, 18),
   preview: withSize(eyeIcon, 18),
-  eye: withSize(eyeIcon, 18),
+  eye: withSize(eyeIcon, 14),
+  heart: withSize(heartIcon, 14),
   reset: withSize(arrowCounterClockwiseIcon),
   sliderDec: withSize(minusIcon),
   sliderInc: withSize(plusIcon),

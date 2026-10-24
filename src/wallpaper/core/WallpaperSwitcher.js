@@ -543,13 +543,6 @@ export class WallpaperSwitcher {
     window.addEventListener("keydown", (e) => {
       if (!this.isOpen) return;
 
-      // ↑/↓ cycle through the source tabs (←/→ drive the carousel)
-      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-        e.preventDefault();
-        this.bar?.stepTab(e.key === "ArrowDown" ? 1 : -1);
-        return;
-      }
-
       if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
         e.preventDefault();
         this.carousel?.stepByKey(e.key === "ArrowRight" ? 1 : -1);
