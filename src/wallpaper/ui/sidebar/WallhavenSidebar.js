@@ -244,10 +244,7 @@ export function createWallhavenSidebar({ dataControl, sidebar }) {
         await sidebar.reload("wallhaven");
       }
       sidebar.close();
-      showNotification(
-        t("sp.api.wallhaven.saved", "Đã áp dụng cài đặt Wallhaven"),
-        "success",
-      );
+      showNotification(t("common.saved_changes", "Đã lưu thay đổi"), "success");
     } catch (err) {
       console.error("[WallhavenSidebar] Failed to apply settings:", err);
       showNotification(err?.message || "Lỗi khi áp dụng cài đặt", "error");

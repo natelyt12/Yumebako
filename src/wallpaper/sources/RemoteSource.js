@@ -48,7 +48,7 @@ export class RemoteSource extends BaseSource {
   static storageKey = "";
   static maxCachedBlobs = 6;
   /** Remote images can be fetched again, so the feed window is bounded. */
-  static maxCards = 100;
+  static maxCards = 50;
 
   constructor() {
     super();

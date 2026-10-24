@@ -54,9 +54,10 @@ export class WallhavenSource extends RemoteSource {
     storeData.queue = queue;
     await saveToStore(key, storeData);
 
-    const appliedQuery = entry.query !== undefined
-      ? entry.query
-      : (getSettings()?.wallhavenConfig?.query || "").trim();
+    const appliedQuery =
+      entry.query !== undefined
+        ? entry.query
+        : (getSettings()?.wallhavenConfig?.query || "").trim();
 
     return this.toCarouselItem(entry, {
       id: String(entry.id),
@@ -70,7 +71,6 @@ export class WallhavenSource extends RemoteSource {
       size: entry.file_size || 0,
       views: entry.views,
       favorites: entry.favorites,
-      ratio: entry.ratio,
       query: appliedQuery,
       raw: entry,
     });
@@ -81,15 +81,14 @@ export class WallhavenSource extends RemoteSource {
   getChipSummary(card) {
     if (!card) return "";
     const cardQuery = card.query !== undefined ? card.query : card.raw?.query;
-    const query = typeof cardQuery === "string"
-      ? cardQuery.trim()
-      : (getSettings()?.wallhavenConfig?.query || "").trim();
+    const query =
+      typeof cardQuery === "string"
+        ? cardQuery.trim()
+        : (getSettings()?.wallhavenConfig?.query || "").trim();
     const queryLabel = query || t("sp.meta.random", "Ngẫu nhiên");
     const badge = getResolutionBadge(card.width, card.height);
 
-    const parts = [
-      `<span>${escapeHtml(queryLabel)}</span>`,
-    ];
+    const parts = [`<span>${escapeHtml(queryLabel)}</span>`];
 
     if (badge) {
       parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
@@ -103,9 +102,10 @@ export class WallhavenSource extends RemoteSource {
     const details = [];
 
     const cardQuery = card.query !== undefined ? card.query : card.raw?.query;
-    const query = typeof cardQuery === "string"
-      ? cardQuery.trim()
-      : (getSettings()?.wallhavenConfig?.query || "").trim();
+    const query =
+      typeof cardQuery === "string"
+        ? cardQuery.trim()
+        : (getSettings()?.wallhavenConfig?.query || "").trim();
     details.push({
       label: t("sp.meta.query", "Từ khóa"),
       value: query || t("sp.meta.random", "Ngẫu nhiên"),
@@ -123,12 +123,12 @@ export class WallhavenSource extends RemoteSource {
     const badge = getResolutionBadge(card.width, card.height);
     const res = formatResolution(card.width, card.height);
     if (res) {
-      const ratio = card.ratio || card.raw?.ratio;
-      const ratioStr = ratio ? ` (${ratio})` : "";
-      const badgeHtml = badge ? ` <span class="meta_badge">${escapeHtml(badge)}</span>` : "";
+      const badgeHtml = badge
+        ? ` <span class="meta_badge">${escapeHtml(badge)}</span>`
+        : "";
       details.push({
         label: t("sp.meta.resolution", "Độ phân giải"),
-        value: `${escapeHtml(res)}${escapeHtml(ratioStr)}${badgeHtml}`,
+        value: `${escapeHtml(res)}${badgeHtml}`,
         html: true,
       });
     }
@@ -146,10 +146,14 @@ export class WallhavenSource extends RemoteSource {
     if (favs !== undefined || views !== undefined) {
       const stats = [];
       if (favs !== undefined) {
-        stats.push(`<span class="meta_stat_item"><i data-icon="heart"></i> <span>${escapeHtml(formatNumber(favs))}</span></span>`);
+        stats.push(
+          `<span class="meta_stat_item"><i data-icon="heart"></i> <span>${escapeHtml(formatNumber(favs))}</span></span>`,
+        );
       }
       if (views !== undefined) {
-        stats.push(`<span class="meta_stat_item"><i data-icon="eye"></i> <span>${escapeHtml(formatNumber(views))}</span></span>`);
+        stats.push(
+          `<span class="meta_stat_item"><i data-icon="eye"></i> <span>${escapeHtml(formatNumber(views))}</span></span>`,
+        );
       }
       details.push({
         label: t("sp.meta.favorites", "Yêu thích"),
