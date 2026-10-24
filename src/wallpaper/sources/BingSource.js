@@ -59,7 +59,7 @@ export class BingSource extends RemoteSource {
         ];
     }
 
-    /** Settings popover for Resolution selection. */
+    /** Settings sidebar panel for Resolution selection. */
     get hasProviderSettings() {
         return true;
     }

@@ -8,5 +8,4 @@ export { initSubToggle, setDropdownValue, syncDropdownSelection, toggleDropdown,
 export { showConfirm, showAlert, confirmReset } from "./ui/dialog.js";
 export { showNotification } from "./ui/notification.js";
 export { createSlider } from "./ui/slider.js";
-export { createPopover } from "./ui/popover.js";
 

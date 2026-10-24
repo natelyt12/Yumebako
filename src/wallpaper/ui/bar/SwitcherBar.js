@@ -3,10 +3,7 @@ import { t } from "/src/core/i18n.js";
 import { showConfirm } from "/src/core/ui.js";
 import { getSettings, saveSettings } from "/src/core/storageHandler.js";
 import { resolveCardMeta, escapeHtml } from "../../sources/cardMeta.js";
-import { createWallhavenSettingsPopover } from "../popover/WallhavenSettingsPopover.js";
-import { createCollectionSettingsPopover } from "../popover/CollectionSettingsPopover.js";
-import { createPicreSettingsPopover } from "../popover/PicreSettingsPopover.js";
-import { createBingSettingsPopover } from "../popover/BingSettingsPopover.js";
+import { SwitcherSidebar } from "../sidebar/SwitcherSidebar.js";
 
 /**
  * SwitcherBar.js
@@ -47,8 +44,7 @@ export class SwitcherBar {
         this.settingsBtn = container.querySelector("#wallpaper_source_settings");
 
         this.tabButtons = new Map();
-        this.wallhavenPopover = null;
-        this.collectionPopover = null;
+        this.sidebar = null;
         this._token = 0;
         this._isBusy = false;
     }
@@ -57,6 +53,17 @@ export class SwitcherBar {
      * Initialize and subscribe to DataControl.
      */
     init() {
+        const inner = this.container.closest(".wallpaper_switcher_inner");
+        if (inner) {
+            this.sidebar = new SwitcherSidebar({
+                container: inner,
+                dataControl: this.dataControl,
+                switcher: this.switcher,
+                settingsBtn: this.settingsBtn,
+            });
+            this.sidebar.init();
+        }
+
         this._bindEvents();
         this.renderTabs();
         this.syncState(this.dataControl.getState());
@@ -82,7 +89,7 @@ export class SwitcherBar {
             this.renderActions(card);
         });
         this.dataControl.on("source:change", ({ sourceId }) => {
-            this.closePopovers();
+            this.closeSidebar();
             this.syncActiveTab(sourceId);
             this.syncRightSlot(sourceId);
             this.syncMetaInfo(null);
@@ -120,63 +127,26 @@ export class SwitcherBar {
 
         // Settings button (for sources with custom settings like Wallhaven & Collection)
         if (this.settingsBtn) {
-            this.wallhavenPopover = createWallhavenSettingsPopover({
-                trigger: this.settingsBtn,
-                switcher: this.switcher,
-                dataControl: this.dataControl,
-            });
-            this.collectionPopover = createCollectionSettingsPopover({
-                trigger: this.settingsBtn,
-                switcher: this.switcher,
-                dataControl: this.dataControl,
-            });
-            this.picrePopover = createPicreSettingsPopover({
-                trigger: this.settingsBtn,
-                switcher: this.switcher,
-                dataControl: this.dataControl,
-            });
-            this.bingPopover = createBingSettingsPopover({
-                trigger: this.settingsBtn,
-                switcher: this.switcher,
-                dataControl: this.dataControl,
-            });
-
             this.settingsBtn.addEventListener("click", (e) => {
                 e.stopPropagation();
                 const activeId = this.dataControl.activeSourceId;
-                if (activeId === "wallhaven") {
-                    this.collectionPopover?.close();
-                    this.picrePopover?.close();
-                    this.bingPopover?.close();
-                    this.wallhavenPopover?.toggle();
-                } else if (activeId === "collection") {
-                    this.wallhavenPopover?.close();
-                    this.picrePopover?.close();
-                    this.bingPopover?.close();
-                    this.collectionPopover?.toggle();
-                } else if (activeId === "picre") {
-                    this.wallhavenPopover?.close();
-                    this.collectionPopover?.close();
-                    this.bingPopover?.close();
-                    this.picrePopover?.toggle();
-                } else if (activeId === "bing") {
-                    this.wallhavenPopover?.close();
-                    this.collectionPopover?.close();
-                    this.picrePopover?.close();
-                    this.bingPopover?.toggle();
-                }
+                this.sidebar?.toggle(activeId);
             });
         }
     }
 
     /**
-     * Đóng tất cả popover đang mở thuộc thanh bar.
+     * Đóng sidebar cài đặt nguồn nếu đang mở.
+     */
+    closeSidebar() {
+        this.sidebar?.close();
+    }
+
+    /**
+     * @deprecated Alias for backward compatibility
      */
     closePopovers() {
-        this.wallhavenPopover?.close();
-        this.collectionPopover?.close();
-        this.picrePopover?.close();
-        this.bingPopover?.close();
+        this.closeSidebar();
     }
 
     /**

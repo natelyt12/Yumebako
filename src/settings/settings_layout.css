@@ -1,11 +1,11 @@
 @layer features {
-/* Settings Panel Main Layout & Section Options */
+  /* Settings Panel Main Layout & Section Options */
 
-/* The content card holds both views side by side: the main menu and, to its
+  /* The content card holds both views side by side: the main menu and, to its
    right, the submenu. It fills the wrapper as a flex child, so the wrapper's
    width animation (--submenu-width) is what morphs the card - the track inside
    only slides. */
-#settings_content {
+  #settings_content {
     position: relative;
     /* One slider track: both views are laid out side by side inside the card, so
        they can never overlap - they just slide across. */
@@ -20,13 +20,13 @@
        properties are transitioned for the hold-to-preview dissolve. */
     transform: translateX(80px);
     transition:
-        transform 0.4s var(--cubic_in),
-        opacity var(--settings-motion) var(--expo_out),
-        background-color var(--settings-motion) var(--expo_out),
-        -webkit-backdrop-filter var(--settings-motion) var(--expo_out),
-        backdrop-filter var(--settings-motion) var(--expo_out),
-        border-color var(--settings-motion) var(--expo_out),
-        box-shadow var(--settings-motion) var(--expo_out);
+      transform 0.4s var(--cubic_in),
+      opacity var(--settings-motion) var(--expo_out),
+      background-color var(--settings-motion) var(--expo_out),
+      -webkit-backdrop-filter var(--settings-motion) var(--expo_out),
+      backdrop-filter var(--settings-motion) var(--expo_out),
+      border-color var(--settings-motion) var(--expo_out),
+      box-shadow var(--settings-motion) var(--expo_out);
     background-color: var(--bg-panel);
     -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
     backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
@@ -36,32 +36,32 @@
     box-shadow: -4px 0 8px rgba(0, 0, 0, 0.4);
     pointer-events: auto;
     z-index: 1;
-}
+  }
 
-/* Coming in a beat after the sidebar itself, so the two cards never slide as a
+  /* Coming in a beat after the sidebar itself, so the two cards never slide as a
    single block (the same delay plays back on close). */
-#setting_wrapper.setting_wrapper_opened #settings_content {
+  #setting_wrapper.setting_wrapper_opened #settings_content {
     transform: none;
     transition:
-        transform 0.7s var(--expo_out) 0.1s,
-        opacity var(--settings-motion) var(--expo_out),
-        background-color var(--settings-motion) var(--expo_out),
-        -webkit-backdrop-filter var(--settings-motion) var(--expo_out),
-        backdrop-filter var(--settings-motion) var(--expo_out),
-        border-color var(--settings-motion) var(--expo_out),
-        box-shadow var(--settings-motion) var(--expo_out);
-}
+      transform 0.7s var(--expo_out) 0.1s,
+      opacity var(--settings-motion) var(--expo_out),
+      background-color var(--settings-motion) var(--expo_out),
+      -webkit-backdrop-filter var(--settings-motion) var(--expo_out),
+      backdrop-filter var(--settings-motion) var(--expo_out),
+      border-color var(--settings-motion) var(--expo_out),
+      box-shadow var(--settings-motion) var(--expo_out);
+  }
 
-/* When a submenu is active, the main menu recedes 50% to the left while fading out,
+  /* When a submenu is active, the main menu recedes 50% to the left while fading out,
    letting the submenu overlay smoothly into place. */
-#setting_wrapper.submenu_active .settings_main_view {
+  #setting_wrapper.submenu_active .settings_main_view {
     transform: translateX(-50%);
     opacity: 0;
     pointer-events: none;
-}
+  }
 
-/* Original Glassmorphic White top loading indicator bar with width animation */
-.loading {
+  /* Original Glassmorphic White top loading indicator bar with width animation */
+  .loading {
     position: absolute;
     top: 0;
     left: 0;
@@ -75,9 +75,9 @@
     opacity: 0;
     z-index: 10;
     pointer-events: none;
-}
+  }
 
-.loading::before {
+  .loading::before {
     content: "";
     position: absolute;
     background: var(--loading-color);
@@ -87,21 +87,21 @@
     width: 0%;
     height: 100%;
     animation: moving 1s ease-in-out infinite;
-}
+  }
 
-@keyframes moving {
+  @keyframes moving {
     50% {
-        width: 100%;
+      width: 100%;
     }
 
     100% {
-        width: 0;
-        right: 0;
-        left: unset;
+      width: 0;
+      right: 0;
+      left: unset;
     }
-}
+  }
 
-.settings_main_view {
+  .settings_main_view {
     /* First half of the track, at a fixed column width so it never stretches when
        the card widens for a submenu. Matches the inner width of the content card. */
     position: relative;
@@ -114,51 +114,51 @@
     /* Slides with the track, and fades for the hold-to-preview dissolve. */
     transform: translateX(0);
     transition:
-        transform var(--settings-motion) var(--expo_out),
-        opacity var(--settings-motion) var(--expo_out);
-}
+      transform var(--settings-motion) var(--expo_out),
+      opacity var(--settings-motion) var(--expo_out);
+  }
 
-/* The nav stays visible next to the submenu, it just swaps its tab list for the
+  /* The nav stays visible next to the submenu, it just swaps its tab list for the
    back / preview actions (see settings_nav.css). */
 
-.tab_content {
+  .tab_content {
     display: none;
     flex-direction: column;
     gap: 8px;
     padding: 12px 16px;
     animation: fadeIn 0.4s var(--expo_out);
-}
+  }
 
-.tab_content.active {
+  .tab_content.active {
     display: flex;
-}
+  }
 
-@keyframes fadeIn {
+  @keyframes fadeIn {
     from {
-        opacity: 0;
-        transform: translateY(10px);
+      opacity: 0;
+      transform: translateY(10px);
     }
 
     to {
-        opacity: 1;
-        transform: translateY(0);
+      opacity: 1;
+      transform: translateY(0);
     }
-}
+  }
 
-.setting_section {
+  .setting_section {
     position: relative;
     display: flex;
     flex-direction: column;
     gap: 8px;
     padding: 16px;
-}
+  }
 
-.submenu_body .setting_section {
+  .submenu_body .setting_section {
     padding: 16px;
     gap: 8px;
-}
+  }
 
-.setting_title {
+  .setting_title {
     position: relative;
     display: flex;
     align-items: center;
@@ -172,90 +172,71 @@
     letter-spacing: 0.06em;
     user-select: none;
     transition: color 0.25s var(--smooth);
-}
+  }
 
-.setting_title:first-child {
+  .setting_title:first-child {
     margin-top: 0;
     padding-top: 0;
-}
+  }
 
-.setting_title::after {
+  .setting_title::after {
     content: "";
     height: 1px;
     flex: 1;
     background: linear-gradient(to right, var(--divider), transparent);
     opacity: 0.45;
-}
+  }
 
-.setting_title:hover {
+  .setting_title:hover {
     color: var(--text-secondary);
-}
+  }
 
-.setting_title i[data-icon],
-.setting_title svg {
+  .setting_title i[data-icon],
+  .setting_title svg {
     width: 14px;
     height: 14px;
     opacity: 0.7;
     flex-shrink: 0;
     transition: opacity 0.25s var(--smooth);
-}
+  }
 
-.setting_title:hover i[data-icon],
-.setting_title:hover svg {
+  .setting_title:hover i[data-icon],
+  .setting_title:hover svg {
     opacity: 1;
-}
+  }
 
-.setting_section svg,
-.tab_content svg {
+  .setting_section svg,
+  .tab_content svg {
     width: 18px;
     height: 18px;
-}
+  }
 
-.setting_section p,
-.tab_content p {
+  .setting_section p,
+  .tab_content p {
     margin: 0;
-}
+  }
 
-.tooltip {
-    position: relative;
-    opacity: 0.6;
-    font-size: 0.8em;
-    display: block;
-    line-height: 1.4;
-    overflow: visible;
-    transition: opacity 0.2s ease, color 0.2s ease;
-    white-space: pre-line;
-    word-break: break-word;
-    overflow-wrap: anywhere;
-}
-
-.tooltip:hover {
-    opacity: 0.95;
-    color: var(--text-primary, #ffffff);
-}
-
-
-.setting_options {
+  .setting_options {
     display: flex;
     flex-direction: column;
     gap: 6px;
-}
+  }
 
-.api_config_block {
+  .api_config_block {
     display: flex;
     flex-direction: column;
     gap: 6px;
     width: 100%;
-}
+  }
 
-.setting_option {
+  .setting_option {
     display: flex;
     align-items: center;
     justify-content: space-between;
     width: 100%;
-}
+  }
 
-.checkbox_tooltip_group {
+  .checkbox_tooltip_group {
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -265,25 +246,27 @@
     background-color: transparent;
     border: 1px solid var(--button);
     border-radius: 10px;
-    transition: background-color 0.2s var(--smooth), border-color 0.2s var(--smooth);
-}
+    transition:
+      background-color 0.2s var(--smooth),
+      border-color 0.2s var(--smooth);
+  }
 
-.checkbox_tooltip_group:has(input:checked) {
+  .checkbox_tooltip_group:has(input:checked) {
     background-color: var(--button);
     border-color: var(--button);
-}
+  }
 
-.checkbox_tooltip_group > .btn {
+  .checkbox_tooltip_group > .btn {
     width: 100%;
     flex: none;
     padding: 0;
-}
+  }
 
-.checkbox_tooltip_group > .tooltip {
+  .checkbox_tooltip_group > .tooltip {
     padding: 0;
-}
+  }
 
-/* Toggle switch (`.btn[data-action="toggle"]`).
+  /* Toggle switch (`.btn[data-action="toggle"]`).
    `flex: none` keeps the bar at its intrinsic height: toggles are always
    column-stacked (options list, submenu section, checkbox group), and a `flex: 1`
    basis of 0 made them stretch in the definite-height submenu column — one grew
@@ -291,19 +274,17 @@
    `height`/`min-height` stay `!important` so they remain the fallback for
    `.effects_column .btn[data-action="toggle"]` (effects.css), which re-asserts
    them; every other property comes from the shared `.btn` layout. */
-.btn[data-action="toggle"] {
+  .btn[data-action="toggle"] {
     flex: none;
     user-select: none;
-}
+  }
 
-.btn[data-action="toggle"]:not(:has(.btn_desc)) {
+  .btn[data-action="toggle"]:not(:has(.btn_desc)) {
     height: 40px !important;
     min-height: 40px !important;
-}
+  }
 
-
-
-#setting_info {
+  #setting_info {
     padding: 12px 8px;
     display: flex;
     flex-direction: column;
@@ -311,56 +292,56 @@
     gap: 4px;
     opacity: 0.4;
     transition: 0.3s var(--expo_out);
-}
+  }
 
-#setting_info:hover {
+  #setting_info:hover {
     opacity: 0.8;
-}
+  }
 
-#setting_info p {
+  #setting_info p {
     margin: 0;
     font-size: 0.8em;
     letter-spacing: 0.5px;
-}
+  }
 
-.app_name {
+  .app_name {
     font-weight: 800;
-}
+  }
 
-.app_name span {
+  .app_name span {
     font-weight: 500;
     opacity: 0.7;
     margin-left: 4px;
     text-transform: none;
-}
+  }
 
-.app_creator span:last-child {
+  .app_creator span:last-child {
     font-weight: 700;
-}
+  }
 
-.app_creator span:first-child {
+  .app_creator span:first-child {
     opacity: 0.8;
     margin-right: 4px;
-}
+  }
 
-.app_desc {
+  .app_desc {
     font-size: 0.9em;
     opacity: 0.8;
     margin-top: 4px;
     line-height: 1.4;
-}
+  }
 
-.app_credits {
+  .app_credits {
     font-size: 0.8em;
     opacity: 0.6;
     margin-top: 4px;
-}
+  }
 
-.app_creator {
+  .app_creator {
     margin-top: 8px;
-}
+  }
 
-#wallpaper_thumbnail_container {
+  #wallpaper_thumbnail_container {
     width: 100%;
     aspect-ratio: 16/9;
     border-radius: 2px;
@@ -370,5 +351,5 @@
     background: rgba(0, 0, 0, 0.2);
     position: relative;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
+  }
 }

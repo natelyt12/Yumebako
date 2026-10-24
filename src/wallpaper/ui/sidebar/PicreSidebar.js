@@ -1,24 +1,21 @@
-import "./picre_popover.css";
 import { t, translateDOM } from "/src/core/i18n.js";
 import { renderIcons } from "/src/core/icon.js";
-import { createPopover, showNotification, showConfirm } from "/src/core/ui.js";
+import { showNotification, showConfirm } from "/src/core/ui.js";
 import { initButtons } from "/src/core/ui/button.js";
 
 /**
- * PicreSettingsPopover.js
+ * PicreSidebar.js
  * ---------------------------------------------------------------------------
- * Popover form for Picre provider settings (Clear history management).
+ * Form panel for Picre provider settings (Clear history management).
  */
-export function createPicreSettingsPopover({ trigger, switcher, dataControl }) {
-    if (!trigger) return null;
-
+export function createPicreSidebar({ dataControl, sidebar }) {
     const form = document.createElement("div");
-    form.className = "picre_settings_form";
+    form.className = "source_sidebar_form picre_sidebar_form";
 
     form.innerHTML = `
-        <div class="picre_section">
-            <span class="picre_section_title" data-i18n="wallpaper_switcher.clear_history_section"></span>
-            <button type="button" class="btn" id="picre_popover_btn_clear_history" data-variant="danger">
+        <div class="source_sidebar_section">
+            <span class="source_sidebar_section_title" data-i18n="wallpaper_switcher.clear_history_section"></span>
+            <button type="button" class="btn" id="picre_sidebar_btn_clear_history" data-variant="danger">
                 <i data-icon="trash"></i>
                 <div class="btn_body">
                     <span class="btn_title" data-i18n="wallpaper_switcher.clear_history"></span>
@@ -32,15 +29,7 @@ export function createPicreSettingsPopover({ trigger, switcher, dataControl }) {
     renderIcons(form);
     initButtons(form);
 
-    const clearHistoryBtn = form.querySelector("#picre_popover_btn_clear_history");
-
-    const popover = createPopover({
-        trigger,
-        content: form,
-        placement: "up",
-        align: "end",
-        manualTrigger: true,
-    });
+    const clearHistoryBtn = form.querySelector("#picre_sidebar_btn_clear_history");
 
     clearHistoryBtn?.addEventListener("click", async () => {
         const confirmed = await showConfirm(
@@ -56,17 +45,21 @@ export function createPicreSettingsPopover({ trigger, switcher, dataControl }) {
 
         try {
             await dataControl.clearSourceHistory("picre");
-            popover.close();
+            sidebar.close();
             showNotification(
                 t("wallpaper_switcher.clear_history_success"),
                 "success"
             );
         } catch (err) {
-            console.error("[PicreSettingsPopover] Failed to clear history:", err);
+            console.error("[PicreSidebar] Failed to clear history:", err);
             showNotification(err?.message || "Lỗi khi dọn dẹp lịch sử", "error");
         }
     });
 
-    return popover;
+    return {
+        el: form,
+        onOpen: () => {},
+        onClose: () => {},
+    };
 }
 

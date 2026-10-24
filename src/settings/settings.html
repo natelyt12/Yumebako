@@ -1,368 +1,516 @@
 <div class="settings_nav">
-    <!-- Main nav group: Holds the sidebar tabs (fades out in submenus) -->
-    <div class="nav_group" id="setting_nav_main">
-        <div class="settings_nav_inner">
-            <div class="nav_item active" data-tab="wallpaper" data-tooltip-i18n="sp.sb.wallpaper">
-                <i data-icon="sidebar_wallpaper"></i>
-            </div>
-            <div class="nav_item" data-tab="appearance" data-tooltip-i18n="sp.sb.appearance">
-                <i data-icon="sidebar_appearance"></i>
-            </div>
+  <!-- Main nav group: Holds the sidebar tabs (fades out in submenus) -->
+  <div class="nav_group" id="setting_nav_main">
+    <div class="settings_nav_inner">
+      <div
+        class="nav_item active"
+        data-tab="wallpaper"
+        data-tooltip-i18n="sp.sb.wallpaper"
+      >
+        <i data-icon="sidebar_wallpaper"></i>
+      </div>
+      <div
+        class="nav_item"
+        data-tab="appearance"
+        data-tooltip-i18n="sp.sb.appearance"
+      >
+        <i data-icon="sidebar_appearance"></i>
+      </div>
 
-            <div class="nav_divider widget_sidebar_element"></div>
-            <div class="nav_item" data-tab="widgets" data-tooltip-i18n="sp.sb.widgets">
-                <i data-icon="sidebar_widgets"></i>
-            </div>
-            <div class="nav_item widget_sidebar_element" data-tab="time" data-tooltip-i18n="sp.sb.time">
-                <i data-icon="sidebar_time"></i>
-            </div>
-            <div class="nav_item widget_sidebar_element" data-tab="weather" data-tooltip-i18n="sp.sb.weather">
-                <i data-icon="sidebar_weather"></i>
-            </div>
+      <div class="nav_divider widget_sidebar_element"></div>
+      <div
+        class="nav_item"
+        data-tab="widgets"
+        data-tooltip-i18n="sp.sb.widgets"
+      >
+        <i data-icon="sidebar_widgets"></i>
+      </div>
+      <div
+        class="nav_item widget_sidebar_element"
+        data-tab="time"
+        data-tooltip-i18n="sp.sb.time"
+      >
+        <i data-icon="sidebar_time"></i>
+      </div>
+      <div
+        class="nav_item widget_sidebar_element"
+        data-tab="weather"
+        data-tooltip-i18n="sp.sb.weather"
+      >
+        <i data-icon="sidebar_weather"></i>
+      </div>
 
-            <div class="nav_divider widget_sidebar_element"></div>
-            <div class="nav_item" data-tab="info" data-tooltip-i18n="sp.sb.info">
-                <i data-icon="sidebar_info"></i>
-            </div>
-            <div class="nav_item" data-tab="debug" data-tooltip-i18n="sp.sb.debug">
-                <i data-icon="sidebar_debug"></i>
-            </div>
-        </div>
+      <div class="nav_divider widget_sidebar_element"></div>
+      <div class="nav_item" data-tab="info" data-tooltip-i18n="sp.sb.info">
+        <i data-icon="sidebar_info"></i>
+      </div>
+      <div class="nav_item" data-tab="debug" data-tooltip-i18n="sp.sb.debug">
+        <i data-icon="sidebar_debug"></i>
+      </div>
     </div>
+  </div>
 
-    <!-- Bottom action card: Morphing Close/Back button on top + Eye (preview) on bottom -->
-    <div class="nav_group nav_group_close">
-        <div class="nav_slot_morph">
-            <div class="nav_item nav_item_close" id="setting_close_btn" data-tooltip-i18n="sp.sb.close">
-                <i data-icon="close"></i>
-            </div>
-            <div class="nav_item submenu_back_btn" id="submenu_back_btn" data-tooltip-i18n="sp.sb.back">
-                <i data-icon="chevronLeft"></i>
-                <span class="submenu_dirty_dot" id="submenu_dirty_dot"></span>
-            </div>
-        </div>
-        <div class="nav_item submenu_eye_btn" id="submenu_eye_btn" data-tooltip-i18n="sp.sb.preview">
-            <i data-icon="preview"></i>
-        </div>
+  <!-- Bottom action card: Morphing Close/Back button on top + Eye (preview) on bottom -->
+  <div class="nav_group nav_group_close">
+    <div class="nav_slot_morph">
+      <div
+        class="nav_item nav_item_close"
+        id="setting_close_btn"
+        data-tooltip-i18n="sp.sb.close"
+      >
+        <i data-icon="close"></i>
+      </div>
+      <div
+        class="nav_item submenu_back_btn"
+        id="submenu_back_btn"
+        data-tooltip-i18n="sp.sb.back"
+      >
+        <i data-icon="chevronLeft"></i>
+        <span class="submenu_dirty_dot" id="submenu_dirty_dot"></span>
+      </div>
     </div>
+    <div
+      class="nav_item submenu_eye_btn"
+      id="submenu_eye_btn"
+      data-tooltip-i18n="sp.sb.preview"
+    >
+      <i data-icon="preview"></i>
+    </div>
+  </div>
 
-    <!-- Singleton floating tooltip gliding across navigation items -->
-    <div class="nav_floating_tooltip" id="nav_floating_tooltip">
-        <span class="nav_tooltip_text" id="nav_tooltip_text"></span>
-        <span class="nav_tooltip_measure" id="nav_tooltip_measure"></span>
-    </div>
+  <!-- Singleton floating tooltip gliding across navigation items -->
+  <div class="nav_floating_tooltip" id="nav_floating_tooltip">
+    <span class="nav_tooltip_text" id="nav_tooltip_text"></span>
+    <span class="nav_tooltip_measure" id="nav_tooltip_measure"></span>
+  </div>
 </div>
 
 <div id="settings_content">
-    <div class="settings_main_view">
-        <div class="tab_content active" id="tab-wallpaper">
-            <p class="setting_title" data-i18n="sp.wallpaper_customization.title">Tùy chỉnh hình nền</p>
+  <div class="settings_main_view">
+    <div class="tab_content active" id="tab-wallpaper">
+      <p class="setting_title" data-i18n="sp.wallpaper_customization.title">
+        Tùy chỉnh hình nền
+      </p>
 
-            <button class="btn" data-action="submenu" id="arrange_wallpaper">
-                <div class="btn_body">
-                    <span class="btn_title" data-i18n="sp.wallpaper_customization.arrange_wallpaper">Điều chỉnh
-                        vị trí</span>
-                    <span class="btn_desc" data-i18n="sp.wallpaper_customization.arrange_wallpaper_tooltip">Thay
-                        đổi kích thước và vị trí của hình nền</span>
-                </div>
-            </button>
-
-            <button class="btn" data-action="submenu" id="edit_filter_settings">
-                <div class="btn_body">
-                    <span class="btn_title" data-i18n="sp.wallpaper_customization.filters">Bộ lọc & màu
-                        sắc</span>
-                    <span class="btn_desc" data-i18n="sp.wallpaper_customization.filters_tooltip">Điều chỉnh độ
-                        sáng,
-                        độ mờ, và các hiệu ứng hình ảnh khác</span>
-                </div>
-            </button>
-
-            <button class="btn" data-action="submenu" id="edit_particles_settings">
-                <div class="btn_body">
-                    <span class="btn_title" data-i18n="sp.wallpaper_customization.particles_settings">Hiệu ứng
-                        nền</span>
-                    <span class="btn_desc" id="edit_particles_settings_tooltip"
-                        data-i18n="sp.wallpaper_customization.particles_settings_tooltip">Thêm các hiệu ứng động
-                        như
-                        hạt, sóng lên hình nền của bạn</span>
-                </div>
-            </button>
-
-            <button class="btn" data-action="submenu" id="edit_onload_settings">
-                <div class="btn_body">
-                    <span class="btn_title" data-i18n="sp.wallpaper_customization.onload_settings">Hoạt ảnh mở
-                        trang</span>
-                    <span class="btn_desc" data-i18n="sp.wallpaper_customization.onload_settings_tooltip">Tùy
-                        chỉnh
-                        hoạt ảnh khi mở tab mới</span>
-                </div>
-            </button>
-
-            <button class="btn" data-action="submenu" id="edit_wavy_settings">
-                <div class="btn_body">
-                    <span class="btn_title" data-i18n="sp.wallpaper_customization.toggle_wavy">Wavy
-                        Animation</span>
-                    <span class="btn_desc" data-i18n="sp.wallpaper_customization.wavy_settings_tooltip">Làm cho
-                        hình
-                        nền của bạn đung đưa nhẹ, hình nền chất lượng cao có thể gây lag với máy yếu</span>
-                </div>
-            </button>
-
-            <button class="btn" data-action="submenu" id="edit_parallax_settings">
-                <div class="btn_body">
-                    <span class="btn_title" data-i18n="sp.wallpaper_customization.toggle_parallax">Hiệu ứng
-                        Parallax</span>
-                    <span class="btn_desc" data-i18n="sp.wallpaper_customization.parallax_settings_tooltip">Hình
-                        nền
-                        sẽ di chuyển theo con trỏ chuột của bạn</span>
-                </div>
-            </button>
+      <button class="btn" data-action="submenu" id="arrange_wallpaper">
+        <div class="btn_body">
+          <span
+            class="btn_title"
+            data-i18n="sp.wallpaper_customization.arrange_wallpaper"
+            >Điều chỉnh vị trí</span
+          >
+          <span
+            class="btn_desc"
+            data-i18n="sp.wallpaper_customization.arrange_wallpaper_tooltip"
+            >Thay đổi kích thước và vị trí của hình nền</span
+          >
         </div>
+      </button>
 
-        <div class="tab_content" id="tab-appearance">
-            <p class="setting_title" data-i18n="sp.appearance.title">Giao diện</p>
-
-            <label class="btn" data-action="toggle">
-                <div class="btn_body">
-                    <span class="btn_title" data-i18n="sp.appearance.toggle_button_opacity">Ẩn các nút hành
-                        động</span>
-                    <span class="btn_desc" data-i18n="sp.appearance.toggle_button_opacity_tooltip">Bật để ẩn
-                        các nút hành động khi đóng bảng cài đặt</span>
-                </div>
-                <input type="checkbox" id="toggle_button_opacity" />
-            </label>
-            <p data-i18n="sp.appearance.tab_title_input">Tùy chỉnh tiêu đề tab</p>
-            <input type="text" name="tab_title" id="tab_title"
-                data-i18n-placeholder="sp.appearance.tab_title_placeholder" placeholder="Tab mới" />
-            <span class="tooltip" data-i18n="sp.appearance.tab_title_tooltip">Thay đổi tiêu đề tab của
-                bạn</span>
-            <label class="btn" data-action="toggle">
-                <div class="btn_body">
-                    <span class="btn_title" data-i18n="sp.appearance.presentation_mode">Chế độ thuyết
-                        trình</span>
-                    <span class="btn_desc" data-i18n="sp.appearance.presentation_mode_tooltip">Che hình nền
-                        của bạn, hữu dụng khi bạn đang trình chiếu màn hình của mình. Phím tắt: Ctrl + X</span>
-                </div>
-                <input type="checkbox" id="presentation_mode" />
-            </label>
+      <button class="btn" data-action="submenu" id="edit_filter_settings">
+        <div class="btn_body">
+          <span class="btn_title" data-i18n="sp.wallpaper_customization.filters"
+            >Bộ lọc & màu sắc</span
+          >
+          <span
+            class="btn_desc"
+            data-i18n="sp.wallpaper_customization.filters_tooltip"
+            >Điều chỉnh độ sáng, độ mờ, và các hiệu ứng hình ảnh khác</span
+          >
         </div>
+      </button>
 
-        <div class="tab_content" id="tab-widgets">
-            <p class="setting_title" data-i18n="sp.widgets.widgets_settings">Cài đặt Widget</p>
-
-            <label class="btn" data-action="toggle">
-                <div class="btn_body">
-                    <span class="btn_title" data-i18n="sp.widgets.use_widgets">Sử dụng Widget</span>
-                    <span class="btn_desc" data-i18n="sp.widgets.use_widgets_tooltip">Bật hoặc tắt toàn bộ
-                        UI trên màn hình chính, để lại duy nhất hình nền</span>
-                </div>
-                <input type="checkbox" id="widgets_enabled" />
-            </label>
-
-            <button class="btn" data-action="submenu" id="widget_edit_mode">
-                <i data-icon="arrangeWallpaper"></i>
-                <div class="btn_body">
-                    <span class="btn_title" data-i18n="sp.widgets.edit_mode">Chế độ chỉnh sửa</span>
-                    <span class="btn_desc" data-i18n="sp.widgets.edit_mode_tooltip">Bật để điều chỉnh vị trí các
-                        widget trên màn hình bằng cách kéo thả</span>
-                </div>
-            </button>
-
-            <p class="setting_title" data-i18n="sp.widgets.widget_visibility_title">Cấu hình hiển thị
-                Widget</p>
-
-            <label class="btn" data-action="toggle">
-                <div class="btn_body">
-                    <span class="btn_title" data-i18n="sp.widgets.widget_clock">Đồng hồ lớn</span>
-                </div>
-                <input type="checkbox" id="widget_clock_enabled" />
-            </label>
-            <label class="btn" data-action="toggle">
-                <div class="btn_body">
-                    <span class="btn_title" data-i18n="sp.widgets.widget_date">Ngày tháng</span>
-                </div>
-                <input type="checkbox" id="widget_date_enabled" />
-            </label>
-            <label class="btn" data-action="toggle">
-                <div class="btn_body">
-                    <span class="btn_title" data-i18n="sp.widgets.widget_lunar">Âm lịch</span>
-                </div>
-                <input type="checkbox" id="widget_lunar_enabled" />
-            </label>
-            <label class="btn" data-action="toggle">
-                <div class="btn_body">
-                    <span class="btn_title" data-i18n="sp.widgets.widget_weather">Thời tiết</span>
-                </div>
-                <input type="checkbox" id="widget_weather_enabled" />
-            </label>
+      <button class="btn" data-action="submenu" id="edit_particles_settings">
+        <div class="btn_body">
+          <span
+            class="btn_title"
+            data-i18n="sp.wallpaper_customization.particles_settings"
+            >Hiệu ứng nền</span
+          >
+          <span
+            class="btn_desc"
+            id="edit_particles_settings_tooltip"
+            data-i18n="sp.wallpaper_customization.particles_settings_tooltip"
+            >Thêm các hiệu ứng động như hạt, sóng lên hình nền của bạn</span
+          >
         </div>
+      </button>
 
-        <div class="tab_content" id="tab-time"></div>
-        <div class="tab_content" id="tab-weather"></div>
-
-        <div class="tab_content" id="tab-info">
-            <!-- Language -->
-            <p class="setting_title">
-                <span data-i18n="sp.language">Ngôn ngữ</span>
-                <i data-icon="language"></i>
-            </p>
-            <select id="language" class="native_select">
-                <option value="en">English</option>
-                <option value="vi">Tiếng Việt</option>
-            </select>
-
-            <!-- Backup -->
-            <p class="setting_title" data-i18n="sp.backup.title">Sao lưu & Khôi phục</p>
-
-            <button id="export_wallpaper_btn" class="btn">
-                <i data-icon="exportSettings"></i>
-                <div class="btn_body">
-                    <span class="btn_title" data-i18n="sp.backup.export_wallpaper">Xuất preset hình nền</span>
-                    <span class="btn_desc" data-i18n="sp.backup.export_wallpaper_tooltip">Tải xuống preset hình
-                        nền
-                        (không bao gồm các cài đặt như thời tiết, lịch, widget)</span>
-                </div>
-            </button>
-
-            <button id="export_system_btn" class="btn">
-                <i data-icon="exportSettings"></i>
-                <div class="btn_body">
-                    <span class="btn_title" data-i18n="sp.backup.export_system">Xuất cài đặt hệ thống</span>
-                    <span class="btn_desc" data-i18n="sp.backup.export_system_tooltip">Tải xuống cài đặt hệ
-                        thống
-                        (widget, thời tiết, tiện ích)</span>
-                </div>
-            </button>
-
-            <button id="export_all_btn" class="btn">
-                <i data-icon="exportSettings"></i>
-                <div class="btn_body">
-                    <span class="btn_title" data-i18n="sp.backup.export_all">Xuất tất cả</span>
-                    <span class="btn_desc" data-i18n="sp.backup.export_all_tooltip">Tải xuống mọi cài đặt (Hình
-                        nền,
-                        Hệ thống, Cache...)</span>
-                </div>
-            </button>
-
-            <button id="import_settings_btn" class="btn">
-                <i data-icon="importSettings"></i>
-                <div class="btn_body">
-                    <span class="btn_title" data-i18n="sp.backup.import_settings">Nhập cài đặt</span>
-                    <span class="btn_desc" data-i18n="sp.backup.import_settings_tooltip">Khôi phục cài đặt
-                        từ file JSON</span>
-                </div>
-            </button>
-            <input type="file" id="import_settings_file" accept=".json" style="display: none" />
-
-            <!-- Danger Zone -->
-            <p class="setting_title" data-i18n="sp.danger_zone.title">Vùng nguy hiểm</p>
-
-            <button id="reset_settings_btn" class="btn">
-                <i data-icon="resetSettings"></i>
-                <div class="btn_body">
-                    <span class="btn_title" data-i18n="sp.danger_zone.reset_settings">Đặt lại cài đặt</span>
-                    <span class="btn_desc" data-i18n="sp.danger_zone.reset_settings_tooltip">Đặt lại cài đặt của
-                        Startpage về mặc định</span>
-                </div>
-            </button>
-
-            <!-- Info -->
-            <div id="setting_info">
-                <p class="app_name">Yumebako <span>v1</span></p>
-                <p class="app_desc" data-i18n="sp.credit.app_description">
-                    Trang khởi đầu cá nhân hóa tối giản với đa dạng tiện ích và hình nền.
-                </p>
-                <p class="app_credits">
-                    <span class="tooltip" data-i18n="sp.credit.wallpaper_provided_by">Hình nền được cung cấp
-                        bởi</span>
-                    <a href="https://unsplash.com/" target="_blank">Unsplash</a>, <a href="https://wallhaven.cc/"
-                        target="_blank">Wallhaven</a>, <a href="https://pic.re/" target="_blank">Pic.re</a>
-                    <br />
-                    <span data-i18n="sp.credit.weather_provided_by">Dữ liệu thời tiết được cung cấp bởi</span>
-                    <a href="https://open-meteo.com/" target="_blank">Open-Meteo</a>
-                    <br />
-                    <span data-i18n="sp.credit.weather_icons_provided_by">Icon thời tiết đang sử dụng:</span>
-                    <a href="https://github.com/basmilius/weather-icons" target="_blank">Meteocons</a>
-                    <br />
-                    <span data-i18n="sp.credit.lunar_provided_by">Thuật toán lịch âm bởi</span>
-                    <a href="https://github.com/hnthap/lunar-calendar-api" target="_blank">Lunar Calendar API (Huynh
-                        Nhan
-                        Thap)</a>
-                </p>
-                <p class="app_creator">
-                    <span data-i18n="sp.credit.app_creator">Created by</span>
-                    <span>Natelyt</span>
-                </p>
-            </div>
+      <button class="btn" data-action="submenu" id="edit_onload_settings">
+        <div class="btn_body">
+          <span
+            class="btn_title"
+            data-i18n="sp.wallpaper_customization.onload_settings"
+            >Hoạt ảnh mở trang</span
+          >
+          <span
+            class="btn_desc"
+            data-i18n="sp.wallpaper_customization.onload_settings_tooltip"
+            >Tùy chỉnh hoạt ảnh khi mở tab mới</span
+          >
         </div>
+      </button>
 
-        <div class="tab_content" id="tab-debug">
-            <!-- IndexedDB Live Tracker -->
-            <p class="setting_title">Theo dõi IndexedDB (Realtime)</p>
-            <label class="btn" data-action="toggle">
-                <div class="btn_body">
-                    <span class="btn_title">Bảng theo dõi IndexedDB</span>
-                    <span class="btn_desc">Bật bảng nổi theo dõi appData và mediaData theo thời gian thực</span>
-                </div>
-                <input type="checkbox" id="debug_idb_tracker" />
-            </label>
+      <button class="btn" data-action="submenu" id="edit_wavy_settings">
+        <div class="btn_body">
+          <span
+            class="btn_title"
+            data-i18n="sp.wallpaper_customization.toggle_wavy"
+            >Wavy Animation</span
+          >
+          <span
+            class="btn_desc"
+            data-i18n="sp.wallpaper_customization.wavy_settings_tooltip"
+            >Làm cho hình nền của bạn đung đưa nhẹ, hình nền chất lượng cao có
+            thể gây lag với máy yếu</span
+          >
+        </div>
+      </button>
 
-            <!-- Carousel Test Suites -->
-            <p class="setting_title">Kiểm thử Carousel</p>
-            <button id="debug_btn_carousel_jitter" class="btn" type="button">
-                <span>Kiểm thử rung lắc Carousel (Jitter Harness)</span>
-            </button>
-            <button id="debug_btn_carousel_perf" class="btn" type="button">
-                <span>Kiểm thử hiệu năng Carousel (Performance)</span>
-            </button>
-
-            <!-- i18n Debug -->
-            <p class="setting_title">Kiểm thử i18n</p>
-            <label class="btn" data-action="toggle">
-                <span>Bỏ qua dịch ngôn ngữ (Hiện mã khóa)</span>
-                <input type="checkbox" id="debug_i18n" />
-            </label>
-
-            <!-- Unsplash API Key -->
-            <p class="setting_title">Khóa API Unsplash</p>
-            <input type="text" id="debug_unsplash_key" placeholder="Nhập Unsplash Access Key"
-                autocomplete="off" />
-            <span class="tooltip">Dùng tạm ở đây cho đến khi có Serverless</span>
-
-            <!-- Dialog Test -->
-            <p class="setting_title">Kiểm thử Hộp thoại (Dialog)</p>
-            <button id="test_dialog_confirm" class="btn">Hộp thoại xác nhận</button>
-            <button id="test_dialog_danger" class="btn">Hộp thoại nguy hiểm</button>
-            <button id="test_dialog_alert" class="btn">Hộp thoại thông báo</button>
-
-            <!-- showNotification -->
-            <p class="setting_title">Kiểm thử Thông báo (Notification)</p>
-            <button id="test_notif_info" class="btn">Thông tin</button>
-            <button id="test_notif_success" class="btn">Thành công</button>
-            <button id="test_notif_error" class="btn">Lỗi</button>
-            <button id="test_notif_warning" class="btn">Cảnh báo</button>
-
-            <!-- Sidebar Submenu -->
-            <p class="setting_title">Kiểm thử Menu phụ (Sidebar Submenu)</p>
-            <input type="text" id="test_submenu_width" placeholder="Độ rộng (vd: 400px hoặc 350)"
-                autocomplete="off" />
-            <button class="btn" data-action="submenu" id="test_sidebar_submenu">Kiểm thử Menu phụ</button>
-            <button class="btn" data-action="submenu" id="test_sidebar_submenu_fullscreen">Kiểm thử Menu phụ toàn màn hình (100vw)</button>
-
-            <!-- Dropdown Test -->
-            <p class="setting_title">Kiểm thử Menu thả xuống (Dropdown)</p>
-            <span style="font-size: 0.82em; color: var(--text-muted);">Menu tùy biến (tự nâng cấp từ &lt;select&gt;):</span>
-            <select id="test_custom_dropdown" class="native_select">
-                <option value="opt1">Tùy chọn 1</option>
-                <option value="opt2">Tùy chọn 2</option>
-                <option value="opt3">Tùy chọn 3</option>
-                <option value="opt4">Tùy chọn 4</option>
-            </select>
-        </div> <!-- end #tab-debug -->
-    </div> <!-- end .settings_main_view -->
-
-    <!-- Submenu view: same card as the main menu, it just slides in on top -->
-    <div class="settings_submenu_view">
-        <div class="submenu_body"></div>
+      <button class="btn" data-action="submenu" id="edit_parallax_settings">
+        <div class="btn_body">
+          <span
+            class="btn_title"
+            data-i18n="sp.wallpaper_customization.toggle_parallax"
+            >Hiệu ứng Parallax</span
+          >
+          <span
+            class="btn_desc"
+            data-i18n="sp.wallpaper_customization.parallax_settings_tooltip"
+            >Hình nền sẽ di chuyển theo con trỏ chuột của bạn</span
+          >
+        </div>
+      </button>
     </div>
-</div> <!-- end #settings_content -->
+
+    <div class="tab_content" id="tab-appearance">
+      <p class="setting_title" data-i18n="sp.appearance.title">Giao diện</p>
+
+      <label class="btn" data-action="toggle">
+        <div class="btn_body">
+          <span
+            class="btn_title"
+            data-i18n="sp.appearance.toggle_button_opacity"
+            >Ẩn các nút hành động</span
+          >
+          <span
+            class="btn_desc"
+            data-i18n="sp.appearance.toggle_button_opacity_tooltip"
+            >Bật để ẩn các nút hành động khi đóng bảng cài đặt</span
+          >
+        </div>
+        <input type="checkbox" id="toggle_button_opacity" />
+      </label>
+      <p data-i18n="sp.appearance.tab_title_input">Tùy chỉnh tiêu đề tab</p>
+      <input
+        type="text"
+        name="tab_title"
+        id="tab_title"
+        data-i18n-placeholder="sp.appearance.tab_title_placeholder"
+        placeholder="Tab mới"
+      />
+      <span class="tooltip" data-i18n="sp.appearance.tab_title_tooltip"
+        >Thay đổi tiêu đề tab của bạn</span
+      >
+      <label class="btn" data-action="toggle">
+        <div class="btn_body">
+          <span class="btn_title" data-i18n="sp.appearance.presentation_mode"
+            >Chế độ thuyết trình</span
+          >
+          <span
+            class="btn_desc"
+            data-i18n="sp.appearance.presentation_mode_tooltip"
+            >Che hình nền của bạn, hữu dụng khi bạn đang trình chiếu màn hình
+            của mình. Phím tắt: Ctrl + X</span
+          >
+        </div>
+        <input type="checkbox" id="presentation_mode" />
+      </label>
+    </div>
+
+    <div class="tab_content" id="tab-widgets">
+      <p class="setting_title" data-i18n="sp.widgets.widgets_settings">
+        Cài đặt Widget
+      </p>
+
+      <label class="btn" data-action="toggle">
+        <div class="btn_body">
+          <span class="btn_title" data-i18n="sp.widgets.use_widgets"
+            >Sử dụng Widget</span
+          >
+          <span class="btn_desc" data-i18n="sp.widgets.use_widgets_tooltip"
+            >Bật hoặc tắt toàn bộ UI trên màn hình chính, để lại duy nhất hình
+            nền</span
+          >
+        </div>
+        <input type="checkbox" id="widgets_enabled" />
+      </label>
+
+      <button class="btn" data-action="submenu" id="widget_edit_mode">
+        <i data-icon="arrangeWallpaper"></i>
+        <div class="btn_body">
+          <span class="btn_title" data-i18n="sp.widgets.edit_mode"
+            >Chế độ chỉnh sửa</span
+          >
+          <span class="btn_desc" data-i18n="sp.widgets.edit_mode_tooltip"
+            >Bật để điều chỉnh vị trí các widget trên màn hình bằng cách kéo
+            thả</span
+          >
+        </div>
+      </button>
+
+      <p class="setting_title" data-i18n="sp.widgets.widget_visibility_title">
+        Cấu hình hiển thị Widget
+      </p>
+
+      <label class="btn" data-action="toggle">
+        <div class="btn_body">
+          <span class="btn_title" data-i18n="sp.widgets.widget_clock"
+            >Đồng hồ lớn</span
+          >
+        </div>
+        <input type="checkbox" id="widget_clock_enabled" />
+      </label>
+      <label class="btn" data-action="toggle">
+        <div class="btn_body">
+          <span class="btn_title" data-i18n="sp.widgets.widget_date"
+            >Ngày tháng</span
+          >
+        </div>
+        <input type="checkbox" id="widget_date_enabled" />
+      </label>
+      <label class="btn" data-action="toggle">
+        <div class="btn_body">
+          <span class="btn_title" data-i18n="sp.widgets.widget_lunar"
+            >Âm lịch</span
+          >
+        </div>
+        <input type="checkbox" id="widget_lunar_enabled" />
+      </label>
+      <label class="btn" data-action="toggle">
+        <div class="btn_body">
+          <span class="btn_title" data-i18n="sp.widgets.widget_weather"
+            >Thời tiết</span
+          >
+        </div>
+        <input type="checkbox" id="widget_weather_enabled" />
+      </label>
+    </div>
+
+    <div class="tab_content" id="tab-time"></div>
+    <div class="tab_content" id="tab-weather"></div>
+
+    <div class="tab_content" id="tab-info">
+      <!-- Language -->
+      <p class="setting_title">
+        <span data-i18n="sp.language">Ngôn ngữ</span>
+        <i data-icon="language"></i>
+      </p>
+      <select id="language" class="native_select">
+        <option value="en">English</option>
+        <option value="vi">Tiếng Việt</option>
+      </select>
+
+      <!-- Backup -->
+      <p class="setting_title" data-i18n="sp.backup.title">
+        Sao lưu & Khôi phục
+      </p>
+
+      <button id="export_wallpaper_btn" class="btn">
+        <i data-icon="exportSettings"></i>
+        <div class="btn_body">
+          <span class="btn_title" data-i18n="sp.backup.export_wallpaper"
+            >Xuất preset hình nền</span
+          >
+          <span class="btn_desc" data-i18n="sp.backup.export_wallpaper_tooltip"
+            >Tải xuống preset hình nền (không bao gồm các cài đặt như thời tiết,
+            lịch, widget)</span
+          >
+        </div>
+      </button>
+
+      <button id="export_system_btn" class="btn">
+        <i data-icon="exportSettings"></i>
+        <div class="btn_body">
+          <span class="btn_title" data-i18n="sp.backup.export_system"
+            >Xuất cài đặt hệ thống</span
+          >
+          <span class="btn_desc" data-i18n="sp.backup.export_system_tooltip"
+            >Tải xuống cài đặt hệ thống (widget, thời tiết, tiện ích)</span
+          >
+        </div>
+      </button>
+
+      <button id="export_all_btn" class="btn">
+        <i data-icon="exportSettings"></i>
+        <div class="btn_body">
+          <span class="btn_title" data-i18n="sp.backup.export_all"
+            >Xuất tất cả</span
+          >
+          <span class="btn_desc" data-i18n="sp.backup.export_all_tooltip"
+            >Tải xuống mọi cài đặt (Hình nền, Hệ thống, Cache...)</span
+          >
+        </div>
+      </button>
+
+      <button id="import_settings_btn" class="btn">
+        <i data-icon="importSettings"></i>
+        <div class="btn_body">
+          <span class="btn_title" data-i18n="sp.backup.import_settings"
+            >Nhập cài đặt</span
+          >
+          <span class="btn_desc" data-i18n="sp.backup.import_settings_tooltip"
+            >Khôi phục cài đặt từ file JSON</span
+          >
+        </div>
+      </button>
+      <input
+        type="file"
+        id="import_settings_file"
+        accept=".json"
+        style="display: none"
+      />
+
+      <!-- Danger Zone -->
+      <p class="setting_title" data-i18n="sp.danger_zone.title">
+        Vùng nguy hiểm
+      </p>
+
+      <button id="reset_settings_btn" class="btn">
+        <i data-icon="resetSettings"></i>
+        <div class="btn_body">
+          <span class="btn_title" data-i18n="sp.danger_zone.reset_settings"
+            >Đặt lại cài đặt</span
+          >
+          <span
+            class="btn_desc"
+            data-i18n="sp.danger_zone.reset_settings_tooltip"
+            >Đặt lại cài đặt của Startpage về mặc định</span
+          >
+        </div>
+      </button>
+
+      <!-- Info -->
+      <div id="setting_info">
+        <p class="app_name">Yumebako <span>v1</span></p>
+        <p class="app_desc" data-i18n="sp.credit.app_description">
+          Trang khởi đầu cá nhân hóa tối giản với đa dạng tiện ích và hình nền.
+        </p>
+        <p class="app_credits">
+          <span class="tooltip" data-i18n="sp.credit.wallpaper_provided_by"
+            >Hình nền được cung cấp bởi</span
+          >
+          <a href="https://unsplash.com/" target="_blank">Unsplash</a>,
+          <a href="https://wallhaven.cc/" target="_blank">Wallhaven</a>,
+          <a href="https://pic.re/" target="_blank">Pic.re</a>
+          <br />
+          <span data-i18n="sp.credit.weather_provided_by"
+            >Dữ liệu thời tiết được cung cấp bởi</span
+          >
+          <a href="https://open-meteo.com/" target="_blank">Open-Meteo</a>
+          <br />
+          <span data-i18n="sp.credit.weather_icons_provided_by"
+            >Icon thời tiết đang sử dụng:</span
+          >
+          <a href="https://github.com/basmilius/weather-icons" target="_blank"
+            >Meteocons</a
+          >
+          <br />
+          <span data-i18n="sp.credit.lunar_provided_by"
+            >Thuật toán lịch âm bởi</span
+          >
+          <a href="https://github.com/hnthap/lunar-calendar-api" target="_blank"
+            >Lunar Calendar API (Huynh Nhan Thap)</a
+          >
+        </p>
+        <p class="app_creator">
+          <span data-i18n="sp.credit.app_creator">Created by</span>
+          <span>Natelyt</span>
+        </p>
+      </div>
+    </div>
+
+    <div class="tab_content" id="tab-debug">
+      <!-- IndexedDB Live Tracker -->
+      <p class="setting_title">Theo dõi IndexedDB (Realtime)</p>
+      <label class="btn" data-action="toggle">
+        <div class="btn_body">
+          <span class="btn_title">Bảng theo dõi IndexedDB</span>
+          <span class="btn_desc"
+            >Bật bảng nổi theo dõi appData và mediaData theo thời gian
+            thực</span
+          >
+        </div>
+        <input type="checkbox" id="debug_idb_tracker" />
+      </label>
+
+      <!-- Carousel Test Suites -->
+      <p class="setting_title">Kiểm thử Carousel</p>
+      <button id="debug_btn_carousel_jitter" class="btn" type="button">
+        <span>Kiểm thử rung lắc Carousel (Jitter Harness)</span>
+      </button>
+      <button id="debug_btn_carousel_perf" class="btn" type="button">
+        <span>Kiểm thử hiệu năng Carousel (Performance)</span>
+      </button>
+
+      <!-- i18n Debug -->
+      <p class="setting_title">Kiểm thử i18n</p>
+      <label class="btn" data-action="toggle">
+        <span>Bỏ qua dịch ngôn ngữ (Hiện mã khóa)</span>
+        <input type="checkbox" id="debug_i18n" />
+      </label>
+
+      <!-- Dialog Test -->
+      <p class="setting_title">Kiểm thử Hộp thoại (Dialog)</p>
+      <button id="test_dialog_confirm" class="btn">Hộp thoại xác nhận</button>
+      <button id="test_dialog_danger" class="btn">Hộp thoại nguy hiểm</button>
+      <button id="test_dialog_alert" class="btn">Hộp thoại thông báo</button>
+
+      <!-- showNotification -->
+      <p class="setting_title">Kiểm thử Thông báo (Notification)</p>
+      <button id="test_notif_info" class="btn">Thông tin</button>
+      <button id="test_notif_success" class="btn">Thành công</button>
+      <button id="test_notif_error" class="btn">Lỗi</button>
+      <button id="test_notif_warning" class="btn">Cảnh báo</button>
+
+      <!-- Sidebar Submenu -->
+      <p class="setting_title">Kiểm thử Menu phụ (Sidebar Submenu)</p>
+      <input
+        type="text"
+        id="test_submenu_width"
+        placeholder="Độ rộng (vd: 400px hoặc 350)"
+        autocomplete="off"
+      />
+      <button class="btn" data-action="submenu" id="test_sidebar_submenu">
+        Kiểm thử Menu phụ
+      </button>
+      <button
+        class="btn"
+        data-action="submenu"
+        id="test_sidebar_submenu_fullscreen"
+      >
+        Kiểm thử Menu phụ toàn màn hình (100vw)
+      </button>
+
+      <!-- Dropdown Test -->
+      <p class="setting_title">Kiểm thử Menu thả xuống (Dropdown)</p>
+      <span style="font-size: 0.82em; color: var(--text-muted)"
+        >Menu tùy biến (tự nâng cấp từ &lt;select&gt;):</span
+      >
+      <select id="test_custom_dropdown" class="native_select">
+        <option value="opt1">Tùy chọn 1</option>
+        <option value="opt2">Tùy chọn 2</option>
+        <option value="opt3">Tùy chọn 3</option>
+        <option value="opt4">Tùy chọn 4</option>
+      </select>
+    </div>
+    <!-- end #tab-debug -->
+  </div>
+  <!-- end .settings_main_view -->
+
+  <!-- Submenu view: same card as the main menu, it just slides in on top -->
+  <div class="settings_submenu_view">
+    <div class="submenu_body"></div>
+  </div>
+</div>
+<!-- end #settings_content -->

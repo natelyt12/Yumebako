@@ -49,7 +49,7 @@ yumebako/
     │   ├── i18n.js       # Internationalization loader and translator
     │   ├── launcher.js   # Coordinates startup and service lifecycle
     │   ├── font.js, icon.js, time.js # System helpers (dynamic fonts, Phosphor icons, clock timing)
-    │   ├── ui.js & ui/   # Shared UI primitive components (button, dialog, dropdown, notification, popover, slider, submenu)
+    │   ├── ui.js & ui/   # Shared UI primitive components (button, dialog, dropdown, notification, slider, submenu)
     │   └── utils/        # Generic utilities (e.g. thumbnailGenerator)
     ├── settings/         # Settings modal, tab navigation, and settings panels
     │   ├── settingHandler.js # Manages settings modal state, tabs, and panel rendering
@@ -60,7 +60,7 @@ yumebako/
     │   ├── motion/       # Dynamic visual shaders/animations (BaseMotion, MotionEngine, noise, wavy)
     │   ├── particles/    # Particle systems (rain, snow, fireflies, dust, static cinematic/vignette)
     │   ├── sources/      # Wallpaper providers (Wallhaven, Unsplash, Bing, Picre, Collection)
-    │   └── ui/           # Wallpaper UI (SwitcherBar, 3D CarouselEngine, Source Settings popovers)
+    │   └── ui/           # Wallpaper UI (SwitcherBar, 3D CarouselEngine, Source Settings sidebar)
     └── widgets/          # Desktop widgets on the startpage
         ├── handler.js    # Widget lifecycle and positioning manager
         ├── editmode.js   # Widget edit/drag-and-drop layout manager
@@ -70,7 +70,7 @@ yumebako/
 
 ### Directory Responsibilities at a Glance:
 - **`src/core/`**: Foundational, headless services. Do not put domain-specific UI (like widgets or wallpaper selectors) here. `storageHandler.js` is the central state authority.
-- **`src/core/ui/`**: Reusable primitive components (buttons, dialogs, popovers, sliders). Follow conventions in `ui_rules.md`.
+- **`src/core/ui/`**: Reusable primitive components (buttons, dialogs, sliders). Follow conventions in `ui_rules.md`.
 - **`src/wallpaper/`**: Autonomous subsystem handling background canvas rendering, visual effects (motion/particles), remote source adapters, and carousel switcher. Detailed in `wallpaper_architecture.md`.
 - **`src/widgets/`**: Startpage widgets. Each widget is self-contained with its own JS, HTML template, CSS, and settings markup.
 - **`src/settings/`**: Manages settings modal interactions, tab navigation, and system diagnostics/maintenance tools.

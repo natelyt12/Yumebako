@@ -123,7 +123,6 @@ export function initToggleSettingBtn() {
             target.closest("#setting_toggle_btn") ||
             target.closest(".dialog_root") ||
             target.closest(".dropdown") ||
-            target.closest(".popover_panel") ||
             target.closest(".notification_container")
         ) {
             return;

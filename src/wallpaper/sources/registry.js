@@ -14,9 +14,9 @@ import { BingSource } from "./BingSource.js";
  */
 export const SOURCE_CLASSES = [
   CollectionSource,
-  WallhavenSource,
   BingSource,
   UnsplashSource,
+  WallhavenSource,
   PicreSource,
 ];
 

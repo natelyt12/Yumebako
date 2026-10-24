@@ -15,6 +15,28 @@ Follow these rules whenever adding or changing user-facing markup, styles, contr
 - Keep the `html`/`html body` typography rules **outside** `@layer` (see `src/styles/base.css`). Chromium injects an unlayered `body { font-size: 75%; font-family: system-ui }` rule into extension pages, and unlayered styles outrank every cascade layer — layering the shell typography makes the extension render smaller than the dev server.
 - Prefer design tokens over hardcoded colors, radii, shadows, and animation curves. Component-specific values belong in the component stylesheet; promote a value to a shared token only when multiple surfaces need the same semantic value.
 - Keep layering predictable. Use the existing `--z-*` layers for backgrounds, widgets, floating controls, settings, dropdowns, modals, and toasts instead of inventing unrelated z-index values.
+- **Nested Backdrop-Filter & Decoupled Layering (Fixing Text Bleed-Through):**
+  - *Root Cause:* Under W3C Filter Effects Module Level 2, any element with `backdrop-filter` creates a new **Backdrop Root** and **Stacking Context**. Any child glass element (such as a custom dropdown, submenu, or floating menu) cannot sample or blur text/controls belonging to that same Backdrop Root behind it, rendering parent text sharply through the child's glass surface.
+  - *The Decoupled Layering Pattern:* Never place `backdrop-filter` or background color directly on a parent container if it hosts floating children with glassmorphism. Instead, move the background and filter to a `::before` pseudo-element:
+    ```css
+    .parent-container {
+      position: relative;
+      /* NEVER put background or backdrop-filter here */
+    }
+    .parent-container::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: var(--bg-panel);
+      backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+      -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+      z-index: -1;
+      pointer-events: none;
+    }
+    ```
+  - *Keep Alpha Thin:* Never "solve" bleed-through by forcing opaque backgrounds (e.g. `rgba(..., 0.85)`). Keep the delicate glass aesthetic intact.
+  - *Vendor Prefix:* Always specify `-webkit-backdrop-filter` alongside `backdrop-filter`.
 - Follow the CSS entry points: `src/style.css` loads only tokens, base layout, global form controls, and utilities; shared component presentation lives beside its component under `src/core/ui/` and is imported by that component's JS; settings presentation lives under `src/settings/`; feature-specific presentation lives beside its widget or wallpaper feature and is imported by the feature entry. Avoid duplicating shared component rules in feature stylesheets.
 - Respect the cascade layer order declared in `src/styles/layers.css` (`utilities, tokens, base, components, features`). Put new rules in the layer of the file that owns them instead of raising specificity or adding competing `!important` declarations.
 
@@ -99,3 +121,4 @@ Before considering a UI change complete, verify:
 3. Keyboard access, focus visibility, disabled/selected states, and semantic names are preserved.
 4. Long text, scrollable content, dialog/submenu layout, and dynamic content work at the available viewport size.
 5. Related component CSS and this rule are updated if a shared UI contract has changed.
+6. Decoupled Layering (moving parent glass/blur to ::before with z-index: -1) is applied to any glass container hosting child dropdowns or floating elements to prevent nested backdrop-filter text bleed-through.

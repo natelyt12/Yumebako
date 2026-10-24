@@ -36,8 +36,6 @@ import filmStripIcon from "@phosphor-icons/core/assets/regular/film-strip.svg?ra
 import starIcon from "@phosphor-icons/core/assets/regular/star.svg?raw";
 import starFillIcon from "@phosphor-icons/core/assets/fill/star-fill.svg?raw";
 
-
-
 function withSize(svg, size = 24, style = "") {
   return svg.replace(
     "<svg ",
@@ -61,6 +59,7 @@ export const Icons = {
   sliderDec: withSize(minusIcon),
   sliderInc: withSize(plusIcon),
   collectionRemove: withSize(trashIcon, 16),
+  trash: withSize(trashIcon, 16),
   collectionDownload: withSize(downloadSimpleIcon, 16),
   collectionSource: withSize(linkSimpleIcon, 16),
   manageCollection: withSize(stackSimpleIcon),
@@ -102,8 +101,6 @@ export const Icons = {
   addMore: withSize(plusIcon, 40),
   image: withSize(imageIcon),
   collection: withSize(stackSimpleIcon),
-
-
 };
 
 export function renderIcons(rootNode = document) {

@@ -1,9 +1,9 @@
 @layer components {
-/* Inputs, Sliders, Section Dividers & Scrollbar */
+  /* Inputs, Sliders, Section Dividers & Scrollbar */
 
-/* Text & Number Inputs */
-input[type="text"],
-input[type="number"] {
+  /* Text & Number Inputs */
+  input[type="text"],
+  input[type="number"] {
     position: relative;
     background-color: var(--button);
     color: var(--text-primary);
@@ -12,45 +12,67 @@ input[type="number"] {
     box-sizing: border-box;
     outline: none;
     transition:
-        background-color 0.2s var(--smooth),
-        box-shadow 0.2s var(--smooth);
+      background-color 0.2s var(--smooth),
+      box-shadow 0.2s var(--smooth);
     font-size: 1em;
     width: 100%;
     cursor: text;
     border: none;
     box-shadow: none;
     border-radius: 10px;
-}
+  }
 
-/* Remove default spinner arrows from number inputs globally */
-input[type="number"]::-webkit-outer-spin-button,
-input[type="number"]::-webkit-inner-spin-button {
+  /* Remove default spinner arrows from number inputs globally */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
-}
+  }
 
-input[type="number"] {
+  /* Shared explanatory note (settings rows, submenus, wallpaper source panels).
+   Lives here so every surface that loads only the global sheets can use it. */
+  .tooltip {
+    position: relative;
+    opacity: 0.6;
+    font-size: 0.8em;
+    display: block;
+    line-height: 1.4;
+    overflow: visible;
+    transition:
+      opacity 0.2s ease,
+      color 0.2s ease;
+    white-space: pre-line;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .tooltip:hover {
+    opacity: 0.95;
+    color: var(--text-primary, #ffffff);
+  }
+
+  input[type="number"] {
     -moz-appearance: textfield;
-}
+  }
 
-input[type="text"]:hover,
-input[type="number"]:hover {
+  input[type="text"]:hover,
+  input[type="number"]:hover {
     background-color: var(--button-hov);
-}
+  }
 
-input[type="text"]:focus,
-input[type="number"]:focus {
+  input[type="text"]:focus,
+  input[type="number"]:focus {
     background-color: var(--button-hov);
-}
+  }
 
-input[type="text"]::placeholder,
-input[type="number"]::placeholder {
+  input[type="text"]::placeholder,
+  input[type="number"]::placeholder {
     color: var(--text-placeholder);
-}
+  }
 
-/* Native Select Inputs */
-select,
-.native_select {
+  /* Native Select Inputs */
+  select,
+  .native_select {
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
@@ -70,46 +92,46 @@ select,
     outline: none;
     color-scheme: dark;
     transition:
-        background-color 0.2s var(--smooth),
-        border-radius 0.2s var(--smooth);
+      background-color 0.2s var(--smooth),
+      border-radius 0.2s var(--smooth);
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 256 256' fill='rgba(255,255,255,0.7)'%3E%3Cpath d='M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 12px center;
     background-size: 18px;
-}
+  }
 
-select:hover,
-.native_select:hover {
+  select:hover,
+  .native_select:hover {
     background-color: var(--button-hov);
     transition-duration: 0s !important;
-}
+  }
 
-select:focus,
-.native_select:focus {
+  select:focus,
+  .native_select:focus {
     outline: none;
-}
+  }
 
-select:focus-visible,
-.native_select:focus-visible {
+  select:focus-visible,
+  .native_select:focus-visible {
     outline: none;
-}
+  }
 
-select option,
-.native_select option {
+  select option,
+  .native_select option {
     background-color: #12121c;
     color: var(--text-primary);
     padding: 8px 12px;
-}
+  }
 
-hr {
+  hr {
     border: none;
     height: 1px;
     background-color: var(--divider);
     margin: 0;
-}
+  }
 
-.section_divider,
-.slider_section_divider {
+  .section_divider,
+  .slider_section_divider {
     width: 100%;
     height: 1px;
     margin: 8px 0;
@@ -117,30 +139,30 @@ hr {
     border: none;
     flex-shrink: 0;
     display: block;
-}
+  }
 
-.section_divider:first-child,
-.slider_section_divider:first-child {
+  .section_divider:first-child,
+  .slider_section_divider:first-child {
     margin-top: 0;
-}
+  }
 
-/* Wavy motion sliders: each control keeps its tooltip visually attached, while
+  /* Wavy motion sliders: each control keeps its tooltip visually attached, while
    the group separates the individual controls from one another. */
-.wavy_control_group {
+  .wavy_control_group {
     display: flex;
     flex-direction: column;
     gap: 14px;
-}
+  }
 
-.wavy_control_item {
+  .wavy_control_item {
     display: flex;
     flex-direction: column;
     gap: 4px;
-}
+  }
 
-/* Scrollbar - hidden for cleaner look as requested */
-::-webkit-scrollbar {
+  /* Scrollbar - hidden for cleaner look as requested */
+  ::-webkit-scrollbar {
     display: none;
     width: 0px;
-}
+  }
 }

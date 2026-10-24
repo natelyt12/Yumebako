@@ -1,38 +1,34 @@
-import "./collection_popover.css";
 import { t, translateDOM } from "/src/core/i18n.js";
 import { getSettings, saveSettings } from "/src/core/storageHandler.js";
-import { createPopover } from "/src/core/ui.js";
 import { initButtons } from "/src/core/ui/button.js";
 import { createSlider } from "/src/core/ui/slider.js";
 
 /**
- * CollectionSettingsPopover.js
+ * CollectionSidebar.js
  * ---------------------------------------------------------------------------
- * Popover form for Collection provider settings (video sound toggle & volume).
+ * Form panel for Collection provider settings (video sound toggle & volume).
  * Changes take effect and persist immediately without requiring an Apply button.
  */
-export function createCollectionSettingsPopover({ trigger, switcher, dataControl }) {
-    if (!trigger) return null;
-
+export function createCollectionSidebar({ dataControl }) {
     const form = document.createElement("div");
-    form.className = "collection_settings_form";
+    form.className = "source_sidebar_form collection_sidebar_form";
 
     form.innerHTML = `
-        <div class="coll_section">
-            <span class="coll_section_title" data-i18n="sp.api.collection.settings_title"></span>
+        <div class="source_sidebar_section">
+            <span class="source_sidebar_section_title" data-i18n="sp.api.collection.settings_title"></span>
             <label class="btn" data-action="toggle">
                 <div class="btn_body">
                     <span class="btn_title" data-i18n="sp.api.collection.video_sound"></span>
                     <span class="btn_desc" data-i18n="sp.api.collection.video_sound_desc"></span>
                 </div>
-                <input type="checkbox" id="coll_popover_video_sound" />
+                <input type="checkbox" id="coll_sidebar_video_sound" />
             </label>
         </div>
-        <div class="coll_section" id="coll_popover_volume_section"></div>
+        <div class="source_sidebar_section" id="coll_sidebar_volume_section"></div>
     `;
 
-    const volumeSection = form.querySelector("#coll_popover_volume_section");
-    const soundCheckbox = form.querySelector("#coll_popover_video_sound");
+    const volumeSection = form.querySelector("#coll_sidebar_volume_section");
+    const soundCheckbox = form.querySelector("#coll_sidebar_video_sound");
 
     function saveCurrentConfig(volumeVal = volumeSlider.value) {
         saveSettings({
@@ -57,8 +53,6 @@ export function createCollectionSettingsPopover({ trigger, switcher, dataControl
         value: 100,
         defaultValue: 100,
         unit: "%",
-        // Chỉ lưu khi thả tay / gõ số / bấm bước: lưu theo từng bước kéo sẽ ghi
-        // storage hàng chục lần cho một cú kéo.
         onCommit: (val) => {
             saveCurrentConfig(val);
         },
@@ -82,14 +76,10 @@ export function createCollectionSettingsPopover({ trigger, switcher, dataControl
         updateVolumeDisabledState(sound);
     }
 
-    const popover = createPopover({
-        trigger,
-        content: form,
-        placement: "up",
-        align: "end",
-        manualTrigger: true,
-        onOpen: () => syncFromSettings(),
-    });
-
-    return popover;
+    return {
+        el: form,
+        onOpen: syncFromSettings,
+        onClose: () => {},
+    };
 }
+

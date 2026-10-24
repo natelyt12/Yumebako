@@ -14,7 +14,7 @@ import {
  * UnsplashSource.js
  * ---------------------------------------------------------------------------
  * Switcher source for Unsplash. Requires an Access Key, configured in the
- * Debug tab (`unsplashApiKey`).
+ * source's own settings panel (`unsplashApiKey`), so the tab stays available.
  *
  * Like Wallhaven it keeps the batch returned by one API call in the app's
  * `data:unsplash` queue and materializes items one at a time.
@@ -25,7 +25,7 @@ export class UnsplashSource extends RemoteSource {
   static providerId = "unsplash";
   static storageKey = "provider_state:unsplash";
 
-  /** The Access Key is entered in the Debug tab, so there is something to open. */
+  /** The Access Key is entered in this source's own settings panel. */
   get hasProviderSettings() {
     return true;
   }
@@ -37,7 +37,7 @@ export class UnsplashSource extends RemoteSource {
       throw new Error(
         t(
           "sp.api.unsplash.no_key",
-          "Vui lòng nhập Access Key trong tab Debug.",
+          "Vui lòng nhập Unsplash Access Key trong phần cài đặt nguồn Unsplash.",
         ),
       );
     }
@@ -68,11 +68,13 @@ export class UnsplashSource extends RemoteSource {
       width: entry.width || 0,
       height: entry.height || 0,
       size: 0,
-      user: entry.user ? {
-        name: entry.user.name || "",
-        username: entry.user.username || "",
-        link: entry.user.links?.html || "",
-      } : null,
+      user: entry.user
+        ? {
+            name: entry.user.name || "",
+            username: entry.user.username || "",
+            link: entry.user.links?.html || "",
+          }
+        : null,
       location: entry.location?.name || entry.user?.location || "",
       raw: entry,
     });
@@ -82,13 +84,17 @@ export class UnsplashSource extends RemoteSource {
 
   getChipSummary(card) {
     if (!card) return "";
-    const authorName = card.user?.name || (card.title?.startsWith("Unsplash • ") ? card.title.slice(11) : "");
+    const authorName =
+      card.user?.name ||
+      (card.title?.startsWith("Unsplash • ") ? card.title.slice(11) : "");
     const photoByPrefix = t("sp.meta.photo_by", "Photo by");
     const badge = getResolutionBadge(card.width, card.height);
 
     const parts = [];
     if (authorName) {
-      parts.push(`<span>${escapeHtml(photoByPrefix)} <strong>${escapeHtml(authorName)}</strong></span>`);
+      parts.push(
+        `<span>${escapeHtml(photoByPrefix)} <strong>${escapeHtml(authorName)}</strong></span>`,
+      );
     } else {
       parts.push(`<span>Unsplash</span>`);
     }
@@ -104,7 +110,9 @@ export class UnsplashSource extends RemoteSource {
     if (!card) return [];
     const details = [];
 
-    const authorName = card.user?.name || (card.title?.startsWith("Unsplash • ") ? card.title.slice(11) : "");
+    const authorName =
+      card.user?.name ||
+      (card.title?.startsWith("Unsplash • ") ? card.title.slice(11) : "");
     const username = card.user?.username;
     if (authorName) {
       details.push({
@@ -113,7 +121,8 @@ export class UnsplashSource extends RemoteSource {
       });
     }
 
-    const loc = card.location || card.raw?.location?.name || card.user?.location;
+    const loc =
+      card.location || card.raw?.location?.name || card.user?.location;
     if (loc) {
       details.push({
         label: t("sp.meta.location", "Địa điểm"),
@@ -124,7 +133,9 @@ export class UnsplashSource extends RemoteSource {
     const badge = getResolutionBadge(card.width, card.height);
     const res = formatResolution(card.width, card.height);
     if (res) {
-      const badgeHtml = badge ? ` <span class="meta_badge">${escapeHtml(badge)}</span>` : "";
+      const badgeHtml = badge
+        ? ` <span class="meta_badge">${escapeHtml(badge)}</span>`
+        : "";
       details.push({
         label: t("sp.meta.resolution", "Độ phân giải"),
         value: `${escapeHtml(res)}${badgeHtml}`,
@@ -146,11 +157,6 @@ export class UnsplashSource extends RemoteSource {
     });
 
     return details;
-  }
-
-  /** Unsplash is unusable until an Access Key is configured in the Debug tab. */
-  get isAvailable() {
-    return Boolean(getSettings().unsplashApiKey);
   }
 
   /**

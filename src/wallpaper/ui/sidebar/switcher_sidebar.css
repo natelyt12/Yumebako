@@ -1,0 +1,350 @@
+@layer features {
+  /* ============================================================================
+     WALLPAPER SWITCHER SIDEBAR (SOURCE SETTINGS DRAWER)
+     ============================================================================
+     Full-height side sheet inside WallpaperSwitcher.
+     Animation timing and curve replicate the Settings panel (#setting_wrapper).
+     The glass surface lives on ::before (Decoupled Layering) so nested dropdowns
+     keep sampling what is behind the drawer; nothing on the drawer itself may
+     create a Backdrop Root (no clip-path / filter / opacity / mask).
+     ============================================================================ */
+
+  /* Invisible click-catcher: receives clicks outside the drawer and closes it.
+     Intentionally transparent — it must not add any visual treatment.
+     Sits above the sheet content (top bar, carousel) but below the drawer. */
+  .wallpaper_switcher_sidebar_overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 45;
+    background: transparent;
+    pointer-events: none;
+  }
+
+  .wallpaper_switcher_sidebar_overlay.is-open {
+    pointer-events: auto;
+  }
+
+  /* Sidebar Drawer */
+  .wallpaper_switcher_sidebar {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 380px;
+    max-width: calc(100vw - 32px);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    /* Default text colour for anything that does not set one itself (slider
+       label/unit, plain descriptions...). Without this they inherit the page's
+       default black and become unreadable on the glass surface. */
+    color: var(--text-primary);
+    border-left: 1px solid var(--glass-border-sm, rgba(255, 255, 255, 0.12));
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+
+    /* Shadow uses a negative spread so it stays horizontal: the drawer must not
+       use clip-path here — clip-path creates a Backdrop Root that cancels the
+       backdrop-filter of ::before (the glass would stop blurring). */
+    box-shadow:
+      -12px 0 28px -24px rgba(0, 0, 0, 0.6),
+      inset 1px 0 0 rgba(255, 255, 255, 0.08);
+
+    /* Closing state: matches #setting_wrapper exit curve & timing */
+    transform: translateX(100%);
+    visibility: hidden;
+    pointer-events: none;
+    z-index: 50;
+    transition:
+      transform 0.45s var(--cubic_in),
+      visibility 0s 0.45s;
+  }
+
+  /* Decoupled Layering (xử lý nested backdrop-filter):
+     Chuyển nền và filter sang ::before để không tạo Backdrop Root trên .wallpaper_switcher_sidebar,
+     giúp các dropdown con bên trong (resolution, sorting, toprange) có thể làm mờ
+     xuyên thấu toàn bộ các văn bản / controls phía sau mà không bị lỗi chữ sắc nét. */
+  .wallpaper_switcher_sidebar::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-color: var(--bg-panel, rgba(14, 14, 20, 0.75));
+    -webkit-backdrop-filter: blur(32px) saturate(180%) brightness(1.06);
+    backdrop-filter: blur(32px) saturate(180%) brightness(1.06);
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  /* Opening state: matches #setting_wrapper entry curve & timing (0.8s expo-out) */
+  .wallpaper_switcher_sidebar.is-open {
+    transform: translateX(0);
+    visibility: visible;
+    pointer-events: auto;
+    transition: transform 0.8s var(--expo_out);
+  }
+
+  /* Header: title on the left, close X on the right, both vertically centred.
+     Horizontal inset matches the body/footer (20px) so the drawer reads evenly. */
+  .wallpaper_switcher_sidebar_header {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 54px;
+    padding: 0px 20px;
+    border-bottom: 1px solid var(--glass-border-sm, rgba(255, 255, 255, 0.08));
+    box-sizing: border-box;
+    flex-shrink: 0;
+  }
+
+  /* Icon-only compact control at the right end of the header. */
+  .wallpaper_switcher_sidebar_close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    padding: 0;
+    border: none;
+    border-radius: 50px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition:
+      background-color 0.2s var(--smooth),
+      color 0.2s var(--smooth),
+      transform 0.15s var(--smooth);
+  }
+
+  .wallpaper_switcher_sidebar_close:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+  }
+
+  .wallpaper_switcher_sidebar_close:active {
+    background-color: rgba(255, 255, 255, 0.16);
+    transform: scale(0.92);
+  }
+
+  .wallpaper_switcher_sidebar_close:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.6);
+    outline-offset: 2px;
+  }
+
+  .wallpaper_switcher_sidebar_close svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .wallpaper_switcher_sidebar_title {
+    flex: 1;
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+    user-select: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Body / Form Container */
+  .wallpaper_switcher_sidebar_body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 12px 20px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    scroll-behavior: smooth;
+  }
+
+  /* Scrollbar styling */
+  .wallpaper_switcher_sidebar_body::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .wallpaper_switcher_sidebar_body::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .wallpaper_switcher_sidebar_body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.16);
+    border-radius: 4px;
+  }
+
+  .wallpaper_switcher_sidebar_body::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.28);
+  }
+
+  /* Generic Source Form */
+  .source_sidebar_form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-sizing: border-box;
+    min-height: 100%;
+  }
+
+  .source_sidebar_section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .source_sidebar_section.disabled_section {
+    opacity: 0.45;
+    pointer-events: none;
+    transition: opacity 0.2s var(--smooth);
+  }
+
+  .source_sidebar_section_title {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    user-select: none;
+  }
+
+  .source_sidebar_section_title::after {
+    content: "";
+    height: 1px;
+    flex: 1;
+    background: linear-gradient(to right, var(--divider), transparent);
+    opacity: 0.45;
+  }
+
+  /* Footer slot: source forms mount their action row here, outside the
+     scrolling body. Keeping it out of the scroll area pins the buttons to the
+     bottom without stacking an extra tinted layer behind them, so they keep the
+     exact same glass background as every other .btn in the drawer. */
+  .wallpaper_switcher_sidebar_footer {
+    flex-shrink: 0;
+    padding: 12px 20px 20px;
+    border-top: 1px solid var(--glass-border-sm, rgba(255, 255, 255, 0.08));
+    box-sizing: border-box;
+  }
+
+  .source_sidebar_actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* Paired footer actions: keep the shared .btn chrome (height, padding,
+     centred label). Only the flex sizing belongs to this row. */
+  .source_sidebar_actions .btn {
+    flex: 1;
+  }
+
+  /* Category Toggle Tabs (Wallhaven) — same pill language as the switcher's
+     source tabs: a white pill scales in behind the label, no accent colour.
+     The selected state is carried by `aria-pressed`. */
+  .wh_categories_group {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px;
+    border-radius: 50px;
+    background: var(--button);
+    border: 1px solid var(--glass-border-sm);
+    box-sizing: border-box;
+    height: 36px;
+  }
+
+  .wh_cat_pill {
+    position: relative;
+    flex: 1;
+    height: 28px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 50px;
+    background-color: transparent;
+    box-shadow: none;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: default;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    transition:
+      transform 0.2s var(--smooth),
+      color 0.2s var(--smooth);
+    user-select: none;
+  }
+
+  .wh_cat_pill > span {
+    position: relative;
+    z-index: 1;
+  }
+
+  .wh_cat_pill::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50px;
+    background-color: #f5f3f3f6;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    transform: scale(0.6);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 0;
+    will-change: transform, opacity;
+    transition:
+      transform 0.2s var(--smooth),
+      opacity 0.16s var(--smooth);
+  }
+
+  .wh_cat_pill:hover {
+    background-color: transparent;
+  }
+
+  .wh_cat_pill:hover:not([aria-pressed="true"]) {
+    color: var(--text-primary);
+  }
+
+  .wh_cat_pill:active:not([aria-pressed="true"]) {
+    transform: scale(0.94);
+  }
+
+  .wh_cat_pill[aria-pressed="true"] {
+    color: var(--ts-thumb-on-color, #454545);
+    font-weight: 600;
+    background-color: transparent;
+  }
+
+  .wh_cat_pill[aria-pressed="true"]::before {
+    transform: scale(1);
+    opacity: 1;
+    transition:
+      transform 0.28s cubic-bezier(0.34, 1.45, 0.64, 1),
+      opacity 0.2s var(--smooth);
+  }
+
+  .wh_cat_pill:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.4);
+    outline-offset: 1px;
+  }
+
+  /* Highlight the source settings button when sidebar is active */
+  .wallpaper_source_settings.is-active {
+    background: var(--button-active, rgba(255, 255, 255, 0.18));
+    color: var(--text-primary);
+    border-color: var(--glass-border-sm, rgba(255, 255, 255, 0.2));
+  }
+}

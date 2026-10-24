@@ -122,10 +122,10 @@ export function openDropdown(dropdown, btn) {
         const dialogZ = parseInt(getComputedStyle(dialogRoot).zIndex, 10);
         if (!isNaN(dialogZ)) highestZ = Math.max(highestZ, dialogZ + 10);
     }
-    const popoverPanel = btn.closest(".popover_panel");
-    if (popoverPanel) {
-        const popoverZ = parseInt(getComputedStyle(popoverPanel).zIndex, 10);
-        if (!isNaN(popoverZ)) highestZ = Math.max(highestZ, popoverZ + 10);
+    const parentContainer = btn.closest(".wallpaper_switcher_sidebar, .popover_panel");
+    if (parentContainer) {
+        const containerZ = parseInt(getComputedStyle(parentContainer).zIndex, 10);
+        if (!isNaN(containerZ)) highestZ = Math.max(highestZ, containerZ + 10);
     }
     dropdown.style.zIndex = highestZ;
 

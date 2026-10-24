@@ -57,7 +57,7 @@
 
   /* Decoupled Layering (hướng dẫn xử lý nested backdrop-filter):
      Chuyển nền và filter sang ::before để không tạo Backdrop Root trên .wallpaper_switcher_inner,
-     giúp các phần tử con nổi bên trong (tabs nguồn khi hover, popover settings)
+     giúp các phần tử con nổi bên trong (tabs nguồn khi hover, sidebar settings)
      có thể làm mờ xuyên thấu toàn bộ các phần tử / văn bản của cha nằm phía sau. */
   .wallpaper_switcher_inner::before {
     content: "";
@@ -114,6 +114,10 @@
 
   .wallpaper_switcher_meta_wrapper {
     --meta-chip-h: 28px;
+    /* Minimum width of the expanded panel. The collapsed chip always hugs its
+       summary text; a summary wider than this floor simply keeps the panel at
+       that same width, and the detail content follows it. */
+    --meta-expanded-w: 260px;
     --meta-radius: calc(
       var(--meta-chip-h) / 2
     ); /* 14px: Bán kính cung tròn bán nguyệt tuyệt đối */
@@ -165,8 +169,8 @@
     top: 0;
     right: 0;
     z-index: 40;
+    /* Collapsed: hugs the summary (the in-flow sizer defines the wrapper width). */
     width: 100%;
-    min-width: 100%;
     height: var(--meta-chip-h);
     border-radius: var(--meta-radius);
     background: var(--button);
@@ -237,7 +241,10 @@
     position: absolute;
     bottom: 0;
     left: 0;
-    width: 260px;
+    /* Always laid out at the width the panel will have once expanded (never
+       narrower than the floor), so the measured `--meta-expanded-h` matches the
+       final layout even while the chip is still hugging a short summary. */
+    width: max(calc(var(--meta-expanded-w) - 2px), 100%);
     box-sizing: border-box;
     padding: 8px 14px;
     opacity: 0;
@@ -249,7 +256,10 @@
   /* ── Trạng thái Morph mở rộng khi Hover ──────── */
 
   .wallpaper_switcher_meta_wrapper:hover .wallpaper_switcher_meta_card {
-    width: 260px;
+    /* Width itself carries the floor (instead of a min-width clamp): on
+       collapse there is no instant clamp that would snap the card to the
+       minimum before it grows back to hug a longer summary. */
+    width: max(var(--meta-expanded-w), 100%);
     height: var(--meta-expanded-h, auto);
     border-radius: var(--meta-radius);
     background-color: var(--bg-panel, rgba(14, 14, 22, 0.8));
@@ -323,6 +333,15 @@
     font-weight: 500;
     text-align: right;
     word-break: break-word;
+  }
+
+  /* Values that end with a chip (e.g. the Resolution row) lay the text and the
+     badge out on one flex line, so the badge gets a real gap and is vertically
+     centred with the text instead of sitting on the baseline. */
+  .wallpaper_switcher_meta_body .meta_value:has(.meta_badge) {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
 
   .wallpaper_switcher_meta_body .meta_detail_row.is-stacked {

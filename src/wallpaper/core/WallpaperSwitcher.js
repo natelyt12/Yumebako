@@ -527,7 +527,6 @@ export class WallpaperSwitcher {
       const target = e.target;
       if (
         target.closest(".wallpaper_switcher_inner") ||
-        target.closest(".popover_panel") ||
         target.closest(".dropdown") ||
         target.closest(".dialog_root") ||
         target.closest(".notification_container") ||
@@ -605,7 +604,7 @@ export class WallpaperSwitcher {
   close() {
     if (!this.isOpen) return;
     this.isOpen = false;
-    this.bar?.closePopovers?.();
+    this.bar?.closeSidebar?.();
     this.bar?.hideActions();
 
     this._pendingSourceId = null;
