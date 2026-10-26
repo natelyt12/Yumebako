@@ -10,31 +10,31 @@ let db = null;
  * @returns {Promise<IDBDatabase>} A promise that resolves to the IndexedDB database instance.
  */
 async function getDB() {
-    if (db) return db;
+  if (db) return db;
 
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-        request.onerror = (event) => {
-            console.error("IndexedDB error:", event.target.error);
-            reject("Error opening database");
-        };
+    request.onerror = (event) => {
+      console.error("IndexedDB error:", event.target.error);
+      reject("Error opening database");
+    };
 
-        request.onsuccess = (event) => {
-            db = event.target.result;
-            resolve(db);
-        };
+    request.onsuccess = (event) => {
+      db = event.target.result;
+      resolve(db);
+    };
 
-        request.onupgradeneeded = (event) => {
-            const db = event.target.result;
-            if (!db.objectStoreNames.contains(STORE_NAME)) {
-                db.createObjectStore(STORE_NAME, { keyPath: "key" });
-            }
-            if (!db.objectStoreNames.contains(MEDIA_STORE_NAME)) {
-                db.createObjectStore(MEDIA_STORE_NAME, { keyPath: "key" });
-            }
-        };
-    });
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: "key" });
+      }
+      if (!db.objectStoreNames.contains(MEDIA_STORE_NAME)) {
+        db.createObjectStore(MEDIA_STORE_NAME, { keyPath: "key" });
+      }
+    };
+  });
 }
 
 /**
@@ -44,20 +44,20 @@ async function getDB() {
  * @returns {Promise<any|null>} A promise that resolves to the retrieved value, or null if an error occurs.
  */
 export async function getFromStore(key, storeName = STORE_NAME) {
-    try {
-        const db = await getDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([storeName], "readonly");
-            const store = transaction.objectStore(storeName);
-            const request = store.get(key);
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([storeName], "readonly");
+      const store = transaction.objectStore(storeName);
+      const request = store.get(key);
 
-            request.onsuccess = () => resolve(request.result?.value);
-            request.onerror = () => reject("Error getting data from store");
-        });
-    } catch (error) {
-        console.error("Error in getFromStore:", error);
-        return null;
-    }
+      request.onsuccess = () => resolve(request.result?.value);
+      request.onerror = () => reject("Error getting data from store");
+    });
+  } catch (error) {
+    console.error("Error in getFromStore:", error);
+    return null;
+  }
 }
 
 /**
@@ -68,20 +68,20 @@ export async function getFromStore(key, storeName = STORE_NAME) {
  * @returns {Promise<boolean>} A promise that resolves to true if successful, or false if an error occurs.
  */
 export async function saveToStore(key, value, storeName = STORE_NAME) {
-    try {
-        const db = await getDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([storeName], "readwrite");
-            const store = transaction.objectStore(storeName);
-            const request = store.put({ key, value });
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([storeName], "readwrite");
+      const store = transaction.objectStore(storeName);
+      const request = store.put({ key, value });
 
-            request.onsuccess = () => resolve(true);
-            request.onerror = () => reject("Error saving data to store");
-        });
-    } catch (error) {
-        console.error("Error in saveToStore:", error);
-        return false;
-    }
+      request.onsuccess = () => resolve(true);
+      request.onerror = () => reject("Error saving data to store");
+    });
+  } catch (error) {
+    console.error("Error in saveToStore:", error);
+    return false;
+  }
 }
 
 /**
@@ -90,20 +90,20 @@ export async function saveToStore(key, value, storeName = STORE_NAME) {
  * @returns {Promise<boolean>} A promise that resolves to true if successful, false otherwise.
  */
 export async function clearStore(storeName = STORE_NAME) {
-    try {
-        const db = await getDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([storeName], "readwrite");
-            const store = transaction.objectStore(storeName);
-            const request = store.clear();
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([storeName], "readwrite");
+      const store = transaction.objectStore(storeName);
+      const request = store.clear();
 
-            request.onsuccess = () => resolve(true);
-            request.onerror = () => reject("Error clearing store");
-        });
-    } catch (error) {
-        console.error("Error in clearStore:", error);
-        return false;
-    }
+      request.onsuccess = () => resolve(true);
+      request.onerror = () => reject("Error clearing store");
+    });
+  } catch (error) {
+    console.error("Error in clearStore:", error);
+    return false;
+  }
 }
 
 /**
@@ -112,20 +112,20 @@ export async function clearStore(storeName = STORE_NAME) {
  * @returns {Promise<Array<any>|null>} A promise that resolves to an array of all stored items, or null on error.
  */
 export async function getAllFromStore(storeName = STORE_NAME) {
-    try {
-        const db = await getDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([storeName], "readonly");
-            const store = transaction.objectStore(storeName);
-            const request = store.getAll();
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([storeName], "readonly");
+      const store = transaction.objectStore(storeName);
+      const request = store.getAll();
 
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject("Error getting all data from store");
-        });
-    } catch (error) {
-        console.error("Error in getAllFromStore:", error);
-        return null;
-    }
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject("Error getting all data from store");
+    });
+  } catch (error) {
+    console.error("Error in getAllFromStore:", error);
+    return null;
+  }
 }
 
 /**
@@ -135,20 +135,71 @@ export async function getAllFromStore(storeName = STORE_NAME) {
  * @returns {Promise<boolean>} A promise that resolves to true if successful, false otherwise.
  */
 export async function removeFromStore(key, storeName = STORE_NAME) {
-    try {
-        const db = await getDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([storeName], "readwrite");
-            const store = transaction.objectStore(storeName);
-            const request = store.delete(key);
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([storeName], "readwrite");
+      const store = transaction.objectStore(storeName);
+      const request = store.delete(key);
 
-            request.onsuccess = () => resolve(true);
-            request.onerror = () => reject("Error removing data from store");
-        });
-    } catch (error) {
-        console.error("Error in removeFromStore:", error);
-        return false;
-    }
+      request.onsuccess = () => resolve(true);
+      request.onerror = () => reject("Error removing data from store");
+    });
+  } catch (error) {
+    console.error("Error in removeFromStore:", error);
+    return false;
+  }
+}
+
+/**
+ * Write many key/value pairs in a single transaction.
+ * Used for blobs: one transaction per batch instead of one per file.
+ * @param {Array<{key: string, value: any}>} entries
+ * @param {string} storeName - The object store to write to (defaults to appData).
+ * @returns {Promise<boolean>} A promise resolving to true when the transaction commits.
+ */
+export async function saveManyToStore(entries, storeName = STORE_NAME) {
+  if (!Array.isArray(entries) || entries.length === 0) return true;
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([storeName], "readwrite");
+      const store = transaction.objectStore(storeName);
+      entries.forEach(({ key, value }) => store.put({ key, value }));
+
+      transaction.oncomplete = () => resolve(true);
+      transaction.onerror = () => reject("Error saving batch to store");
+      transaction.onabort = () => reject("Batch save aborted");
+    });
+  } catch (error) {
+    console.error("Error in saveManyToStore:", error);
+    return false;
+  }
+}
+
+/**
+ * Delete many keys in a single transaction.
+ * @param {Array<string>} keys
+ * @param {string} storeName - The object store to delete from (defaults to appData).
+ * @returns {Promise<boolean>} A promise resolving to true when the transaction commits.
+ */
+export async function removeManyFromStore(keys, storeName = STORE_NAME) {
+  if (!Array.isArray(keys) || keys.length === 0) return true;
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([storeName], "readwrite");
+      const store = transaction.objectStore(storeName);
+      keys.forEach((key) => store.delete(key));
+
+      transaction.oncomplete = () => resolve(true);
+      transaction.onerror = () => reject("Error removing batch from store");
+      transaction.onabort = () => reject("Batch removal aborted");
+    });
+  } catch (error) {
+    console.error("Error in removeManyFromStore:", error);
+    return false;
+  }
 }
 
 /**
@@ -157,18 +208,18 @@ export async function removeFromStore(key, storeName = STORE_NAME) {
  * @returns {Promise<Array<string>>} A promise resolving to the stored keys (empty on error).
  */
 export async function getAllKeys(storeName = STORE_NAME) {
-    try {
-        const db = await getDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([storeName], "readonly");
-            const store = transaction.objectStore(storeName);
-            const request = store.getAllKeys();
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([storeName], "readonly");
+      const store = transaction.objectStore(storeName);
+      const request = store.getAllKeys();
 
-            request.onsuccess = () => resolve(request.result || []);
-            request.onerror = () => reject("Error getting keys from store");
-        });
-    } catch (error) {
-        console.error("Error in getAllKeys:", error);
-        return [];
-    }
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject("Error getting keys from store");
+    });
+  } catch (error) {
+    console.error("Error in getAllKeys:", error);
+    return [];
+  }
 }

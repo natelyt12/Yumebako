@@ -1,9 +1,9 @@
 import { BaseSource } from "./BaseSource.js";
 import { SOURCE_ACTIONS } from "./sourceActions.js";
 import {
-  addToCollection,
   addBatchToCollection,
   getCollection,
+  getCollectionBlob,
   getCollectionItem,
   removeFromCollection,
   removeMultipleFromCollection,
@@ -56,9 +56,9 @@ function pickMediaFiles() {
  * ---------------------------------------------------------------------------
  * Switcher source backed by the personal IndexedDB collection.
  *
- * It produces object URLs from each item's stored thumbnail (falling back to
- * the full blob for legacy entries that have no thumbnail), and applies items
- * through the Collection provider so the per-wallpaper effect profile is kept.
+ * It produces object URLs from each item's stored thumbnail (the list entry
+ * carries no full-size blob — see `collectionDb.js`), and applies items through
+ * the Collection provider so the per-wallpaper effect profile is kept.
  *
  * Its items grow through one door: the **upload button** in the bottom bar
  * (`WallpaperSwitcher.requestUpload`), which opens the file picker inside a real
@@ -241,8 +241,9 @@ export class CollectionSource extends BaseSource {
       return item.thumbnailUrl;
     }
 
-    // 3. Tái tạo living Object URL từ IndexedDB record
-    const raw = await getCollectionItem(item.id);
+    // 3. Tái tạo living Object URL từ thumbnail của chính entry trong list
+    // (thumbnail nằm trong `data:collection`, không cần đọc blob gốc nữa)
+    const raw = item.raw || (await getCollectionItem(item.id));
     item.thumbnailUrl = this._resolveThumb(raw);
     return item.thumbnailUrl;
   }
@@ -258,18 +259,25 @@ export class CollectionSource extends BaseSource {
 
   async apply(item, { firstRun = false } = {}) {
     if (!item?.id) return;
-    const raw = await getCollectionItem(item.id);
-    if (!raw) return;
+
+    // Media lives in its own record, so applying a wallpaper reads exactly one
+    // file instead of re-cloning the whole collection.
+    const blob = await getCollectionBlob(item.id);
+    if (!blob) return;
+
     const isVideo =
-      raw.type === "local_video" ||
-      raw.type === "video" ||
-      (raw.blob instanceof Blob && raw.blob.type.startsWith("video/"));
+      blob.type.startsWith("video/") ||
+      item.mediaType === "video" ||
+      item.raw?.type === "local_video" ||
+      item.raw?.type === "video";
+
     return await wallpaperRenderer.apply(
       {
-        ...raw,
+        blob,
         id: item.id,
         type: isVideo ? "video" : "image",
-        effects: item.effects || raw.effects || getDefaultWallpaperEffects(),
+        effects:
+          item.effects || item.raw?.effects || getDefaultWallpaperEffects(),
       },
       { firstRun },
     );
@@ -277,8 +285,7 @@ export class CollectionSource extends BaseSource {
 
   /** Media already lives in IndexedDB, so no fetch is needed. */
   async getBlob(item) {
-    const raw = await getCollectionItem(item.id);
-    return raw?.blob instanceof Blob ? raw.blob : null;
+    return getCollectionBlob(item?.id);
   }
 
   /** Xóa hoàn toàn thẻ khỏi database bộ sưu tập và giải phóng URL */
@@ -335,7 +342,7 @@ export class CollectionSource extends BaseSource {
       metadata,
       width: metadata.width || 0,
       height: metadata.height || 0,
-      size: metadata.size || (raw.blob instanceof Blob ? raw.blob.size : 0),
+      size: metadata.size || 0,
       raw,
     });
   }
@@ -343,13 +350,13 @@ export class CollectionSource extends BaseSource {
   /** Collection entries are local files; detect the media type defensively. */
   isVideo(raw) {
     return (
-      raw.type === "local_video" ||
-      raw.type === "video" ||
-      Boolean(raw.blob instanceof Blob && raw.blob.type.startsWith("video/"))
+      raw?.type === "local_video" ||
+      raw?.type === "video" ||
+      Boolean(raw?.metadata?.mimeType?.startsWith("video/"))
     );
   }
 
-  /** Prefer the dedicated thumbnail, fall back to the full blob. */
+  /** Thumbnails live in the list entry; the full blob is no longer inline. */
   _resolveThumb(raw) {
     if (!raw?.id) return FALLBACK_THUMB;
 
@@ -357,10 +364,9 @@ export class CollectionSource extends BaseSource {
     const cached = this._thumbUrls.get(id);
     if (cached) return cached;
 
-    const blob = raw.thumbnail instanceof Blob ? raw.thumbnail : raw.blob;
-    if (!(blob instanceof Blob)) return FALLBACK_THUMB;
+    if (!(raw.thumbnail instanceof Blob)) return FALLBACK_THUMB;
 
-    const url = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(raw.thumbnail);
     this._thumbUrls.set(id, url);
     return url;
   }
