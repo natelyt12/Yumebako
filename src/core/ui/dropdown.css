@@ -1,5 +1,5 @@
 @layer components {
-/* ============================================================================
+  /* ============================================================================
    CUSTOM DROPDOWN — single source of truth
    ============================================================================
    A custom dropdown is a value picker that replaces a native <select>, styled
@@ -31,14 +31,14 @@
    they get no checkmark and no gutter.
    ============================================================================ */
 
-/* --- Wrapper ------------------------------------------------------------- */
-.dropdown_wrapper {
+  /* --- Wrapper ------------------------------------------------------------- */
+  .dropdown_wrapper {
     position: relative;
     width: 100%;
-}
+  }
 
-/* --- Trigger (mirrors `select, .native_select` in controls.css) ---------- */
-.btn[data-action="dropdown"] {
+  /* --- Trigger (mirrors `select, .native_select` in controls.css) ---------- */
+  .btn[data-action="dropdown"] {
     /* Layout: label left, chevron pinned right. */
     display: flex;
     align-items: center;
@@ -56,26 +56,25 @@
     font-size: 1em;
     font-family: inherit;
     line-height: normal;
-    cursor: default;
     /* Horizontal padding only: the right side reserves room for the chevron,
        like the select's `0 36px 0 14px`, while the vertical padding stays a
        concern of `.btn` so a two-line trigger keeps its own spacing. */
     padding-left: 14px;
     padding-right: 36px;
     transition: background-color 0.2s var(--smooth);
-}
+  }
 
-.btn[data-action="dropdown"]:hover {
+  .btn[data-action="dropdown"]:hover {
     background-color: var(--button-hov);
-}
+  }
 
-/* The label fills the trigger; the chevron is out of flow so it never shifts it. */
-.btn[data-action="dropdown"] > .selected_value {
+  /* The label fills the trigger; the chevron is out of flow so it never shifts it. */
+  .btn[data-action="dropdown"] > .selected_value {
     margin-right: auto;
-}
+  }
 
-/* Chevron pinned at `right 12px`, matching the select's background SVG. */
-.btn[data-action="dropdown"] > .sbsctsvg {
+  /* Chevron pinned at `right 12px`, matching the select's background SVG. */
+  .btn[data-action="dropdown"] > .sbsctsvg {
     position: absolute;
     right: 12px;
     top: 50%;
@@ -83,22 +82,22 @@
     display: flex;
     align-items: center;
     pointer-events: none;
-}
+  }
 
-.btn[data-action="dropdown"] > .sbsctsvg svg {
+  .btn[data-action="dropdown"] > .sbsctsvg svg {
     width: 18px;
     height: 18px;
     opacity: 0.7;
-}
+  }
 
-/* Optional leading icon inside a trigger (e.g. the "Add effect" action menu). */
-.btn[data-action="dropdown"] > i[data-icon]:first-child,
-.btn[data-action="dropdown"] > svg:first-child {
+  /* Optional leading icon inside a trigger (e.g. the "Add effect" action menu). */
+  .btn[data-action="dropdown"] > i[data-icon]:first-child,
+  .btn[data-action="dropdown"] > svg:first-child {
     flex-shrink: 0;
-}
+  }
 
-/* --- Panel (mirrors the native option list) ------------------------------ */
-.dropdown {
+  /* --- Panel (mirrors the native option list) ------------------------------ */
+  .dropdown {
     position: absolute;
     top: calc(100% + 6px);
     left: 0;
@@ -123,33 +122,33 @@
     visibility: hidden;
 
     transition:
-        height 0.34s var(--expo_out),
-        visibility 0s 0s;
+      height 0.34s var(--expo_out),
+      visibility 0s 0s;
     will-change: height;
-}
+  }
 
-/* Open State */
-.dropdown.opening {
+  /* Open State */
+  .dropdown.opening {
     visibility: visible;
     pointer-events: auto;
-}
+  }
 
-/* Close State: vẫn hiện trong suốt cú quét đóng, ẩn ngay khi gỡ class. */
-.dropdown.closing {
+  /* Close State: vẫn hiện trong suốt cú quét đóng, ẩn ngay khi gỡ class. */
+  .dropdown.closing {
     height: 0 !important;
     visibility: visible;
     pointer-events: none;
     transition: height 0.26s var(--cubic_in);
-}
+  }
 
-/* Upward panel */
-.dropdown.open_upwards {
+  /* Upward panel */
+  .dropdown.open_upwards {
     top: auto;
     bottom: calc(100% + 6px);
-}
+  }
 
-/* Inner container pinned to the moving edge so content slides with the border */
-.dropdown_inner {
+  /* Inner container pinned to the moving edge so content slides with the border */
+  .dropdown_inner {
     position: absolute;
     bottom: 0;
     left: 0;
@@ -157,19 +156,19 @@
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-}
+  }
 
-.dropdown.open_upwards .dropdown_inner {
+  .dropdown.open_upwards .dropdown_inner {
     bottom: auto;
     top: 0;
-}
+  }
 
-/* --- Items (mirror `select option` rows) --------------------------------- */
-/* An item may be a <div> (static markup) or a <button> (built in JS). Reset the
+  /* --- Items (mirror `select option` rows) --------------------------------- */
+  /* An item may be a <div> (static markup) or a <button> (built in JS). Reset the
    shared `button` chrome (see buttons.css) so both render as a flat list row
    instead of a raised button. Scoped under `.dropdown` so the reset also
    out-specifies `button:hover` for non-hover properties. */
-.dropdown .dropdown_item {
+  .dropdown .dropdown_item {
     display: flex;
     align-items: center;
     flex-shrink: 0;
@@ -190,41 +189,40 @@
     line-height: 20px;
     font-weight: 400;
     color: var(--text-primary);
-    cursor: default;
     gap: 0;
     padding: 0 14px;
     transition:
-        background-color 0.15s var(--smooth),
-        color 0.15s var(--smooth);
-}
+      background-color 0.15s var(--smooth),
+      color 0.15s var(--smooth);
+  }
 
-.dropdown .dropdown_item:hover {
+  .dropdown .dropdown_item:hover {
     background-color: var(--button-hov);
-}
+  }
 
-.dropdown .dropdown_item:active {
+  .dropdown .dropdown_item:active {
     background-color: var(--button-act);
-}
+  }
 
-/* Only value rows reserve the checkmark gutter; action rows stay flush. */
-.dropdown_item[data-value] {
+  /* Only value rows reserve the checkmark gutter; action rows stay flush. */
+  .dropdown_item[data-value] {
     padding-right: 36px;
     position: relative;
-}
+  }
 
-/* Selected row: a subtle lift, dimmer than hover so hover still reads as the
+  /* Selected row: a subtle lift, dimmer than hover so hover still reads as the
    active state. Uses --input-bg-focus (0.12) between base (0.08) and hover (0.14). */
-.dropdown_item[data-selected="true"] {
+  .dropdown_item[data-selected="true"] {
     background-color: var(--input-bg-focus);
-}
+  }
 
-.dropdown_item[data-selected="true"]:hover {
+  .dropdown_item[data-selected="true"]:hover {
     background-color: var(--button-hov);
-}
+  }
 
-/* Checkmark marks the selected row, pinned to the right edge. Masked SVG so it
+  /* Checkmark marks the selected row, pinned to the right edge. Masked SVG so it
    inherits `currentColor` (same technique as the select's chevron). */
-.dropdown_item[data-selected="true"]::before {
+  .dropdown_item[data-selected="true"]::before {
     content: "";
     position: absolute;
     right: 14px;
@@ -233,27 +231,29 @@
     height: 14px;
     transform: translateY(-50%);
     background-color: currentColor;
-    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E") center / contain no-repeat;
-    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E") center / contain no-repeat;
-}
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E")
+      center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E")
+      center / contain no-repeat;
+  }
 
-/* --- Optional group divider inside the panel ----------------------------- */
-.dropdown .section_divider {
+  /* --- Optional group divider inside the panel ----------------------------- */
+  .dropdown .section_divider {
     flex-shrink: 0;
     margin: 4px 0;
     pointer-events: none;
-}
+  }
 
-.dropdown .section_divider:first-child {
+  .dropdown .section_divider:first-child {
     margin-top: 2px;
-}
+  }
 
-@media (prefers-reduced-motion: reduce) {
+  @media (prefers-reduced-motion: reduce) {
     .dropdown,
     .dropdown > * {
-        clip-path: none !important;
-        transform: none !important;
-        transition: none !important;
+      clip-path: none !important;
+      transform: none !important;
+      transition: none !important;
     }
-}
+  }
 }

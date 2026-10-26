@@ -1,7 +1,7 @@
 @layer features {
-/* Settings Panel Container & Toggle Trigger Button */
+  /* Settings Panel Container & Toggle Trigger Button */
 
-#setting_wrapper {
+  #setting_wrapper {
     z-index: var(--z-settings);
     position: absolute;
     top: 0;
@@ -9,7 +9,9 @@
     padding: 0;
     /* Exactly nav + gap + the widest view the card can hold, which is the main
        menu while no submenu is open. */
-    width: calc(var(--nav-width) + var(--settings-gap) + var(--main-view-width));
+    width: calc(
+      var(--nav-width) + var(--settings-gap) + var(--main-view-width)
+    );
     /* content-box: the content card fills top-to-bottom flush; no vertical
        padding on the right side so height is simply the full viewport. */
     height: 100vh;
@@ -17,9 +19,9 @@
     color: white;
     background-color: transparent;
     transition:
-        transform 0.45s var(--cubic_in),
-        width 0.45s var(--cubic_in),
-        visibility 0s 0.45s;
+      transform 0.45s var(--cubic_in),
+      width 0.45s var(--cubic_in),
+      visibility 0s 0.45s;
     transform: translateX(100%);
     visibility: hidden;
     display: flex;
@@ -32,6 +34,10 @@
        (keep it in sync with SUBMENU_TRANSITION_MS in core/ui/submenu.js). */
     --settings-motion: 0.8s;
 
+    /* Feed the same duration to the shared submenu component, which otherwise
+       falls back to 0.8s. */
+    --submenu-motion: var(--settings-motion);
+
     /* Layout rhythm of the panel: the gap between the nav and the content card,
        and the width of the three columns. Resizing the sidebar is a one-line
        change here (the nav reads --nav-width as well). */
@@ -42,36 +48,36 @@
     /* Width requested by the open submenu panel, clamped so the nav and the gap
        always fit inside the viewport. */
     --submenu-width: min(
-        var(--submenu-requested-width, 320px),
-        calc(100vw - var(--nav-width) - var(--settings-gap))
+      var(--submenu-requested-width, 320px),
+      calc(100vw - var(--nav-width) - var(--settings-gap))
     );
 
     /* Inner widths of the content card (no border on the content card). */
     --settings-inner-main-width: var(--main-view-width);
     --settings-inner-submenu-width: var(--submenu-width);
-}
+  }
 
-/* The submenu lives inside the content card, so the wrapper grows to fit the
+  /* The submenu lives inside the content card, so the wrapper grows to fit the
    same width instead of squeezing the panel into the main menu column. */
-#setting_wrapper.submenu_active {
+  #setting_wrapper.submenu_active {
     width: calc(var(--nav-width) + var(--settings-gap) + var(--submenu-width));
-}
+  }
 
-#setting_wrapper.preload {
+  #setting_wrapper.preload {
     transition: none !important;
-}
+  }
 
-.setting_wrapper_opened {
+  .setting_wrapper_opened {
     transform: translateX(0%) !important;
     visibility: visible !important;
     transition:
-        transform var(--settings-motion) var(--expo_out),
-        width var(--settings-motion) var(--expo_out) !important;
-}
+      transform var(--settings-motion) var(--expo_out),
+      width var(--settings-motion) var(--expo_out) !important;
+  }
 
-/* ── Action Buttons Container & Toggle Triggers ────────── */
+  /* ── Action Buttons Container & Toggle Triggers ────────── */
 
-#action_buttons {
+  #action_buttons {
     visibility: visible !important;
     position: fixed;
     right: 14px;
@@ -82,45 +88,44 @@
     gap: 4px;
     opacity: 0.4;
     transition:
-        opacity 0.3s var(--expo_out) 0.8s,
-        background-color 0.3s var(--expo_out),
-        right 0.8s var(--expo_out);
-}
+      opacity 0.3s var(--expo_out) 0.8s,
+      background-color 0.3s var(--expo_out),
+      right 0.8s var(--expo_out);
+  }
 
-#action_buttons:hover {
+  #action_buttons:hover {
     opacity: 0.85 !important;
     transition:
-        opacity 0.15s var(--smooth) 0s,
-        right 0.8s var(--expo_out);
-}
+      opacity 0.15s var(--smooth) 0s,
+      right 0.8s var(--expo_out);
+  }
 
-#action_buttons.setting_toggle_btn_opened,
-#action_buttons.wallpaper_switcher_opened {
+  #action_buttons.setting_toggle_btn_opened,
+  #action_buttons.wallpaper_switcher_opened {
     opacity: 0 !important;
     pointer-events: none !important;
-    transition:
-        opacity 0.3s var(--expo_out) 0s;
-}
+    transition: opacity 0.3s var(--expo_out) 0s;
+  }
 
-#action_buttons.toggle_hidden {
+  #action_buttons.toggle_hidden {
     opacity: 0;
-}
+  }
 
-/* Slide action buttons off-screen during preview */
-#action_buttons.preview_active,
-#action_buttons:has(#setting_toggle_btn.preview_active),
-#setting_toggle_btn.preview_active {
+  /* Slide action buttons off-screen during preview */
+  #action_buttons.preview_active,
+  #action_buttons:has(#setting_toggle_btn.preview_active),
+  #setting_toggle_btn.preview_active {
     right: -120px !important;
     opacity: 0 !important;
     pointer-events: none !important;
     transition:
-        right 0.8s var(--expo_out),
-        opacity 0.4s var(--expo_out) !important;
-}
+      right 0.8s var(--expo_out),
+      opacity 0.4s var(--expo_out) !important;
+  }
 
-#action_buttons button,
-#setting_toggle_btn,
-#wallpaper_toggle_btn {
+  #action_buttons button,
+  #setting_toggle_btn,
+  #wallpaper_toggle_btn {
     visibility: visible !important;
     background-color: transparent !important;
     border: none !important;
@@ -131,39 +136,38 @@
     height: 40px !important;
     padding: 12px !important;
     border-radius: 50px !important;
-    cursor: default !important;
     box-shadow: none !important;
     margin: 0 !important;
     color: var(--text-primary);
     transition:
-        background-color 0.2s var(--smooth),
-        box-shadow 0.2s var(--smooth);
-}
+      background-color 0.2s var(--smooth),
+      box-shadow 0.2s var(--smooth);
+  }
 
-#action_buttons button:hover,
-#setting_toggle_btn:hover,
-#wallpaper_toggle_btn:hover {
+  #action_buttons button:hover,
+  #setting_toggle_btn:hover,
+  #wallpaper_toggle_btn:hover {
     background-color: rgba(255, 255, 255, 0.1) !important;
-}
+  }
 
-#wallpaper_toggle_btn.active {
+  #wallpaper_toggle_btn.active {
     background-color: rgba(255, 255, 255, 0.16) !important;
     box-shadow: 0 0 16px rgba(255, 255, 255, 0.1) !important;
-}
+  }
 
-#action_buttons svg,
-#setting_toggle_btn svg,
-#wallpaper_toggle_btn svg {
+  #action_buttons svg,
+  #setting_toggle_btn svg,
+  #wallpaper_toggle_btn svg {
     transform: scale(1.6);
-}
+  }
 
-/* Slide elements off-screen during preview */
-#setting_wrapper.preview_active {
+  /* Slide elements off-screen during preview */
+  #setting_wrapper.preview_active {
     transform: translateX(100%) !important;
-}
+  }
 
-#setting_wrapper.preview_active .nav_tooltip {
+  #setting_wrapper.preview_active .nav_tooltip {
     opacity: 0 !important;
     pointer-events: none !important;
-}
+  }
 }

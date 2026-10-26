@@ -1,6 +1,6 @@
 @layer features {
-/* Visual Grid Background — removed, will be redesigned */
-#widgets_container {
+  /* Visual Grid Background — removed, will be redesigned */
+  #widgets_container {
     position: absolute;
     top: 50%;
     left: 50%;
@@ -11,14 +11,14 @@
     pointer-events: none;
     transition: background 0.3s ease;
     z-index: var(--z-widgets);
-}
+  }
 
-#widgets_container.edit-mode {
+  #widgets_container.edit-mode {
     pointer-events: auto;
-}
+  }
 
-#widgets_container.edit-mode::before {
-    content: '';
+  #widgets_container.edit-mode::before {
+    content: "";
     position: absolute;
     left: 0;
     top: 0;
@@ -26,17 +26,18 @@
     height: 100%;
     /* Simple line grid (50px spacing) */
     background-image:
-        linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-    background-size: calc(var(--grid-size, 10) * 5px) calc(var(--grid-size, 10) * 5px);
+      linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: calc(var(--grid-size, 10) * 5px)
+      calc(var(--grid-size, 10) * 5px);
     background-position: center center;
 
     pointer-events: none;
     z-index: var(--z-base);
-}
+  }
 
-#widgets_container.edit-mode::after {
-    content: '';
+  #widgets_container.edit-mode::after {
+    content: "";
     position: absolute;
     left: 0;
     top: 0;
@@ -48,12 +49,10 @@
     box-sizing: border-box;
     pointer-events: none;
     z-index: var(--z-base);
-}
+  }
 
-
-
-/* Base Widget Styling */
-.widget {
+  /* Base Widget Styling */
+  .widget {
     position: absolute;
     box-sizing: border-box;
     pointer-events: auto;
@@ -67,17 +66,10 @@
     flex-direction: column;
     justify-content: center;
     align-items: center;
-}
+  }
 
-
-
-
-.edit-mode .widget {
-    cursor: grab;
-}
-
-/* Outer box bao quanh từng widget */
-.edit-mode .widget::after {
+  /* Outer box bao quanh từng widget */
+  .edit-mode .widget::after {
     content: "";
     position: absolute;
     top: 0;
@@ -87,43 +79,40 @@
     border: 1px solid rgba(255, 255, 255, 0.25);
     pointer-events: none;
     z-index: 3;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
+    transition:
+      border-color 0.15s ease,
+      box-shadow 0.15s ease;
+  }
 
-.edit-mode .widget:hover::after {
+  .edit-mode .widget:hover::after {
     border-color: rgba(255, 255, 255, 0.45);
-}
+  }
 
-/* Khi nhấn kéo: viền sáng nhẹ, no transition phản hồi tức thì */
-.edit-mode .widget:active::after,
-.edit-mode .widget.dragging::after {
+  /* Khi nhấn kéo: viền sáng nhẹ, no transition phản hồi tức thì */
+  .edit-mode .widget:active::after,
+  .edit-mode .widget.dragging::after {
     border-color: rgba(255, 255, 255, 0.85);
     box-shadow: 0 0 10px rgba(255, 255, 255, 0.18);
     transition: none !important;
-}
+  }
 
-.edit-mode .widget:active,
-.widget.dragging {
-    cursor: grabbing;
-}
-
-.widget.dragging,
-.widget.dragging:active {
+  .widget.dragging,
+  .widget.dragging:active {
     z-index: 8;
-}
+  }
 
-/* Snap Guide */
-.widget-snap-guide {
+  /* Snap Guide */
+  .widget-snap-guide {
     position: absolute;
     border: 2px dashed rgba(255, 255, 255, 0.25);
     background-color: rgba(255, 255, 255, 0.02);
     border-radius: 16px;
     pointer-events: none;
     z-index: 1;
-}
+  }
 
-/* Ghost Box */
-.widget-ghost {
+  /* Ghost Box */
+  .widget-ghost {
     position: absolute;
     border: 1px solid rgba(255, 255, 255, 0.4);
     background-color: transparent;
@@ -131,38 +120,38 @@
     pointer-events: none;
     z-index: 7;
     box-sizing: border-box;
-    transition: border-color 0.2s ease, background-color 0.2s ease;
-}
+    transition:
+      border-color 0.2s ease,
+      background-color 0.2s ease;
+  }
 
-.widget-ghost.hover {
+  .widget-ghost.hover {
     border-color: rgba(255, 255, 255, 0.6);
-}
+  }
 
-.widget-ghost.selected {
+  .widget-ghost.selected {
     border-color: rgba(255, 255, 255, 0.8);
     background-color: rgba(255, 255, 255, 0.1);
-}
+  }
 
-
-
-/* Edit mode selection overlay — removed (no blue border) */
-.edit-mode .widget {
+  /* Edit mode selection overlay — removed (no blue border) */
+  .edit-mode .widget {
     overflow: visible !important;
-}
+  }
 
-.edit-mode .widget * {
+  .edit-mode .widget * {
     pointer-events: none !important;
-}
+  }
 
-/* ─── Resize Handles (8 Handles + 1 Center) ──────────────── */
-.widget-resize-handles {
+  /* ─── Resize Handles (8 Handles + 1 Center) ──────────────── */
+  .widget-resize-handles {
     position: absolute;
     inset: 0;
     pointer-events: none;
     z-index: 5;
-}
+  }
 
-.edit-mode .widget .resize-handle {
+  .edit-mode .widget .resize-handle {
     position: absolute;
     box-sizing: border-box;
     display: flex;
@@ -174,231 +163,236 @@
     color: rgba(255, 255, 255, 0.92);
     filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.75));
     pointer-events: auto !important;
-    transition: transform 0.12s ease, color 0.12s ease, filter 0.12s ease;
+    transition:
+      transform 0.12s ease,
+      color 0.12s ease,
+      filter 0.12s ease;
     z-index: 6;
-}
+  }
 
-.edit-mode .widget .resize-handle svg {
+  .edit-mode .widget .resize-handle svg {
     display: block;
     pointer-events: none;
     overflow: visible;
-}
+  }
 
-.edit-mode .widget .resize-handle:hover,
-.edit-mode .widget .resize-handle.active {
+  .edit-mode .widget .resize-handle:hover,
+  .edit-mode .widget .resize-handle.active {
     color: #ffffff;
-    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.85)) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.9));
-}
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.85))
+      drop-shadow(0 1px 3px rgba(0, 0, 0, 0.9));
+  }
 
-/* 4 Corners: L-shaped Right Angle Brackets */
-.edit-mode .widget .resize-handle.handle-nw {
+  /* 4 Corners: L-shaped Right Angle Brackets */
+  .edit-mode .widget .resize-handle.handle-nw {
     width: 18px;
     height: 18px;
     top: -7px;
     left: -7px;
     cursor: nwse-resize;
     transform-origin: top left;
-}
+  }
 
-.edit-mode .widget .resize-handle.handle-nw:hover,
-.edit-mode .widget .resize-handle.handle-nw.active {
+  .edit-mode .widget .resize-handle.handle-nw:hover,
+  .edit-mode .widget .resize-handle.handle-nw.active {
     transform: scale(1.2);
-}
+  }
 
-.edit-mode .widget .resize-handle.handle-ne {
+  .edit-mode .widget .resize-handle.handle-ne {
     width: 18px;
     height: 18px;
     top: -7px;
     right: -7px;
     cursor: nesw-resize;
     transform-origin: top right;
-}
+  }
 
-.edit-mode .widget .resize-handle.handle-ne:hover,
-.edit-mode .widget .resize-handle.handle-ne.active {
+  .edit-mode .widget .resize-handle.handle-ne:hover,
+  .edit-mode .widget .resize-handle.handle-ne.active {
     transform: scale(1.2);
-}
+  }
 
-.edit-mode .widget .resize-handle.handle-se {
+  .edit-mode .widget .resize-handle.handle-se {
     width: 18px;
     height: 18px;
     bottom: -7px;
     right: -7px;
     cursor: nwse-resize;
     transform-origin: bottom right;
-}
+  }
 
-.edit-mode .widget .resize-handle.handle-se:hover,
-.edit-mode .widget .resize-handle.handle-se.active {
+  .edit-mode .widget .resize-handle.handle-se:hover,
+  .edit-mode .widget .resize-handle.handle-se.active {
     transform: scale(1.2);
-}
+  }
 
-.edit-mode .widget .resize-handle.handle-sw {
+  .edit-mode .widget .resize-handle.handle-sw {
     width: 18px;
     height: 18px;
     bottom: -7px;
     left: -7px;
     cursor: nesw-resize;
     transform-origin: bottom left;
-}
+  }
 
-.edit-mode .widget .resize-handle.handle-sw:hover,
-.edit-mode .widget .resize-handle.handle-sw.active {
+  .edit-mode .widget .resize-handle.handle-sw:hover,
+  .edit-mode .widget .resize-handle.handle-sw.active {
     transform: scale(1.2);
-}
+  }
 
-/* 4 Edges: Single Straight Lines */
-.edit-mode .widget .resize-handle.handle-n {
+  /* 4 Edges: Single Straight Lines */
+  .edit-mode .widget .resize-handle.handle-n {
     width: 32px;
     height: 16px;
     top: -12px;
     left: 50%;
     transform: translateX(-50%);
     cursor: ns-resize;
-}
+  }
 
-.edit-mode .widget .resize-handle.handle-n:hover,
-.edit-mode .widget .resize-handle.handle-n.active {
+  .edit-mode .widget .resize-handle.handle-n:hover,
+  .edit-mode .widget .resize-handle.handle-n.active {
     transform: translateX(-50%) scale(1.2);
-}
+  }
 
-.edit-mode .widget .resize-handle.handle-s {
+  .edit-mode .widget .resize-handle.handle-s {
     width: 32px;
     height: 16px;
     bottom: -12px;
     left: 50%;
     transform: translateX(-50%);
     cursor: ns-resize;
-}
+  }
 
-.edit-mode .widget .resize-handle.handle-s:hover,
-.edit-mode .widget .resize-handle.handle-s.active {
+  .edit-mode .widget .resize-handle.handle-s:hover,
+  .edit-mode .widget .resize-handle.handle-s.active {
     transform: translateX(-50%) scale(1.2);
-}
+  }
 
-.edit-mode .widget .resize-handle.handle-w {
+  .edit-mode .widget .resize-handle.handle-w {
     width: 16px;
     height: 32px;
     top: 50%;
     left: -12px;
     transform: translateY(-50%);
     cursor: ew-resize;
-}
+  }
 
-.edit-mode .widget .resize-handle.handle-w:hover,
-.edit-mode .widget .resize-handle.handle-w.active {
+  .edit-mode .widget .resize-handle.handle-w:hover,
+  .edit-mode .widget .resize-handle.handle-w.active {
     transform: translateY(-50%) scale(1.2);
-}
+  }
 
-.edit-mode .widget .resize-handle.handle-e {
+  .edit-mode .widget .resize-handle.handle-e {
     width: 16px;
     height: 32px;
     top: 50%;
     right: -12px;
     transform: translateY(-50%);
     cursor: ew-resize;
-}
+  }
 
-.edit-mode .widget .resize-handle.handle-e:hover,
-.edit-mode .widget .resize-handle.handle-e.active {
+  .edit-mode .widget .resize-handle.handle-e:hover,
+  .edit-mode .widget .resize-handle.handle-e.active {
     transform: translateY(-50%) scale(1.2);
-}
+  }
 
-/* During widget resizing */
-.widget.resizing {
+  /* During widget resizing */
+  .widget.resizing {
     user-select: none;
-}
+  }
 
-.widget.resizing::after {
+  .widget.resizing::after {
     border-color: rgba(255, 255, 255, 0.85);
     box-shadow: 0 0 10px rgba(255, 255, 255, 0.18);
     transition: none !important;
-}
+  }
 
-/* Drag Selection Box */
-.widget-selection-box {
+  /* Drag Selection Box */
+  .widget-selection-box {
     position: absolute;
     border: 1px solid rgba(255, 255, 255, 0.5);
     background-color: rgba(255, 255, 255, 0.03);
     pointer-events: none;
     z-index: 9;
     transition: opacity 0.2s ease;
-}
+  }
 
-.widget-selection-box.fade-out {
+  .widget-selection-box.fade-out {
     opacity: 0;
-}
+  }
 
+  /* ─── Anchor Indicators ─────────────────────────────────── */
 
-
-/* ─── Anchor Indicators ─────────────────────────────────── */
-
-/* Base for all indicators */
-.canvas-indicator {
+  /* Base for all indicators */
+  .canvas-indicator {
     position: absolute;
     pointer-events: none;
     z-index: 4;
     opacity: 0.3;
-    transition: opacity 0.15s ease, filter 0.15s ease;
-}
+    transition:
+      opacity 0.15s ease,
+      filter 0.15s ease;
+  }
 
-.canvas-indicator.active {
+  .canvas-indicator.active {
     opacity: 1;
-    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 14px rgba(255, 255, 255, 0.5));
-}
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.9))
+      drop-shadow(0 0 14px rgba(255, 255, 255, 0.5));
+  }
 
-/* Base style for guides */
-.canvas-guide {
+  /* Base style for guides */
+  .canvas-guide {
     position: absolute;
     background: transparent;
-}
+  }
 
-/* Horizontal guides */
-.canvas-guide.guide-top,
-.canvas-guide.guide-bottom,
-.canvas-guide.guide-center-y {
+  /* Horizontal guides */
+  .canvas-guide.guide-top,
+  .canvas-guide.guide-bottom,
+  .canvas-guide.guide-center-y {
     width: 100%;
     height: 0;
     border-top: 1px dashed white;
     left: 0;
-}
+  }
 
-.canvas-guide.guide-top {
+  .canvas-guide.guide-top {
     top: 0;
-}
+  }
 
-.canvas-guide.guide-bottom {
+  .canvas-guide.guide-bottom {
     top: 100%;
-}
+  }
 
-.canvas-guide.guide-center-y {
+  .canvas-guide.guide-center-y {
     top: 50%;
-}
+  }
 
-/* Vertical guides */
-.canvas-guide.guide-left,
-.canvas-guide.guide-right,
-.canvas-guide.guide-center-x {
+  /* Vertical guides */
+  .canvas-guide.guide-left,
+  .canvas-guide.guide-right,
+  .canvas-guide.guide-center-x {
     width: 0;
     height: 100%;
     border-left: 1px dashed white;
     top: 0;
-}
+  }
 
-.canvas-guide.guide-left {
+  .canvas-guide.guide-left {
     left: 0;
-}
+  }
 
-.canvas-guide.guide-right {
+  .canvas-guide.guide-right {
     left: 100%;
-}
+  }
 
-.canvas-guide.guide-center-x {
+  .canvas-guide.guide-center-x {
     left: 50%;
-}
+  }
 
-/* ─── Manual Anchor Menu (Minimalist Style) ─────────────── */
-.anchor-menu {
+  /* ─── Manual Anchor Menu (Minimalist Style) ─────────────── */
+  .anchor-menu {
     position: absolute;
     z-index: 10;
     background-color: rgba(14, 14, 20, 0.95);
@@ -414,24 +408,24 @@
     will-change: transform, opacity;
     transform: translateY(-4px) scale(0.97);
     transition:
-        opacity 0.15s ease,
-        transform 0.15s ease;
-}
+      opacity 0.15s ease,
+      transform 0.15s ease;
+  }
 
-.anchor-menu.visible {
+  .anchor-menu.visible {
     opacity: 1;
     pointer-events: auto;
     transform: translateY(0) scale(1);
-}
+  }
 
-.anchor-grid {
+  .anchor-grid {
     display: grid;
     grid-template-columns: repeat(3, 24px);
     grid-template-rows: repeat(3, 24px);
     gap: 3px;
-}
+  }
 
-.anchor-cell {
+  .anchor-cell {
     width: 24px;
     height: 24px;
     border-radius: 4px;
@@ -444,24 +438,23 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: default;
     box-shadow: none;
-}
+  }
 
-.anchor-cell svg {
+  .anchor-cell svg {
     display: block;
     pointer-events: none;
-}
+  }
 
-.anchor-cell.active {
+  .anchor-cell.active {
     background-color: rgba(255, 255, 255, 0.2) !important;
     border-color: rgba(255, 255, 255, 0.75) !important;
     color: #ffffff !important;
     box-shadow: none !important;
-}
+  }
 
-/* Floating Action Bar - follows Yumebako design language */
-.edit_floating_bar {
+  /* Floating Action Bar - follows Yumebako design language */
+  .edit_floating_bar {
     position: fixed;
     bottom: 24px;
     left: 50%;
@@ -475,20 +468,20 @@
     border: 1px solid var(--glass-border);
     border-radius: 4px;
     box-shadow:
-        0 8px 32px rgba(0, 0, 0, 0.4),
-        0 2px 8px rgba(0, 0, 0, 0.2),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      0 8px 32px rgba(0, 0, 0, 0.4),
+      0 2px 8px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
     -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
     backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
     animation: floating_bar_slide_up 0.35s var(--expo_out) both;
-}
+  }
 
-.edit_floating_bar.closing {
+  .edit_floating_bar.closing {
     animation: floating_bar_slide_down 0.25s var(--smooth) both;
     pointer-events: none;
-}
+  }
 
-.edit_floating_bar button {
+  .edit_floating_bar button {
     width: auto;
     height: 36px;
     padding: 0 14px;
@@ -505,45 +498,45 @@
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     color: var(--text-primary);
     transition: all 0.2s var(--smooth);
-}
+  }
 
-.edit_floating_bar button:hover {
+  .edit_floating_bar button:hover {
     background-color: var(--button-hov);
     border-color: var(--glass-border);
     transition-duration: 0s !important;
-}
+  }
 
-.edit_floating_bar button:active {
+  .edit_floating_bar button:active {
     background-color: var(--button-act);
-}
+  }
 
-.edit_floating_bar button svg {
+  .edit_floating_bar button svg {
     width: 16px;
     height: 16px;
     flex-shrink: 0;
-}
+  }
 
-@keyframes floating_bar_slide_up {
+  @keyframes floating_bar_slide_up {
     from {
-        opacity: 0;
-        transform: translate(-50%, 24px) scale(0.95);
+      opacity: 0;
+      transform: translate(-50%, 24px) scale(0.95);
     }
 
     to {
-        opacity: 1;
-        transform: translate(-50%, 0) scale(1);
+      opacity: 1;
+      transform: translate(-50%, 0) scale(1);
     }
-}
+  }
 
-@keyframes floating_bar_slide_down {
+  @keyframes floating_bar_slide_down {
     from {
-        opacity: 1;
-        transform: translate(-50%, 0) scale(1);
+      opacity: 1;
+      transform: translate(-50%, 0) scale(1);
     }
 
     to {
-        opacity: 0;
-        transform: translate(-50%, 20px) scale(0.95);
+      opacity: 0;
+      transform: translate(-50%, 20px) scale(0.95);
     }
-}
+  }
 }

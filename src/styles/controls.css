@@ -16,7 +16,6 @@
       box-shadow 0.2s var(--smooth);
     font-size: 1em;
     width: 100%;
-    cursor: text;
     border: none;
     box-shadow: none;
     border-radius: 10px;
@@ -88,7 +87,6 @@
     font-size: 1em;
     font-family: inherit;
     line-height: normal;
-    cursor: default;
     outline: none;
     color-scheme: dark;
     transition:

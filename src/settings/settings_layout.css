@@ -52,13 +52,9 @@
       box-shadow var(--settings-motion) var(--expo_out);
   }
 
-  /* When a submenu is active, the main menu recedes 50% to the left while fading out,
-   letting the submenu overlay smoothly into place. */
-  #setting_wrapper.submenu_active .settings_main_view {
-    transform: translateX(-50%);
-    opacity: 0;
-    pointer-events: none;
-  }
+  /* The main menu recede (direction-aware transform + fade) is applied by the
+   shared `.submenu_main_view` rule in `core/ui/submenu.css`. Only the layout of
+   this view belongs here. */
 
   /* Original Glassmorphic White top loading indicator bar with width animation */
   .loading {
@@ -111,11 +107,10 @@
     overflow-y: auto;
     overflow-x: hidden;
     scroll-behavior: smooth;
-    /* Slides with the track, and fades for the hold-to-preview dissolve. */
-    transform: translateX(0);
-    transition:
-      transform var(--settings-motion) var(--expo_out),
-      opacity var(--settings-motion) var(--expo_out);
+    /* The recede transform + fade live in the shared `.submenu_main_view` rule
+       (core/ui/submenu.css). Declaring a transform here would win over that
+       components-layer rule (features layer is later), so keep this view free
+       of motion declarations. */
   }
 
   /* The nav stays visible next to the submenu, it just swaps its tab list for the

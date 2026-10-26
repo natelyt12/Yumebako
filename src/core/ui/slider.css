@@ -1,20 +1,19 @@
 @layer components {
-/* Custom Slider Group Component (Minimalist & Modern) */
+  /* Custom Slider Group Component (Minimalist & Modern) */
 
-.custom_slider_group {
+  .custom_slider_group {
     display: flex;
     flex-direction: column;
     gap: 4px;
     width: 100%;
-}
+  }
 
-.custom_slider_group.disabled {
+  .custom_slider_group.disabled {
     opacity: 0.4;
     pointer-events: none;
-    cursor: not-allowed;
-}
+  }
 
-.slider_label {
+  .slider_label {
     display: flex;
     justify-content: flex-start;
     flex: 1;
@@ -22,27 +21,27 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
+  }
 
-.slider_header {
+  .slider_header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     width: 100%;
     gap: 8px;
-}
+  }
 
-.slider_control_group {
+  .slider_control_group {
     display: flex;
     align-items: center;
     gap: 6px;
     flex-shrink: 0;
-}
+  }
 
-/* The number input also matches the global `input[type="number"]` rule in
+  /* The number input also matches the global `input[type="number"]` rule in
    controls.css (0,1,1). Prefixing the id-bearing wrapper class raises this rule
    to (0,2,0) so the compact size wins without `!important`. */
-.custom_slider_group .slider_num_input {
+  .custom_slider_group .slider_num_input {
     width: var(--slider-num-width, 76px);
     height: 28px;
     padding: 3px 8px;
@@ -50,9 +49,9 @@
     text-align: left;
     flex-shrink: 0;
     border-radius: 8px;
-}
+  }
 
-.slider_unit {
+  .slider_unit {
     opacity: 0.6;
     min-width: var(--slider-unit-width, 48px);
     width: auto;
@@ -62,9 +61,9 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-}
+  }
 
-.slider_reset_btn {
+  .slider_reset_btn {
     padding: 0;
     display: flex;
     align-items: center;
@@ -73,19 +72,19 @@
     width: 28px;
     height: 28px;
     border-radius: 8px;
-}
+  }
 
-.slider_reset_btn svg {
+  .slider_reset_btn svg {
     width: 14px;
     height: 14px;
     opacity: 0.8;
-}
+  }
 
-.slider_reset_btn:hover {
+  .slider_reset_btn:hover {
     opacity: 1;
-}
+  }
 
-:root {
+  :root {
     --slider-track-height: 36px;
     --slider-wave-width: 2.8px;
     --slider-flat-width: 2.8px;
@@ -95,28 +94,27 @@
     --slider-thumb-radius: 4px;
     --slider-num-width: 76px;
     --slider-unit-width: 48px;
-}
+  }
 
-.slider_row_container {
+  .slider_row_container {
     display: flex;
     align-items: center;
     gap: 2px;
     width: 100%;
-}
+  }
 
-/* Custom Range Slider — Material 3 Expressive (Wavy) */
-.custom_slider_track_container {
+  /* Custom Range Slider — Material 3 Expressive (Wavy) */
+  .custom_slider_track_container {
     position: relative;
     width: 100%;
     height: var(--slider-track-height);
     margin: 0 4px;
     display: flex;
     align-items: center;
-    cursor: pointer;
     user-select: none;
-}
+  }
 
-.custom_slider_svg {
+  .custom_slider_svg {
     position: absolute;
     top: 0;
     left: 0;
@@ -124,34 +122,34 @@
     height: 100%;
     pointer-events: none;
     overflow: visible;
-}
+  }
 
-.custom_slider_wave_path {
+  .custom_slider_wave_path {
     fill: none;
     stroke: var(--text-primary);
     stroke-width: var(--slider-wave-width);
     stroke-linecap: round;
     stroke-linejoin: round;
     transition: stroke 0.2s var(--smooth);
-}
+  }
 
-.custom_slider_track_container:hover .custom_slider_wave_path {
+  .custom_slider_track_container:hover .custom_slider_wave_path {
     stroke: #ffffff;
-}
+  }
 
-.custom_slider_flat_line {
+  .custom_slider_flat_line {
     fill: none;
     stroke: var(--divider);
     stroke-width: var(--slider-flat-width);
     stroke-linecap: round;
     transition: stroke 0.2s var(--smooth);
-}
+  }
 
-.custom_slider_track_container:hover .custom_slider_flat_line {
+  .custom_slider_track_container:hover .custom_slider_flat_line {
     stroke: rgba(255, 255, 255, 0.35);
-}
+  }
 
-.custom_slider_thumb {
+  .custom_slider_thumb {
     position: absolute;
     width: var(--slider-thumb-width);
     height: var(--slider-thumb-height);
@@ -159,30 +157,28 @@
     background-color: var(--text-primary);
     top: 50%;
     transform: translate(-50%, -50%);
-    cursor: grab;
     pointer-events: none;
     transition:
-        background-color 0.2s var(--smooth),
-        height 0.2s var(--smooth);
-}
+      background-color 0.2s var(--smooth),
+      height 0.2s var(--smooth);
+  }
 
-.custom_slider_track_container:hover .custom_slider_thumb {
+  .custom_slider_track_container:hover .custom_slider_thumb {
     height: calc(var(--slider-thumb-height) + var(--slider-thumb-hover-extend));
     background-color: #ffffff;
-}
+  }
 
-.custom_slider_thumb.dragging {
-    cursor: grabbing;
+  .custom_slider_thumb.dragging {
     height: calc(var(--slider-thumb-height) + var(--slider-thumb-hover-extend));
     background-color: #ffffff;
-}
+  }
 
-.custom_slider_group.disabled .custom_slider_svg,
-.custom_slider_group.disabled .custom_slider_thumb {
+  .custom_slider_group.disabled .custom_slider_svg,
+  .custom_slider_group.disabled .custom_slider_thumb {
     opacity: 0.4;
-}
+  }
 
-.slider_step_btn {
+  .slider_step_btn {
     width: 28px;
     height: 28px;
     padding: 0;
@@ -193,21 +189,20 @@
     align-items: center;
     justify-content: center;
     border-radius: 8px;
+  }
 
-}
-
-.slider_step_btn svg {
+  .slider_step_btn svg {
     width: 12px;
     height: 12px;
     opacity: 0.8;
     transition: opacity 0.2s ease;
-}
+  }
 
-.slider_step_btn:hover svg {
+  .slider_step_btn:hover svg {
     opacity: 1;
-}
+  }
 
-i[data-icon] {
+  i[data-icon] {
     display: contents;
-}
+  }
 }

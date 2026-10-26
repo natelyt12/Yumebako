@@ -382,7 +382,12 @@ export class DataControl {
       if (this._switchToken !== switchToken) return;
     }
 
-    this.items = unique;
+    // Mỗi nguồn có thể tự quy định thứ tự chuẩn (Collection: video lên đầu).
+    // Áp tại đây một lần để carousel và lưới quản lý luôn khớp nhau.
+    this.items =
+      typeof this.activeSource?.sortItems === "function"
+        ? this.activeSource.sortItems(unique)
+        : unique;
 
     // Xác định vị trí index mục tiêu
     let resolvedIndex = targetIndex;
@@ -624,7 +629,25 @@ export class DataControl {
         }
       }
 
+      const activeIdBeforeFetch = this.activeCard?.id ?? null;
       this.items.push(...uniqueFresh);
+
+      // Re-apply the source order after appending so a freshly uploaded video
+      // jumps to the top of the window instead of trailing at the end. The
+      // cursor follows the card it was on, not the index it used to hold.
+      if (typeof this.activeSource?.sortItems === "function") {
+        this.items = this.activeSource.sortItems(this.items);
+        if (activeIdBeforeFetch != null) {
+          const sortedIndex = this.items.findIndex(
+            (item) => String(item.id) === String(activeIdBeforeFetch),
+          );
+          if (sortedIndex >= 0) {
+            this.currentIndex = sortedIndex;
+            this.softIndex = sortedIndex;
+          }
+        }
+      }
+
       await this._persistCards(this.activeSourceId, this.items);
 
       if (prunedCard) {
@@ -787,9 +810,17 @@ export class DataControl {
   /**
    * Xóa một thẻ khỏi danh sách và giải phóng dữ liệu trong IndexedDB.
    * @param {number} [targetIndex=this.currentIndex]
+   * @param {Object} [options]
+   * @param {boolean} [options.preserveCursor=false] - Khi thẻ bị xóa không phải
+   *   thẻ đang chốt, giữ nguyên con trỏ thay vì nhảy về vùng vừa xóa. Dùng cho
+   *   lưới quản lý, nơi người dùng có thể xóa bất kỳ thẻ nào trong khi desktop
+   *   vẫn đang hiển thị một thẻ khác.
    * @returns {Promise<boolean>}
    */
-  async deleteCard(targetIndex = this.currentIndex) {
+  async deleteCard(
+    targetIndex = this.currentIndex,
+    { preserveCursor = false } = {},
+  ) {
     if (this.isBusy || this.items.length === 0) return false;
     if (targetIndex < 0 || targetIndex >= this.items.length) return false;
 
@@ -822,10 +853,16 @@ export class DataControl {
       }
 
       // 4. Tính toán index kế cận (ưu tiên thẻ bên trái, khớp chuẩn xác với CarouselEngine)
-      const nextIndex = Math.max(
-        0,
-        Math.min(targetIndex > 0 ? targetIndex - 1 : 0, this.items.length - 1),
-      );
+      const previousIndex = this.currentIndex;
+      let nextIndex;
+      if (preserveCursor && targetIndex !== previousIndex) {
+        // Xóa ở chỗ khác trên dải thì không được kéo thẻ đang xem đi theo.
+        nextIndex =
+          targetIndex < previousIndex ? previousIndex - 1 : previousIndex;
+      } else {
+        nextIndex = targetIndex > 0 ? targetIndex - 1 : 0;
+      }
+      nextIndex = Math.max(0, Math.min(nextIndex, this.items.length - 1));
       this.currentIndex = nextIndex;
       this.softIndex = nextIndex;
 
@@ -855,6 +892,119 @@ export class DataControl {
       );
       this.emit("error", {
         action: "deleteCard",
+        sourceId: this.activeSourceId,
+        error: err,
+        message: err?.message || "Lỗi khi xóa thẻ",
+      });
+      return false;
+    } finally {
+      this.isBusy = false;
+      this.status = "idle";
+      this._notifyState();
+    }
+  }
+
+  /**
+   * Xóa nhiều thẻ trong **một lượt**: một transaction DB (source tự gộp),
+   * một lần persist danh sách, một event `card:deleted`.
+   *
+   * Dùng cho lưới quản lý khi chọn nhiều. Nếu thẻ đang chốt bị xóa thì con trỏ
+   * nhảy về thẻ bên trái gần nhất (giống `deleteCard`); nếu thẻ đang chốt còn
+   * sống, nó giữ nguyên vị trí theo `id`.
+   *
+   * @param {number[]} indices - Vị trí các thẻ cần xóa trong `items`.
+   * @returns {Promise<boolean>}
+   */
+  async deleteCards(indices = []) {
+    if (this.isBusy || this.items.length === 0) return false;
+
+    const uniqueIndices = [...new Set(indices)]
+      .filter(
+        (index) =>
+          Number.isInteger(index) && index >= 0 && index < this.items.length,
+      )
+      .sort((a, b) => a - b);
+    if (uniqueIndices.length === 0) return false;
+
+    this.isBusy = true;
+    this.status = "deleting";
+    this._notifyState();
+
+    const activeId = this.activeCard?.id ?? null;
+    const cardsToDelete = uniqueIndices.map((index) => this.items[index]);
+    const firstRemoved = uniqueIndices[0];
+
+    try {
+      // 1. Source gộp việc xóa thành một lần ghi (Collection: một transaction).
+      if (typeof this.activeSource?.deleteItems === "function") {
+        await this.activeSource.deleteItems(cardsToDelete);
+      } else if (typeof this.activeSource?.deleteItem === "function") {
+        for (const card of cardsToDelete) {
+          await this.activeSource.deleteItem(card);
+        }
+      }
+
+      // 2. Bỏ tất cả khỏi cửa sổ và persist đúng một lần.
+      const removed = new Set(uniqueIndices);
+      this.items = this.items.filter((_, index) => !removed.has(index));
+      await this._persistCards(this.activeSourceId, this.items);
+
+      // 3. Cửa sổ rỗng: bỏ luôn "applied" để không hồi sinh thẻ cũ.
+      if (this.items.length === 0) {
+        const storageKey = this.activeSource?.constructor?.storageKey;
+        if (storageKey) {
+          const storeData = await getFromStore(storageKey);
+          if (storeData && storeData.applied) {
+            storeData.applied = null;
+            await saveToStore(storageKey, storeData);
+          }
+        }
+      }
+
+      // 4. Con trỏ: ưu tiên giữ nguyên thẻ đang chốt, nếu nó bị xóa thì lấy
+      //    thẻ bên trái của vùng vừa xóa.
+      let nextIndex;
+      if (activeId != null) {
+        const stillThere = this.items.findIndex(
+          (item) => String(item.id) === String(activeId),
+        );
+        nextIndex =
+          stillThere >= 0 ? stillThere : Math.max(0, firstRemoved - 1);
+      } else {
+        nextIndex = Math.max(0, firstRemoved - 1);
+      }
+      nextIndex = Math.max(
+        0,
+        Math.min(nextIndex, Math.max(0, this.items.length - 1)),
+      );
+      this.currentIndex = nextIndex;
+      this.softIndex = nextIndex;
+
+      const currentSwitcher = getSettings().wallpaperSwitcher || {};
+      const sourceIndices = { ...(currentSwitcher.sourceIndices || {}) };
+      sourceIndices[this.activeSourceId] = nextIndex;
+      saveSettings({
+        wallpaperSwitcher: {
+          ...currentSwitcher,
+          sourceIndices,
+        },
+      });
+
+      this.emit("card:deleted", {
+        deletedCards: cardsToDelete,
+        deletedIndices: uniqueIndices,
+        remainingItems: this.items,
+        newIndex: nextIndex,
+      });
+
+      return true;
+    } catch (err) {
+      console.error(
+        `[DataControl] Error deleting cards from [${this.activeSourceId}]:`,
+        err,
+      );
+      this.emit("error", {
+        action: "deleteCards",
         sourceId: this.activeSourceId,
         error: err,
         message: err?.message || "Lỗi khi xóa thẻ",

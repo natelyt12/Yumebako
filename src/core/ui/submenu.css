@@ -1,0 +1,131 @@
+@layer components {
+  /* ── Shared Submenu Component ─────────────────────────────────────────
+     Single motion language for every host: the Settings panel, the
+     Wallpaper Switcher ("Quản lý hình nền"), the BG / Filters editors, etc.
+
+     A host participates by providing only structure + state:
+       • the host element receives `.submenu_active` while a panel is open;
+       • `core/ui/submenu.js` writes `data-submenu-direction` on the host;
+       • the host contains a `.submenu_view` panel (created automatically
+         when missing) and a `.submenu_main_view` for the view that recedes.
+
+     Everything else (enter offset, recede offset, duration, easing, body
+     fade) lives here, so feature stylesheets must never hardcode their own
+     translate values for a submenu. */
+
+  /* Duration: one inherited token drives the panel, the main view and the body
+     fade. Hosts can set `--submenu-motion` (e.g. Settings maps it to
+     `--settings-motion`) so their own chrome and the panel finish together. */
+
+  /* Direction tokens (host attribute or panel attribute, same values) */
+  [data-submenu-direction="right"],
+  .submenu_view[data-direction="right"],
+  .settings_submenu_view[data-direction="right"] {
+    --submenu-enter-x: 50%;
+    --submenu-enter-y: 0%;
+    --submenu-recede-x: -50%;
+    --submenu-recede-y: 0%;
+  }
+
+  [data-submenu-direction="left"],
+  .submenu_view[data-direction="left"],
+  .settings_submenu_view[data-direction="left"] {
+    --submenu-enter-x: -50%;
+    --submenu-enter-y: 0%;
+    --submenu-recede-x: 50%;
+    --submenu-recede-y: 0%;
+  }
+
+  [data-submenu-direction="bottom"],
+  .submenu_view[data-direction="bottom"],
+  .settings_submenu_view[data-direction="bottom"] {
+    --submenu-enter-x: 0%;
+    --submenu-enter-y: 50%;
+    --submenu-recede-x: 0%;
+    --submenu-recede-y: -50%;
+  }
+
+  [data-submenu-direction="top"],
+  .submenu_view[data-direction="top"],
+  .settings_submenu_view[data-direction="top"] {
+    --submenu-enter-x: 0%;
+    --submenu-enter-y: -50%;
+    --submenu-recede-x: 0%;
+    --submenu-recede-y: 50%;
+  }
+
+  /* Panel: filled the host, starts offset along the direction vector and
+     slides to its resting position while fading in. */
+  .submenu_view,
+  .settings_submenu_view {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(
+      --settings-inner-submenu-width,
+      var(--submenu-requested-width, 100%)
+    );
+    height: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transform: translate(
+      var(--submenu-enter-x, 50%),
+      var(--submenu-enter-y, 0%)
+    );
+    opacity: 0;
+    pointer-events: none;
+    z-index: 2;
+    transition:
+      transform var(--submenu-motion, var(--settings-motion, 0.8s))
+        var(--expo_out),
+      opacity var(--submenu-motion, var(--settings-motion, 0.8s))
+        var(--expo_out);
+  }
+
+  .submenu_active .submenu_view,
+  .submenu_active .settings_submenu_view,
+  #setting_wrapper.submenu_active .settings_submenu_view {
+    transform: translate(0, 0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Main view: the counterpart that recedes along the same vector, so the
+     swap reads as one movement instead of two cross-fades. */
+  .submenu_main_view {
+    transition:
+      transform var(--submenu-motion, var(--settings-motion, 0.8s))
+        var(--expo_out),
+      opacity var(--submenu-motion, var(--settings-motion, 0.8s))
+        var(--expo_out);
+  }
+
+  .submenu_active .submenu_main_view {
+    transform: translate(
+      var(--submenu-recede-x, -50%),
+      var(--submenu-recede-y, 0%)
+    );
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .submenu_body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    scroll-behavior: smooth;
+    opacity: 0;
+    transition: opacity var(--submenu-motion, var(--settings-motion, 0.8s))
+      var(--expo_out);
+  }
+
+  .submenu_view.show_content .submenu_body,
+  .settings_submenu_view.show_content .submenu_body {
+    opacity: 1;
+  }
+}

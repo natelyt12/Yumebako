@@ -1,7 +1,7 @@
 @layer features {
-/* Image Crop/Editor Popup Styles */
+  /* Image Crop/Editor Popup Styles */
 
-.editor_container {
+  .editor_container {
     display: block;
     width: 100%;
     max-width: 100%;
@@ -9,34 +9,29 @@
     position: relative;
     overflow: hidden;
     margin-top: 4px;
-}
+  }
 
-.full_image_view {
+  .full_image_view {
     position: relative;
     background-size: 100% 100%;
     background-repeat: no-repeat;
     background-color: rgba(255, 255, 255, 0.02);
     border: 1px solid rgba(255, 255, 255, 0.05);
     box-sizing: border-box;
-}
+  }
 
-.view_lens {
+  .view_lens {
     position: absolute;
     border: 2px solid rgba(255, 255, 255, 0.85);
     box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.45);
-    cursor: grab;
     z-index: 10;
     border-radius: 1px;
-}
+  }
 
-.view_lens:active {
-    cursor: grabbing;
-}
-
-/* Corner resize handles: L-shaped brackets inset just inside the lens, so the
+  /* Corner resize handles: L-shaped brackets inset just inside the lens, so the
    crop corners are marked by the brackets themselves instead of by square grips
    sticking out of the outline with a drop shadow of their own. */
-.lens_corner {
+  .lens_corner {
     position: absolute;
     width: 16px;
     height: 16px;
@@ -44,57 +39,57 @@
     border: 0 solid var(--text-primary);
     z-index: 20;
     transition:
-        border-color 0.15s var(--smooth),
-        transform 0.15s var(--smooth);
-}
+      border-color 0.15s var(--smooth),
+      transform 0.15s var(--smooth);
+  }
 
-.lens_corner:hover {
+  .lens_corner:hover {
     border-color: #aaccff;
     transform: scale(1.15);
-}
+  }
 
-.lens_corner:active {
+  .lens_corner:active {
     border-color: #7fb3ff;
     transform: scale(1.05);
-}
+  }
 
-.lens_corner[data-corner="nw"] {
+  .lens_corner[data-corner="nw"] {
     top: 3px;
     left: 3px;
     border-top-width: 2px;
     border-left-width: 2px;
     border-top-left-radius: 3px;
     cursor: nw-resize;
-}
+  }
 
-.lens_corner[data-corner="ne"] {
+  .lens_corner[data-corner="ne"] {
     top: 3px;
     right: 3px;
     border-top-width: 2px;
     border-right-width: 2px;
     border-top-right-radius: 3px;
     cursor: ne-resize;
-}
+  }
 
-.lens_corner[data-corner="sw"] {
+  .lens_corner[data-corner="sw"] {
     bottom: 3px;
     left: 3px;
     border-bottom-width: 2px;
     border-left-width: 2px;
     border-bottom-left-radius: 3px;
     cursor: sw-resize;
-}
+  }
 
-.lens_corner[data-corner="se"] {
+  .lens_corner[data-corner="se"] {
     bottom: 3px;
     right: 3px;
     border-bottom-width: 2px;
     border-right-width: 2px;
     border-bottom-right-radius: 3px;
     cursor: se-resize;
-}
+  }
 
-.editor_controls {
+  .editor_controls {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -102,8 +97,8 @@
     gap: 4px;
 
     label {
-        flex: 1;
-        display: block;
+      flex: 1;
+      display: block;
     }
-}
+  }
 }

@@ -1,9 +1,9 @@
 @layer features {
-/* Sidebar Navigation Bar & Tooltips */
+  /* Sidebar Navigation Bar & Tooltips */
 
-/* The nav is only a narrow slot (--nav-width, settings_wrapper.css): the single
+  /* The nav is only a narrow slot (--nav-width, settings_wrapper.css): the single
    glass card inside carries the look and hugs whichever button list is visible. */
-.settings_nav {
+  .settings_nav {
     position: relative;
     width: var(--nav-width, 52px);
     height: 100%;
@@ -20,9 +20,9 @@
     --nav_gap: 2px;
     --nav_pad: 7px;
     --nav_item_radius: 50px;
-}
+  }
 
-.nav_group {
+  .nav_group {
     position: relative;
     /* Hug the item column exactly (item + both paddings) and centre it in the
        slot, so the card border sits a uniform `--nav_pad` away from every item
@@ -36,9 +36,9 @@
     padding: var(--nav_pad);
     box-sizing: border-box;
     transition: opacity 0.15s ease;
-}
+  }
 
-.nav_group::before {
+  .nav_group::before {
     content: "";
     position: absolute;
     inset: 0;
@@ -47,46 +47,48 @@
     backdrop-filter: blur(12px) saturate(180%) brightness(1.06);
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 50px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 1px rgba(0, 0, 0, 0.5);
+    box-shadow:
+      0 4px 16px rgba(0, 0, 0, 0.35),
+      0 0 1px rgba(0, 0, 0, 0.5);
     pointer-events: none;
     transition:
-        background-color var(--settings-motion) var(--expo_out),
-        -webkit-backdrop-filter var(--settings-motion) var(--expo_out),
-        backdrop-filter var(--settings-motion) var(--expo_out),
-        border-color var(--settings-motion) var(--expo_out),
-        box-shadow var(--settings-motion) var(--expo_out);
-}
+      background-color var(--settings-motion) var(--expo_out),
+      -webkit-backdrop-filter var(--settings-motion) var(--expo_out),
+      backdrop-filter var(--settings-motion) var(--expo_out),
+      border-color var(--settings-motion) var(--expo_out),
+      box-shadow var(--settings-motion) var(--expo_out);
+  }
 
-/* Main nav card transitions out by sliding fully up off-screen when entering a submenu */
-#setting_nav_main {
+  /* Main nav card transitions out by sliding fully up off-screen when entering a submenu */
+  #setting_nav_main {
     transition: transform var(--settings-motion) var(--expo_out);
     will-change: transform;
-}
+  }
 
-#setting_wrapper.submenu_active #setting_nav_main {
+  #setting_wrapper.submenu_active #setting_nav_main {
     transform: translateY(calc(-1 * (var(--nav-shift-y, 400px) + 40px)));
     pointer-events: none;
-}
+  }
 
-/* Both groups share the same vertical rhythm. */
-.settings_nav_inner,
-.nav_group_close {
+  /* Both groups share the same vertical rhythm. */
+  .settings_nav_inner,
+  .nav_group_close {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: var(--nav_gap);
-}
+  }
 
-.nav_group_close {
+  .nav_group_close {
     transition: transform var(--settings-motion) var(--expo_out);
     will-change: transform;
-}
+  }
 
-#setting_wrapper.submenu_active .nav_group_close {
+  #setting_wrapper.submenu_active .nav_group_close {
     transform: translateY(calc(-1 * var(--nav-shift-y, 0px)));
-}
+  }
 
-.nav_item {
+  .nav_item {
     width: var(--nav_item_size);
     height: var(--nav_item_size);
     flex-shrink: 0;
@@ -97,10 +99,9 @@
     transition: color 0.2s var(--smooth);
     color: var(--text-secondary);
     position: relative;
-    cursor: pointer;
-}
+  }
 
-.nav_item::before {
+  .nav_item::before {
     content: "";
     position: absolute;
     inset: 0;
@@ -112,57 +113,57 @@
     pointer-events: none;
     z-index: 0;
     transition:
-        transform 0.18s var(--smooth),
-        opacity 0.16s var(--smooth);
-}
+      transform 0.18s var(--smooth),
+      opacity 0.16s var(--smooth);
+  }
 
-.nav_item svg,
-.nav_item i {
+  .nav_item svg,
+  .nav_item i {
     position: relative;
     z-index: 1;
-}
+  }
 
-.nav_item_close svg {
+  .nav_item_close svg {
     width: 22px;
     height: 22px;
-}
+  }
 
-.nav_item:hover:not(.active) {
+  .nav_item:hover:not(.active) {
     color: var(--text-primary);
-}
+  }
 
-.nav_item.active {
+  .nav_item.active {
     color: var(--ts-thumb-on-color, #454545);
-}
+  }
 
-.nav_item.active::before {
+  .nav_item.active::before {
     transform: scale(1);
     opacity: 1;
     transition:
-        transform 0.24s cubic-bezier(0.34, 1.35, 0.64, 1),
-        opacity 0.18s var(--smooth);
-}
+      transform 0.24s cubic-bezier(0.34, 1.35, 0.64, 1),
+      opacity 0.18s var(--smooth);
+  }
 
-.nav_item:active:not(.active) {
+  .nav_item:active:not(.active) {
     transform: scale(0.92);
-}
+  }
 
-.nav_divider {
+  .nav_divider {
     width: 32px;
     height: 1px;
     background-color: var(--divider);
     opacity: 0.45;
     margin: 4px 0;
     flex-shrink: 0;
-}
+  }
 
-.nav_item svg {
+  .nav_item svg {
     width: 20px;
     height: 20px;
-}
+  }
 
-/* Singleton floating tooltip gliding across navigation items */
-.nav_floating_tooltip {
+  /* Singleton floating tooltip gliding across navigation items */
+  .nav_floating_tooltip {
     position: absolute;
     right: calc(100% + 14px);
     top: 0;
@@ -177,7 +178,9 @@
     -webkit-backdrop-filter: blur(12px) saturate(180%) brightness(1.06);
     backdrop-filter: blur(12px) saturate(180%) brightness(1.06);
     border: 1px solid rgba(255, 255, 255, 0.06);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 1px rgba(0, 0, 0, 0.5);
+    box-shadow:
+      0 4px 16px rgba(0, 0, 0, 0.35),
+      0 0 1px rgba(0, 0, 0, 0.5);
     color: var(--text-primary);
     font-size: 0.8em;
     font-weight: 500;
@@ -191,41 +194,41 @@
     z-index: 5;
     will-change: top, width, transform, opacity;
     transition:
-        opacity 0.15s var(--smooth),
-        transform 0.15s var(--smooth);
-}
+      opacity 0.15s var(--smooth),
+      transform 0.15s var(--smooth);
+  }
 
-.nav_floating_tooltip.visible {
+  .nav_floating_tooltip.visible {
     opacity: 1;
     transform: translateY(-50%) scale(1);
     transition:
-        opacity 0.18s var(--cubic_out),
-        transform 0.22s cubic-bezier(0.34, 1.35, 0.64, 1);
-}
+      opacity 0.18s var(--cubic_out),
+      transform 0.22s cubic-bezier(0.34, 1.35, 0.64, 1);
+  }
 
-.nav_tooltip_text {
+  .nav_tooltip_text {
     display: inline-block;
     white-space: nowrap;
     transition:
-        opacity 0.12s var(--smooth),
-        transform 0.12s var(--smooth),
-        filter 0.12s var(--smooth);
+      opacity 0.12s var(--smooth),
+      transform 0.12s var(--smooth),
+      filter 0.12s var(--smooth);
     opacity: 1;
     transform: translateY(0);
-}
+  }
 
-.nav_tooltip_text.fade_out {
+  .nav_tooltip_text.fade_out {
     opacity: 0;
     transform: translateY(-3px);
-}
+  }
 
-.nav_tooltip_text.fade_in_prep {
+  .nav_tooltip_text.fade_in_prep {
     transition: none !important;
     opacity: 0;
     transform: translateY(3px);
-}
+  }
 
-.nav_tooltip_measure {
+  .nav_tooltip_measure {
     position: absolute;
     top: 0;
     left: 0;
@@ -236,66 +239,66 @@
     font-size: inherit;
     font-weight: inherit;
     font-family: inherit;
-}
+  }
 
-#setting_wrapper:not(.setting_wrapper_opened) .nav_floating_tooltip {
+  #setting_wrapper:not(.setting_wrapper_opened) .nav_floating_tooltip {
     opacity: 0 !important;
     pointer-events: none !important;
-}
+  }
 
-/* Morphing Slot: holds Close and Back buttons in the exact same footprint */
-.nav_slot_morph {
+  /* Morphing Slot: holds Close and Back buttons in the exact same footprint */
+  .nav_slot_morph {
     position: relative;
     width: var(--nav_item_size);
     height: var(--nav_item_size);
     flex-shrink: 0;
-}
+  }
 
-.nav_slot_morph .nav_item {
+  .nav_slot_morph .nav_item {
     position: absolute;
     inset: 0;
     margin: 0;
     transition:
-        opacity 0.2s var(--smooth),
-        transform 0.26s cubic-bezier(0.34, 1.35, 0.64, 1),
-        color 0.2s var(--smooth);
-}
+      opacity 0.2s var(--smooth),
+      transform 0.26s cubic-bezier(0.34, 1.35, 0.64, 1),
+      color 0.2s var(--smooth);
+  }
 
-/* Main menu state: Close is visible, Back is hidden */
-.nav_slot_morph .nav_item_close {
+  /* Main menu state: Close is visible, Back is hidden */
+  .nav_slot_morph .nav_item_close {
     opacity: 1;
     transform: scale(1) rotate(0deg);
     pointer-events: auto;
-}
+  }
 
-.nav_slot_morph .submenu_back_btn {
+  .nav_slot_morph .submenu_back_btn {
     opacity: 0;
     transform: scale(0.65) rotate(-90deg);
     pointer-events: none;
-}
+  }
 
-/* Submenu state: Back is visible, Close is hidden */
-#setting_wrapper.submenu_active .nav_slot_morph .nav_item_close {
+  /* Submenu state: Back is visible, Close is hidden */
+  #setting_wrapper.submenu_active .nav_slot_morph .nav_item_close {
     opacity: 0;
     transform: scale(0.65) rotate(90deg);
     pointer-events: none;
-}
+  }
 
-#setting_wrapper.submenu_active .nav_slot_morph .submenu_back_btn {
+  #setting_wrapper.submenu_active .nav_slot_morph .submenu_back_btn {
     opacity: 1;
     transform: scale(1) rotate(0deg);
     pointer-events: auto;
-}
+  }
 
-/* Eye button is always visible in the bottom group */
-.submenu_eye_btn {
+  /* Eye button is always visible in the bottom group */
+  .submenu_eye_btn {
     margin: 0;
     width: var(--nav_item_size);
     height: var(--nav_item_size);
-}
+  }
 
-/* Unsaved-changes indicator, pinned to the corner of the back button. */
-.submenu_back_btn .submenu_dirty_dot {
+  /* Unsaved-changes indicator, pinned to the corner of the back button. */
+  .submenu_back_btn .submenu_dirty_dot {
     position: absolute;
     top: 5px;
     right: 5px;
@@ -306,5 +309,5 @@
     box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
     display: none;
     z-index: 2;
-}
+  }
 }

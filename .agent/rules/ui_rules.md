@@ -16,8 +16,8 @@ Follow these rules whenever adding or changing user-facing markup, styles, contr
 - Prefer design tokens over hardcoded colors, radii, shadows, and animation curves. Component-specific values belong in the component stylesheet; promote a value to a shared token only when multiple surfaces need the same semantic value.
 - Keep layering predictable. Use the existing `--z-*` layers for backgrounds, widgets, floating controls, settings, dropdowns, modals, and toasts instead of inventing unrelated z-index values.
 - **Nested Backdrop-Filter & Decoupled Layering (Fixing Text Bleed-Through):**
-  - *Root Cause:* Under W3C Filter Effects Module Level 2, any element with `backdrop-filter` creates a new **Backdrop Root** and **Stacking Context**. Any child glass element (such as a custom dropdown, submenu, or floating menu) cannot sample or blur text/controls belonging to that same Backdrop Root behind it, rendering parent text sharply through the child's glass surface.
-  - *The Decoupled Layering Pattern:* Never place `backdrop-filter` or background color directly on a parent container if it hosts floating children with glassmorphism. Instead, move the background and filter to a `::before` pseudo-element:
+  - _Root Cause:_ Under W3C Filter Effects Module Level 2, any element with `backdrop-filter` creates a new **Backdrop Root** and **Stacking Context**. Any child glass element (such as a custom dropdown, submenu, or floating menu) cannot sample or blur text/controls belonging to that same Backdrop Root behind it, rendering parent text sharply through the child's glass surface.
+  - _The Decoupled Layering Pattern:_ Never place `backdrop-filter` or background color directly on a parent container if it hosts floating children with glassmorphism. Instead, move the background and filter to a `::before` pseudo-element:
     ```css
     .parent-container {
       position: relative;
@@ -35,8 +35,8 @@ Follow these rules whenever adding or changing user-facing markup, styles, contr
       pointer-events: none;
     }
     ```
-  - *Keep Alpha Thin:* Never "solve" bleed-through by forcing opaque backgrounds (e.g. `rgba(..., 0.85)`). Keep the delicate glass aesthetic intact.
-  - *Vendor Prefix:* Always specify `-webkit-backdrop-filter` alongside `backdrop-filter`.
+  - _Keep Alpha Thin:_ Never "solve" bleed-through by forcing opaque backgrounds (e.g. `rgba(..., 0.85)`). Keep the delicate glass aesthetic intact.
+  - _Vendor Prefix:_ Always specify `-webkit-backdrop-filter` alongside `backdrop-filter`.
 - Follow the CSS entry points: `src/style.css` loads only tokens, base layout, global form controls, and utilities; shared component presentation lives beside its component under `src/core/ui/` and is imported by that component's JS; settings presentation lives under `src/settings/`; feature-specific presentation lives beside its widget or wallpaper feature and is imported by the feature entry. Avoid duplicating shared component rules in feature stylesheets.
 - Respect the cascade layer order declared in `src/styles/layers.css` (`utilities, tokens, base, components, features`). Put new rules in the layer of the file that owns them instead of raising specificity or adding competing `!important` declarations.
 
@@ -89,7 +89,8 @@ Use the shared UI components through `src/core/ui.js` and their implementations 
 
 ### Submenus, dialogs, and notifications
 
-- Open settings submenus with `openSidebarSubmenu(title, contentNode, options)` and close via `closeSidebarSubmenu(force)`. Use `width`, `isFullScreen`, and `canPreview` only when the content requires them. The title also supplies the submenu's accessible name.
+- Open submenus with `openSubmenu({ title, content, container, direction, width, isFullScreen, isDirty, onCancel, onBeforeClose, onClose })` or `openSidebarSubmenu(title, contentNode, options)` and close via `closeSubmenu(force)` / `closeSidebarSubmenu(force)`. Supported `direction` values are `"right"` (default), `"left"`, `"bottom"`, and `"top"`, with the parent view receding along the same motion vector. If `container` does not already contain `.submenu_view`, the helper creates `<div class="submenu_view"><div class="submenu_body"></div></div>` automatically. Use `width` and `isFullScreen` only when the content requires them. The title also supplies the submenu's accessible name. The hold-to-preview eye button lives in the Settings nav and is always available, so there is no per-submenu preview flag.
+- Submenu motion is owned by `src/core/ui/submenu.css`. A host only supplies markup (`host.submenu_active` state, a `.submenu_view` panel and a `.submenu_main_view`) plus the `--submenu-motion` token when its chrome needs to stay in lockstep. **Never** re-declare `position` / `transform` / `opacity` / `transition` for `.submenu_view`, `.settings_submenu_view`, `.submenu_body`, or a main view in a feature stylesheet — because `features` is a later cascade layer, such duplicates silently override the shared four-direction animation (this is what previously stopped the Settings panel and the Wallpaper Switcher's "Quản lý hình nền" panel from actually animating).
 - Allow the submenu helper to translate content, render icons, and initialize controls. If controls are added later, initialize the affected subtree through the shared helpers.
 - Use the Promise-based `showConfirm(msg, options)` for confirmation dialogs and `showAlert(msg, options)` for system alerts. Dialogs are centered modal surfaces with translucent backdrops, destructive styling (`isDanger`), and keyboard support (Escape to dismiss, Enter to confirm).
 - Use `showNotification(message, type)` for brief feedback (`info`, `success`, `error`, or `warning`). Do not use transient notifications as the only place to communicate information that the user must retain or act on.

@@ -133,6 +133,20 @@ export class BaseSource {
     return item?.thumbnailUrl || null;
   }
 
+  /**
+   * Canonical ordering for this source's window.
+   *
+   * DataControl applies it when a source is loaded and again after `fetchMore()`
+   * appends items, so both consumers (the carousel strip and the manage grid)
+   * see the same order without either one re-sorting on its own. Default keeps
+   * the producer order untouched.
+   * @param {CardItem[]} items
+   * @returns {CardItem[]}
+   */
+  sortItems(items) {
+    return Array.isArray(items) ? items : [];
+  }
+
   // ─── Applying ─────────────────────────────────────────────────────────────
 
   /**
@@ -160,6 +174,24 @@ export class BaseSource {
    * @param {string} _itemId
    */
   releaseItem(_itemId) {}
+
+  /**
+   * Delete several items at once.
+   *
+   * Sources that can batch (the Collection writes its whole array in one
+   * IndexedDB transaction) override this; the default keeps per-item deletion
+   * for sources whose records live elsewhere.
+   * @param {CardItem[]} items
+   * @returns {Promise<void>}
+   */
+  async deleteItems(items) {
+    if (!Array.isArray(items) || typeof this.deleteItem !== "function") {
+      return;
+    }
+    for (const item of items) {
+      await this.deleteItem(item);
+    }
+  }
 
   /**
    * @abstract
@@ -200,7 +232,9 @@ export class BaseSource {
       height: 0,
       size: 0,
       addedAt: Date.now(),
-      effects: raw?.effects ? JSON.parse(JSON.stringify(raw.effects)) : getDefaultWallpaperEffects(),
+      effects: raw?.effects
+        ? JSON.parse(JSON.stringify(raw.effects))
+        : getDefaultWallpaperEffects(),
       ...overrides,
     };
   }
@@ -228,7 +262,8 @@ export class BaseSource {
 
     const parts = [];
     if (size) parts.push(escapeHtml(size));
-    if (badge) parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
+    if (badge)
+      parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
     else if (res) parts.push(escapeHtml(res));
 
     return parts.join('<span class="card-meta-sep">•</span>');
@@ -246,7 +281,9 @@ export class BaseSource {
     const badge = getResolutionBadge(card.width, card.height);
     const res = formatResolution(card.width, card.height);
     if (res) {
-      const badgeHtml = badge ? ` <span class="meta_badge">${escapeHtml(badge)}</span>` : "";
+      const badgeHtml = badge
+        ? ` <span class="meta_badge">${escapeHtml(badge)}</span>`
+        : "";
       details.push({
         label: t("sp.meta.resolution", "Độ phân giải"),
         value: `${escapeHtml(res)}${badgeHtml}`,

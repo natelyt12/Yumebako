@@ -1,98 +1,61 @@
 @layer features {
-/* Floating Submenu Panel & Dropdown Components */
+  /* Floating Submenu Panel & Dropdown Components */
 
-/* Submenu view: sits directly on top of the main menu card as an overlay layer.
-   When activated, it slides in by 50% while fading in. Fixed width prevents content squishing. */
-.settings_submenu_view {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: var(--settings-inner-submenu-width);
-    height: 100%;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    transform: translateX(50%);
-    opacity: 0;
-    pointer-events: none;
-    z-index: 2;
-    /* Motion duration lives in `--settings-motion` (settings_wrapper.css) so the
-       panel, the sidebar and the content fades always finish together. */
-    transition:
-        transform var(--settings-motion) var(--expo_out),
-        opacity var(--settings-motion) var(--expo_out);
-}
+  /* The submenu panel itself (`.settings_submenu_view` / `.submenu_view`), its
+   enter/recede transforms and the `.submenu_body` content fade are owned by
+   the shared component in `src/core/ui/submenu.css` (components layer). The
+   settings panel only supplies layout tokens there: `--settings-motion` and
+   `--settings-inner-submenu-width`.
 
-#setting_wrapper.submenu_active .settings_submenu_view {
-    transform: translateX(0);
-    opacity: 1;
-    pointer-events: auto;
-}
+   Do not re-declare position/transform/opacity/transition for the panel here:
+   duplicated motion rules are what previously kept the Settings panel from
+   inheriting the four shared directions. */
 
-/* The panel content fades in / out on every switch, with the same duration as
-   the panel itself. `show_content` is toggled by the submenu controller so the
-   fade also replays when one submenu replaces another inside the same panel. */
-.submenu_body {
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    scroll-behavior: smooth;
-    opacity: 0;
-    transition: opacity var(--settings-motion) var(--expo_out);
-}
-
-.settings_submenu_view.show_content .submenu_body {
-    opacity: 1;
-}
-
-/* Hold-to-preview: ẩn tức thì toàn bộ panel cài đặt khi nhấn giữ xem trước, không có hiệu ứng fade */
-#setting_wrapper.preview_eye_active {
+  /* Hold-to-preview: Ẩn tức thì toàn bộ panel cài đặt khi nhấn giữ xem trước, không có hiệu ứng fade */
+  #setting_wrapper.preview_eye_active {
     opacity: 0 !important;
     visibility: hidden !important;
     pointer-events: none !important;
     transition: none !important;
-}
+  }
 
-/* The custom dropdown component lives in `core/ui/dropdown.css` — see that file
+  /* The custom dropdown component lives in `core/ui/dropdown.css` — see that file
    to restyle triggers, panels, items and the selection checkmark. */
 
-.grid_2col {
+  .grid_2col {
     display: grid !important;
     grid-template-columns: repeat(2, 1fr);
     gap: 6px !important;
-}
+  }
 
-.grid_2col>*:not(.dropdown_item):not([data-action="toggle"]) {
+  .grid_2col > *:not(.dropdown_item):not([data-action="toggle"]) {
     grid-column: span 2;
-}
+  }
 
-.grid_3col {
+  .grid_3col {
     display: grid !important;
     grid-template-columns: repeat(3, 1fr);
     gap: 6px !important;
-}
+  }
 
-.sbsctsvg {
+  .sbsctsvg {
     width: 18px;
     height: 18px;
     display: flex;
     align-items: center;
     justify-content: center;
     perspective: 400px;
-}
+  }
 
-.sbsctsvg svg {
+  .sbsctsvg svg {
     width: 100%;
     height: 100%;
     stroke-width: 1.5;
     transform-style: preserve-3d;
     transition: transform 0.4s var(--expo_out);
-}
+  }
 
-.btn_active .sbsctsvg svg {
+  .btn_active .sbsctsvg svg {
     transform: rotateX(180deg);
-}
+  }
 }

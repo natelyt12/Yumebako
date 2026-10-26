@@ -1,5 +1,9 @@
 import { getAllFromStore, getFromStore } from "/src/core/db.js";
-import { getSettings, saveSettings, subscribe } from "/src/core/storageHandler.js";
+import {
+  getSettings,
+  saveSettings,
+  subscribe,
+} from "/src/core/storageHandler.js";
 
 let trackerContainer = null;
 let hoverTooltip = null;
@@ -19,106 +23,106 @@ const pinnedCards = new Map(); // key -> { element, badgeEl, contentEl, storeNam
  * Initialize IDB Tracker integration and restore state if previously active.
  */
 export function initIdbTracker() {
-    const isEnabled = getSettings().debugIdbTracker ?? false;
-    const toggleEl = document.getElementById("debug_idb_tracker");
-    if (toggleEl) {
-        toggleEl.checked = isEnabled;
-        if (!toggleEl.dataset.bound) {
-            toggleEl.dataset.bound = "true";
-            toggleEl.addEventListener("change", (e) => {
-                saveSettings({ debugIdbTracker: e.target.checked });
-            });
-        }
+  const isEnabled = getSettings().debugIdbTracker ?? false;
+  const toggleEl = document.getElementById("debug_idb_tracker");
+  if (toggleEl) {
+    toggleEl.checked = isEnabled;
+    if (!toggleEl.dataset.bound) {
+      toggleEl.dataset.bound = "true";
+      toggleEl.addEventListener("change", (e) => {
+        saveSettings({ debugIdbTracker: e.target.checked });
+      });
+    }
+  }
+
+  if (isTrackerInitialized) return;
+  isTrackerInitialized = true;
+
+  subscribe("debugIdbTracker", (enabled) => {
+    const active = enabled === true;
+    const toggle = document.getElementById("debug_idb_tracker");
+    if (toggle && toggle.checked !== active) {
+      toggle.checked = active;
     }
 
-    if (isTrackerInitialized) return;
-    isTrackerInitialized = true;
-
-    subscribe("debugIdbTracker", (enabled) => {
-        const active = enabled === true;
-        const toggle = document.getElementById("debug_idb_tracker");
-        if (toggle && toggle.checked !== active) {
-            toggle.checked = active;
-        }
-
-        if (active) {
-            showIdbTracker();
-        } else {
-            hideIdbTracker();
-        }
-    });
-
-    if (isEnabled) {
-        showIdbTracker();
+    if (active) {
+      showIdbTracker();
+    } else {
+      hideIdbTracker();
     }
+  });
+
+  if (isEnabled) {
+    showIdbTracker();
+  }
 }
 
 /**
  * Open the IDB Tracker floating overlay.
  */
 export function showIdbTracker() {
-    if (!trackerContainer) {
-        createTrackerDOM();
-    }
-    trackerContainer.style.display = "flex";
-    if (pinnedContainer) {
-        pinnedContainer.style.display = "flex";
-    }
-    startPolling();
-    refreshData();
+  if (!trackerContainer) {
+    createTrackerDOM();
+  }
+  trackerContainer.style.display = "flex";
+  if (pinnedContainer) {
+    pinnedContainer.style.display = "flex";
+  }
+  startPolling();
+  refreshData();
 }
 
 /**
  * Hide the IDB Tracker floating overlay (UI only, no saveSettings recursion).
  */
 export function hideIdbTracker() {
-    if (trackerContainer) {
-        trackerContainer.style.display = "none";
-    }
-    if (pinnedContainer) {
-        pinnedContainer.style.display = "none";
-    }
-    hideTooltipNow();
-    stopPolling();
+  if (trackerContainer) {
+    trackerContainer.style.display = "none";
+  }
+  if (pinnedContainer) {
+    pinnedContainer.style.display = "none";
+  }
+  hideTooltipNow();
+  stopPolling();
 }
 
 function startPolling() {
-    stopPolling();
-    if (autoPoll) {
-        pollTimer = setInterval(() => {
-            refreshData();
-            updatePinnedCards();
-        }, 1500);
-    }
+  stopPolling();
+  if (autoPoll) {
+    pollTimer = setInterval(() => {
+      refreshData();
+      updatePinnedCards();
+    }, 1500);
+  }
 }
 
 function stopPolling() {
-    if (pollTimer) {
-        clearInterval(pollTimer);
-        pollTimer = null;
-    }
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
 }
 
 function scheduleHideTooltip() {
-    clearTimeout(tooltipHideTimeout);
-    tooltipHideTimeout = setTimeout(() => {
-        hideTooltipNow();
-    }, 120);
+  clearTimeout(tooltipHideTimeout);
+  tooltipHideTimeout = setTimeout(() => {
+    hideTooltipNow();
+  }, 120);
 }
 
 function cancelHideTooltip() {
-    clearTimeout(tooltipHideTimeout);
+  clearTimeout(tooltipHideTimeout);
 }
 
 function hideTooltipNow() {
-    cancelHideTooltip();
-    if (hoverTooltip) {
-        hoverTooltip.style.display = "none";
-    }
-    if (activeHoveredItem) {
-        activeHoveredItem.classList.remove("active_hover");
-        activeHoveredItem = null;
-    }
+  cancelHideTooltip();
+  if (hoverTooltip) {
+    hoverTooltip.style.display = "none";
+  }
+  if (activeHoveredItem) {
+    activeHoveredItem.classList.remove("active_hover");
+    activeHoveredItem = null;
+  }
 }
 
 /**
@@ -127,11 +131,11 @@ function hideTooltipNow() {
  * @returns {string}
  */
 function formatBytes(bytes) {
-    if (!bytes || bytes <= 0) return "0 B";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+  if (!bytes || bytes <= 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 }
 
 /**
@@ -140,41 +144,41 @@ function formatBytes(bytes) {
  * @returns {string}
  */
 function getValueSummary(val) {
-    if (val === null) return "null";
-    if (val === undefined) return "undefined";
-    if (val instanceof Blob) {
-        return `${val.type || "blob"} • ${formatBytes(val.size)}`;
-    }
-    if (Array.isArray(val)) {
-        return `Array(${val.length})`;
-    }
-    if (typeof val === "object") {
-        return `Object(${Object.keys(val).length})`;
-    }
-    if (typeof val === "string") {
-        return `String(${val.length})`;
-    }
-    return String(val);
+  if (val === null) return "null";
+  if (val === undefined) return "undefined";
+  if (val instanceof Blob) {
+    return `${val.type || "blob"} • ${formatBytes(val.size)}`;
+  }
+  if (Array.isArray(val)) {
+    return `Array(${val.length})`;
+  }
+  if (typeof val === "object") {
+    return `Object(${Object.keys(val).length})`;
+  }
+  if (typeof val === "string") {
+    return `String(${val.length})`;
+  }
+  return String(val);
 }
 
 function formatValueContent(val) {
-    if (val instanceof Blob) {
-        return `[Blob: size=${val.size} bytes, type=${val.type || "unknown"}]`;
-    }
-    try {
-        return JSON.stringify(val, null, 2);
-    } catch {
-        return String(val);
-    }
+  if (val instanceof Blob) {
+    return `[Blob: size=${val.size} bytes, type=${val.type || "unknown"}]`;
+  }
+  try {
+    return JSON.stringify(val, null, 2);
+  } catch {
+    return String(val);
+  }
 }
 
 /**
  * Create floating tracker container and inject styles.
  */
 function createTrackerDOM() {
-    const style = document.createElement("style");
-    style.id = "idb-tracker-styles";
-    style.textContent = `
+  const style = document.createElement("style");
+  style.id = "idb-tracker-styles";
+  style.textContent = `
         #idb_tracker_overlay {
             position: fixed;
             top: 12px;
@@ -209,7 +213,6 @@ function createTrackerDOM() {
             padding: 4px 7px;
             background: rgba(255, 255, 255, 0.04);
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            cursor: move;
             flex-shrink: 0;
         }
         .idb_title {
@@ -234,7 +237,6 @@ function createTrackerDOM() {
             border-radius: 3px;
             padding: 1px 5px;
             font-size: 9.5px;
-            cursor: pointer;
             transition: all 0.12s ease;
             height: 17px;
             display: inline-flex;
@@ -266,7 +268,6 @@ function createTrackerDOM() {
             color: #777;
             font-size: 10px;
             font-weight: 600;
-            cursor: pointer;
             height: 18px;
             transition: all 0.12s ease;
         }
@@ -310,7 +311,6 @@ function createTrackerDOM() {
             min-height: 18px;
             display: flex;
             align-items: center;
-            cursor: default;
             transition: background 0.1s ease, border-color 0.1s ease;
         }
         .idb_item:hover, .idb_item.active_hover {
@@ -417,7 +417,6 @@ function createTrackerDOM() {
         .idb_tooltip_pin {
             background: none;
             border: none;
-            cursor: pointer;
             font-size: 10px;
             padding: 0 2px;
             opacity: 0.75;
@@ -518,7 +517,6 @@ function createTrackerDOM() {
             background: none;
             border: none;
             color: #777;
-            cursor: pointer;
             padding: 0 2px;
             font-size: 10px;
             line-height: 1;
@@ -554,11 +552,11 @@ function createTrackerDOM() {
             border-radius: 2px;
         }
     `;
-    document.head.appendChild(style);
+  document.head.appendChild(style);
 
-    trackerContainer = document.createElement("div");
-    trackerContainer.id = "idb_tracker_overlay";
-    trackerContainer.innerHTML = `
+  trackerContainer = document.createElement("div");
+  trackerContainer.id = "idb_tracker_overlay";
+  trackerContainer.innerHTML = `
         <div class="idb_head" id="idb_drag_handle">
             <span class="idb_title">⚡ BakoDB Live</span>
             <div class="idb_head_actions">
@@ -577,149 +575,155 @@ function createTrackerDOM() {
             <div class="idb_empty">Đang tải...</div>
         </div>
         <div class="idb_footer">
-            <label style="display:flex;align-items:center;gap:3px;cursor:pointer;">
+            <label style="display:flex;align-items:center;gap:3px;">
                 <input type="checkbox" id="idb_check_auto" checked style="margin:0;transform:scale(0.85);" />
                 <span>Tự động (1.5s)</span>
             </label>
             <span id="idb_status_summary">0 mục</span>
         </div>
     `;
-    document.body.appendChild(trackerContainer);
+  document.body.appendChild(trackerContainer);
 
-    // Create persistent hover tooltip
-    hoverTooltip = document.createElement("div");
-    hoverTooltip.id = "idb_hover_tooltip";
-    document.body.appendChild(hoverTooltip);
+  // Create persistent hover tooltip
+  hoverTooltip = document.createElement("div");
+  hoverTooltip.id = "idb_hover_tooltip";
+  document.body.appendChild(hoverTooltip);
 
-    // Create container for pinned cards at top-right
-    pinnedContainer = document.createElement("div");
-    pinnedContainer.id = "idb_pinned_container";
-    document.body.appendChild(pinnedContainer);
+  // Create container for pinned cards at top-right
+  pinnedContainer = document.createElement("div");
+  pinnedContainer.id = "idb_pinned_container";
+  document.body.appendChild(pinnedContainer);
 
-    // Keep tooltip alive when mouse moves into it to scroll plaintext
-    hoverTooltip.addEventListener("mouseenter", () => {
-        cancelHideTooltip();
-    });
-    hoverTooltip.addEventListener("mouseleave", () => {
-        scheduleHideTooltip();
-    });
+  // Keep tooltip alive when mouse moves into it to scroll plaintext
+  hoverTooltip.addEventListener("mouseenter", () => {
+    cancelHideTooltip();
+  });
+  hoverTooltip.addEventListener("mouseleave", () => {
+    scheduleHideTooltip();
+  });
 
-    // Wire events
-    const closeBtn = trackerContainer.querySelector("#idb_btn_close");
-    closeBtn?.addEventListener("click", () => {
-        saveSettings({ debugIdbTracker: false });
-    });
+  // Wire events
+  const closeBtn = trackerContainer.querySelector("#idb_btn_close");
+  closeBtn?.addEventListener("click", () => {
+    saveSettings({ debugIdbTracker: false });
+  });
 
-    const refreshBtn = trackerContainer.querySelector("#idb_btn_refresh");
-    refreshBtn?.addEventListener("click", () => {
-        refreshData();
-        updatePinnedCards();
-    });
+  const refreshBtn = trackerContainer.querySelector("#idb_btn_refresh");
+  refreshBtn?.addEventListener("click", () => {
+    refreshData();
+    updatePinnedCards();
+  });
 
-    const tabAppData = trackerContainer.querySelector("#idb_tab_appData");
-    const tabMediaData = trackerContainer.querySelector("#idb_tab_mediaData");
+  const tabAppData = trackerContainer.querySelector("#idb_tab_appData");
+  const tabMediaData = trackerContainer.querySelector("#idb_tab_mediaData");
 
-    tabAppData?.addEventListener("click", () => {
-        activeTab = "appData";
-        tabAppData.classList.add("active");
-        tabMediaData.classList.remove("active");
-        hideTooltipNow();
-        refreshData();
-    });
+  tabAppData?.addEventListener("click", () => {
+    activeTab = "appData";
+    tabAppData.classList.add("active");
+    tabMediaData.classList.remove("active");
+    hideTooltipNow();
+    refreshData();
+  });
 
-    tabMediaData?.addEventListener("click", () => {
-        activeTab = "mediaData";
-        tabMediaData.classList.add("active");
-        tabAppData.classList.remove("active");
-        hideTooltipNow();
-        refreshData();
-    });
+  tabMediaData?.addEventListener("click", () => {
+    activeTab = "mediaData";
+    tabMediaData.classList.add("active");
+    tabAppData.classList.remove("active");
+    hideTooltipNow();
+    refreshData();
+  });
 
-    const searchInput = trackerContainer.querySelector("#idb_search_input");
-    searchInput?.addEventListener("input", (e) => {
-        searchQuery = (e.target.value || "").trim().toLowerCase();
-        refreshData();
-    });
+  const searchInput = trackerContainer.querySelector("#idb_search_input");
+  searchInput?.addEventListener("input", (e) => {
+    searchQuery = (e.target.value || "").trim().toLowerCase();
+    refreshData();
+  });
 
-    const autoCheck = trackerContainer.querySelector("#idb_check_auto");
-    autoCheck?.addEventListener("change", (e) => {
-        autoPoll = e.target.checked;
-        if (autoPoll) {
-            startPolling();
-        } else {
-            stopPolling();
-        }
-    });
+  const autoCheck = trackerContainer.querySelector("#idb_check_auto");
+  autoCheck?.addEventListener("change", (e) => {
+    autoPoll = e.target.checked;
+    if (autoPoll) {
+      startPolling();
+    } else {
+      stopPolling();
+    }
+  });
 
-    makeDraggable(trackerContainer, trackerContainer.querySelector("#idb_drag_handle"));
+  makeDraggable(
+    trackerContainer,
+    trackerContainer.querySelector("#idb_drag_handle"),
+  );
 }
 
 function showTooltip(key, val) {
-    if (!hoverTooltip) return;
-    const summary = getValueSummary(val);
-    const contentText = formatValueContent(val);
-    const isPinned = pinnedCards.has(key);
+  if (!hoverTooltip) return;
+  const summary = getValueSummary(val);
+  const contentText = formatValueContent(val);
+  const isPinned = pinnedCards.has(key);
 
-    hoverTooltip.innerHTML = `
+  hoverTooltip.innerHTML = `
         <div class="idb_tooltip_header">
             <span class="idb_tooltip_title" title="${key}">${key}</span>
             <div class="idb_tooltip_actions">
                 <span class="idb_tooltip_badge">${summary}</span>
-                <button class="idb_tooltip_pin" id="idb_btn_pin" title="${isPinned ? 'Bỏ ghim' : 'Ghim ra góc phải'}">${isPinned ? '📌' : '📍'}</button>
+                <button class="idb_tooltip_pin" id="idb_btn_pin" title="${isPinned ? "Bỏ ghim" : "Ghim ra góc phải"}">${isPinned ? "📌" : "📍"}</button>
             </div>
         </div>
         <div class="idb_tooltip_content">${escapeHtml(contentText)}</div>
     `;
 
-    const pinBtn = hoverTooltip.querySelector("#idb_btn_pin");
-    pinBtn?.addEventListener("click", () => {
-        togglePin(key, activeTab, val);
-        hideTooltipNow();
-    });
+  const pinBtn = hoverTooltip.querySelector("#idb_btn_pin");
+  pinBtn?.addEventListener("click", () => {
+    togglePin(key, activeTab, val);
+    hideTooltipNow();
+  });
 
-    const trackerRect = trackerContainer?.getBoundingClientRect() || { right: 277, top: 12 };
-    let left = trackerRect.right + 4;
-    if (left + 360 > window.innerWidth) {
-        left = Math.max(8, trackerRect.left - 370);
-    }
+  const trackerRect = trackerContainer?.getBoundingClientRect() || {
+    right: 277,
+    top: 12,
+  };
+  let left = trackerRect.right + 4;
+  if (left + 360 > window.innerWidth) {
+    left = Math.max(8, trackerRect.left - 370);
+  }
 
-    hoverTooltip.style.left = `${left}px`;
-    hoverTooltip.style.top = `${trackerRect.top}px`;
-    hoverTooltip.style.display = "flex";
+  hoverTooltip.style.left = `${left}px`;
+  hoverTooltip.style.top = `${trackerRect.top}px`;
+  hoverTooltip.style.display = "flex";
 }
 
 function togglePin(key, storeName, val) {
-    if (pinnedCards.has(key)) {
-        unpinKey(key);
-        return;
-    }
+  if (pinnedCards.has(key)) {
+    unpinKey(key);
+    return;
+  }
 
-    if (pinnedCards.size >= MAX_PINS) {
-        // Drop the oldest pinned card
-        const oldestKey = pinnedCards.keys().next().value;
-        unpinKey(oldestKey);
-    }
+  if (pinnedCards.size >= MAX_PINS) {
+    // Drop the oldest pinned card
+    const oldestKey = pinnedCards.keys().next().value;
+    unpinKey(oldestKey);
+  }
 
-    createPinnedCard(key, storeName, val);
+  createPinnedCard(key, storeName, val);
 }
 
 function unpinKey(key) {
-    const entry = pinnedCards.get(key);
-    if (entry) {
-        entry.element.remove();
-        pinnedCards.delete(key);
-    }
+  const entry = pinnedCards.get(key);
+  if (entry) {
+    entry.element.remove();
+    pinnedCards.delete(key);
+  }
 }
 
 function createPinnedCard(key, storeName, val) {
-    if (!pinnedContainer) return;
+  if (!pinnedContainer) return;
 
-    const summary = getValueSummary(val);
-    const contentText = formatValueContent(val);
+  const summary = getValueSummary(val);
+  const contentText = formatValueContent(val);
 
-    const cardEl = document.createElement("div");
-    cardEl.className = "idb_pinned_card";
-    cardEl.innerHTML = `
+  const cardEl = document.createElement("div");
+  cardEl.className = "idb_pinned_card";
+  cardEl.innerHTML = `
         <div class="idb_pinned_header">
             <span class="idb_pinned_title" title="${key}">📌 ${key}</span>
             <div class="idb_pinned_actions">
@@ -730,156 +734,161 @@ function createPinnedCard(key, storeName, val) {
         <div class="idb_pinned_content">${escapeHtml(contentText)}</div>
     `;
 
-    const closeBtn = cardEl.querySelector(".idb_pinned_close");
-    const badgeEl = cardEl.querySelector(".idb_pinned_badge");
-    const contentEl = cardEl.querySelector(".idb_pinned_content");
+  const closeBtn = cardEl.querySelector(".idb_pinned_close");
+  const badgeEl = cardEl.querySelector(".idb_pinned_badge");
+  const contentEl = cardEl.querySelector(".idb_pinned_content");
 
-    closeBtn?.addEventListener("click", () => {
-        unpinKey(key);
-    });
+  closeBtn?.addEventListener("click", () => {
+    unpinKey(key);
+  });
 
-    pinnedCards.set(key, {
-        element: cardEl,
-        badgeEl,
-        contentEl,
-        storeName,
-        key,
-    });
+  pinnedCards.set(key, {
+    element: cardEl,
+    badgeEl,
+    contentEl,
+    storeName,
+    key,
+  });
 
-    pinnedContainer.appendChild(cardEl);
+  pinnedContainer.appendChild(cardEl);
 }
 
 async function updatePinnedCards() {
-    if (pinnedCards.size === 0) return;
+  if (pinnedCards.size === 0) return;
 
-    for (const [key, entry] of pinnedCards.entries()) {
-        try {
-            const val = await getFromStore(key, entry.storeName);
-            if (entry.badgeEl) entry.badgeEl.textContent = getValueSummary(val);
-            if (entry.contentEl) {
-                const newText = formatValueContent(val);
-                if (entry.contentEl.textContent !== newText) {
-                    entry.contentEl.innerHTML = escapeHtml(newText);
-                }
-            }
-        } catch (e) {
-            console.warn("[IDB Tracker] Error updating pinned card:", e);
+  for (const [key, entry] of pinnedCards.entries()) {
+    try {
+      const val = await getFromStore(key, entry.storeName);
+      if (entry.badgeEl) entry.badgeEl.textContent = getValueSummary(val);
+      if (entry.contentEl) {
+        const newText = formatValueContent(val);
+        if (entry.contentEl.textContent !== newText) {
+          entry.contentEl.innerHTML = escapeHtml(newText);
         }
+      }
+    } catch (e) {
+      console.warn("[IDB Tracker] Error updating pinned card:", e);
     }
+  }
 }
 
 function escapeHtml(str) {
-    return str
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 /**
  * Make an element draggable by its handle.
  */
 function makeDraggable(element, handle) {
-    let offsetX = 0, offsetY = 0, startX = 0, startY = 0;
-    handle.onmousedown = (e) => {
-        if (e.target.tagName === "BUTTON") return;
-        e.preventDefault();
-        startX = e.clientX;
-        startY = e.clientY;
-        const rect = element.getBoundingClientRect();
-        offsetX = rect.left;
-        offsetY = rect.top;
+  let offsetX = 0,
+    offsetY = 0,
+    startX = 0,
+    startY = 0;
+  handle.onmousedown = (e) => {
+    if (e.target.tagName === "BUTTON") return;
+    e.preventDefault();
+    startX = e.clientX;
+    startY = e.clientY;
+    const rect = element.getBoundingClientRect();
+    offsetX = rect.left;
+    offsetY = rect.top;
 
-        document.onmousemove = (moveEvent) => {
-            const dx = moveEvent.clientX - startX;
-            const dy = moveEvent.clientY - startY;
-            element.style.bottom = "auto";
-            element.style.right = "auto";
-            element.style.left = `${Math.max(6, Math.min(window.innerWidth - element.offsetWidth - 6, offsetX + dx))}px`;
-            element.style.top = `${Math.max(6, Math.min(window.innerHeight - element.offsetHeight - 6, offsetY + dy))}px`;
-            hideTooltipNow();
-        };
-
-        document.onmouseup = () => {
-            document.onmousemove = null;
-            document.onmouseup = null;
-        };
+    document.onmousemove = (moveEvent) => {
+      const dx = moveEvent.clientX - startX;
+      const dy = moveEvent.clientY - startY;
+      element.style.bottom = "auto";
+      element.style.right = "auto";
+      element.style.left = `${Math.max(6, Math.min(window.innerWidth - element.offsetWidth - 6, offsetX + dx))}px`;
+      element.style.top = `${Math.max(6, Math.min(window.innerHeight - element.offsetHeight - 6, offsetY + dy))}px`;
+      hideTooltipNow();
     };
+
+    document.onmouseup = () => {
+      document.onmousemove = null;
+      document.onmouseup = null;
+    };
+  };
 }
 
 /**
  * Fetch and render records from IndexedDB.
  */
 async function refreshData() {
-    if (!trackerContainer || trackerContainer.style.display === "none") return;
+  if (!trackerContainer || trackerContainer.style.display === "none") return;
 
-    const bodyEl = trackerContainer.querySelector("#idb_body_content");
-    const statusSummary = trackerContainer.querySelector("#idb_status_summary");
-    if (!bodyEl) return;
+  const bodyEl = trackerContainer.querySelector("#idb_body_content");
+  const statusSummary = trackerContainer.querySelector("#idb_status_summary");
+  if (!bodyEl) return;
 
-    try {
-        const records = (await getAllFromStore(activeTab)) || [];
-        let filtered = records;
-        if (searchQuery) {
-            filtered = records.filter(r => (r?.key || "").toLowerCase().includes(searchQuery));
-        }
-
-        if (statusSummary) {
-            statusSummary.textContent = `${filtered.length} / ${records.length} mục`;
-        }
-
-        if (filtered.length === 0) {
-            bodyEl.innerHTML = `<div class="idb_empty">${searchQuery ? "Không khớp" : `Store trống`}</div>`;
-            return;
-        }
-
-        const fragment = document.createDocumentFragment();
-        filtered.forEach(record => {
-            const itemKey = record.key;
-            const itemVal = record.value;
-            const summary = getValueSummary(itemVal);
-
-            const itemEl = document.createElement("div");
-            itemEl.className = "idb_item";
-
-            // Hover to inspect JSON
-            itemEl.addEventListener("mouseenter", () => {
-                cancelHideTooltip();
-                if (activeHoveredItem && activeHoveredItem !== itemEl) {
-                    activeHoveredItem.classList.remove("active_hover");
-                }
-                activeHoveredItem = itemEl;
-                itemEl.classList.add("active_hover");
-                showTooltip(itemKey, itemVal);
-            });
-
-            itemEl.addEventListener("mouseleave", () => {
-                scheduleHideTooltip();
-            });
-
-            const headerEl = document.createElement("div");
-            headerEl.className = "idb_item_header";
-
-            const keyEl = document.createElement("span");
-            keyEl.className = "idb_item_key";
-            keyEl.textContent = itemKey;
-            keyEl.title = itemKey;
-
-            const badgeEl = document.createElement("span");
-            badgeEl.className = "idb_badge";
-            badgeEl.textContent = summary;
-
-            headerEl.appendChild(keyEl);
-            headerEl.appendChild(badgeEl);
-            itemEl.appendChild(headerEl);
-
-            fragment.appendChild(itemEl);
-        });
-
-        bodyEl.replaceChildren(fragment);
-    } catch (err) {
-        console.error("IDB Tracker error:", err);
-        bodyEl.innerHTML = `<div class="idb_empty" style="color:#ff7b72;">Lỗi: ${err.message || err}</div>`;
+  try {
+    const records = (await getAllFromStore(activeTab)) || [];
+    let filtered = records;
+    if (searchQuery) {
+      filtered = records.filter((r) =>
+        (r?.key || "").toLowerCase().includes(searchQuery),
+      );
     }
+
+    if (statusSummary) {
+      statusSummary.textContent = `${filtered.length} / ${records.length} mục`;
+    }
+
+    if (filtered.length === 0) {
+      bodyEl.innerHTML = `<div class="idb_empty">${searchQuery ? "Không khớp" : `Store trống`}</div>`;
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    filtered.forEach((record) => {
+      const itemKey = record.key;
+      const itemVal = record.value;
+      const summary = getValueSummary(itemVal);
+
+      const itemEl = document.createElement("div");
+      itemEl.className = "idb_item";
+
+      // Hover to inspect JSON
+      itemEl.addEventListener("mouseenter", () => {
+        cancelHideTooltip();
+        if (activeHoveredItem && activeHoveredItem !== itemEl) {
+          activeHoveredItem.classList.remove("active_hover");
+        }
+        activeHoveredItem = itemEl;
+        itemEl.classList.add("active_hover");
+        showTooltip(itemKey, itemVal);
+      });
+
+      itemEl.addEventListener("mouseleave", () => {
+        scheduleHideTooltip();
+      });
+
+      const headerEl = document.createElement("div");
+      headerEl.className = "idb_item_header";
+
+      const keyEl = document.createElement("span");
+      keyEl.className = "idb_item_key";
+      keyEl.textContent = itemKey;
+      keyEl.title = itemKey;
+
+      const badgeEl = document.createElement("span");
+      badgeEl.className = "idb_badge";
+      badgeEl.textContent = summary;
+
+      headerEl.appendChild(keyEl);
+      headerEl.appendChild(badgeEl);
+      itemEl.appendChild(headerEl);
+
+      fragment.appendChild(itemEl);
+    });
+
+    bodyEl.replaceChildren(fragment);
+  } catch (err) {
+    console.error("IDB Tracker error:", err);
+    bodyEl.innerHTML = `<div class="idb_empty" style="color:#ff7b72;">Lỗi: ${err.message || err}</div>`;
+  }
 }

@@ -69,10 +69,6 @@
     pointer-events: none;
   }
 
-  .wallpaper_switcher .carousel-container.is-empty {
-    cursor: default;
-  }
-
   .wallpaper_switcher .carousel-container.is-dragging {
     cursor: grabbing;
   }

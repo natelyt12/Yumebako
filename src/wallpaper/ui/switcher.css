@@ -41,18 +41,23 @@
     position: relative;
     width: 100%;
     /* Cao theo nội dung: thanh tab trên + sân khấu carousel 420px + thanh dưới. */
-    height: auto;
+    height: var(--switcher-inner-height, 546px);
     max-height: 90vh;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: flex-end;
     overflow: visible;
+    box-sizing: border-box;
     padding: 12px 0 20px 0;
     /* Không fade khi mở/đóng: bảng trượt lên là đủ, độ mờ đã do từng thẻ trong
        carousel đảm nhiệm (xem `geometry.js`). */
     transform: translateY(calc(100% + 50px));
-    transition: transform 0.45s var(--cubic_in);
+    transition:
+      transform 0.45s var(--cubic_in),
+      max-height 0.8s var(--expo_out),
+      height 0.8s var(--expo_out),
+      padding 0.8s var(--expo_out);
   }
 
   /* Decoupled Layering (hướng dẫn xử lý nested backdrop-filter):
@@ -76,7 +81,72 @@
 
   .wallpaper_switcher.active .wallpaper_switcher_inner {
     transform: translateY(0);
-    transition: transform 0.7s var(--expo_out);
+    opacity: 1;
+    transition:
+      transform 0.7s var(--expo_out),
+      max-height 0.8s var(--expo_out),
+      height 0.8s var(--expo_out),
+      padding 0.8s var(--expo_out);
+  }
+
+  /* Khung cha morph lên toàn màn hình khi submenu mở */
+  .wallpaper_switcher_inner.submenu_active {
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+  }
+
+  /* 1. Main View: giữ layout; hiệu ứng fade + lùi (recede) do component submenu
+     dùng chung đảm nhiệm (`core/ui/submenu.css` → `.submenu_main_view`), nên
+     view này tự chạy đúng theo `direction` mà không cần translate cứng.
+
+     `height: 100%` là bắt buộc: `translateY(-50%)` tính theo chiều cao của
+     chính nó. Nếu để auto (chỉ cao bằng nội dung ~510px) thì khi khung cha
+     morph lên 100vh, view này chỉ lùi ~255px trong khi panel con trượt 50%
+     của 100vh — hai bên lệch nhau. Cho nó cao bằng host thì mỗi frame cả hai
+     đi đúng cùng một quãng, đối xứng qua tâm. */
+  .wallpaper_switcher_main_view {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  /* 2. Submenu View: khung/kích thước/transition do `.submenu_view` dùng chung
+     quy định (`position:absolute; inset` + 4 hướng trượt). Ở đây chỉ giữ phần
+     nội dung đặc thù của bảng "Quản lý hình nền". */
+
+  .wallpaper_manage_submenu_header {
+    width: 100%;
+    max-width: 1800px;
+    margin: 0 auto;
+    padding: 10px max(24px, 3.5vw);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .wallpaper_manage_submenu_title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .wallpaper_manage_submenu_content {
+    flex: 1;
+    /* Turns the content slot into the scroll container, so the header above it
+       stays pinned while the card grid scrolls underneath. */
+    min-height: 0;
+    overflow-y: auto;
+    width: 100%;
+    max-width: 1800px;
+    margin: 0 auto;
+    padding: 24px max(24px, 3.5vw);
+    box-sizing: border-box;
   }
 
   /* ── Top Bar (Source Tabs Header) ────────────────────────── */
@@ -202,7 +272,6 @@
     color: var(--text-secondary);
     white-space: nowrap;
     user-select: none;
-    cursor: default;
     border-radius: var(--meta-radius-inner);
     opacity: 1;
     transition: opacity 0.5s var(--expo_out);
@@ -369,7 +438,6 @@
     align-items: center;
     justify-content: center;
     color: var(--text-secondary);
-    cursor: default;
     padding: 0;
     margin: 0;
     transition:
@@ -506,6 +574,15 @@
     pointer-events: auto;
   }
 
+  .wallpaper_switcher_left {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
   .wallpaper_switcher_spacer {
     grid-column: 1;
     grid-row: 1;
@@ -544,7 +621,6 @@
 
   .wallpaper_switcher_controls > .btn:disabled {
     opacity: 0.5;
-    cursor: not-allowed;
   }
 
   /* ── Source Tabs (Compact Drawer with Expo-Out Expand) ────── */
@@ -598,7 +674,6 @@
     font-size: 12px;
     font-weight: 500;
     white-space: nowrap;
-    cursor: default;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -701,13 +776,14 @@
       opacity 0.2s var(--smooth);
   }
 
+  .wallpaper_manage_btn,
+  .wallpaper_customize_btn,
   .wallpaper_upload_btn,
   .wallpaper_fetch_btn,
   .wallpaper_source_settings,
   .wallpaper_action {
     width: auto;
     height: 34px;
-    padding: 0 14px;
     gap: 8px;
     border-radius: 9px;
     font-size: 12px;
@@ -716,6 +792,8 @@
     justify-content: center;
   }
 
+  .wallpaper_manage_btn > svg,
+  .wallpaper_customize_btn > svg,
   .wallpaper_upload_btn > svg,
   .wallpaper_fetch_btn > svg,
   .wallpaper_source_settings > svg,
@@ -731,11 +809,13 @@
 
   @media (max-width: 1100px) {
     .wallpaper_action span,
+    .wallpaper_switcher_left .btn span,
     .wallpaper_switcher_controls .btn span {
       display: none;
     }
 
     .wallpaper_action,
+    .wallpaper_switcher_left .btn,
     .wallpaper_switcher_controls .btn {
       width: 36px;
       min-width: 36px;

@@ -147,7 +147,7 @@ function initSubmenuTest() {
       openSidebarSubmenu(
         title,
         createSubmenuContent("Chi tiết menu phụ thử nghiệm"),
-        { width: inputVal, canPreview: true },
+        { width: inputVal },
       );
     });
 

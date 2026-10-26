@@ -1,6 +1,10 @@
 import { translateDOM, t } from "/src/core/i18n.js";
 import { renderIcons } from "/src/core/icon.js";
-import { showNotification } from "/src/core/ui.js";
+import {
+  showNotification,
+  attemptCloseSubmenu,
+  closeSubmenu,
+} from "/src/core/ui.js";
 import {
   getSettings,
   saveSettings,
@@ -116,9 +120,15 @@ export class WallpaperSwitcher {
     // Subscribe to DataControl events to update Carousel
     dataControl.on("cards:loaded", () => this.renderFromDataControl());
     dataControl.on("card:deleted", () => {
-      if (dataControl.items.length === 0) {
-        this.syncEmptyState(true);
-      }
+      // Deletions can also arrive from the manage grid, i.e. without the
+      // carousel's drop animation. Reconcile by id so a removed record never
+      // leaves a ghost slot behind.
+      this.carousel?.syncItems(
+        this._toEngineItems(),
+        dataControl.currentIndex,
+        { silent: true, animate: false },
+      );
+      this.syncEmptyState(dataControl.items.length === 0);
     });
     dataControl.on("card:added", ({ addedCards, allCards }) => {
       // Sync the carousel using syncItems so only genuinely fresh cards receive the enter animation
@@ -233,6 +243,21 @@ export class WallpaperSwitcher {
     });
 
     this.syncEmptyState((dataControl.items || []).length === 0);
+  }
+
+  /**
+   * Move the strip to a card that was applied outside the carousel (manage
+   * grid). DataControl already owns the switch, so this only re-centres the
+   * layout silently instead of emitting another hard-select event.
+   * @param {number} index
+   */
+  syncCarouselIndex(index) {
+    if (!this.carousel || !Number.isInteger(index) || index < 0) return;
+
+    this.carousel.syncItems(this._toEngineItems(), index, {
+      silent: true,
+      animate: false,
+    });
   }
 
   /**
@@ -527,6 +552,7 @@ export class WallpaperSwitcher {
       const target = e.target;
       if (
         target.closest(".wallpaper_switcher_inner") ||
+        target.closest(".submenu_view") ||
         target.closest(".dropdown") ||
         target.closest(".dialog_root") ||
         target.closest(".notification_container") ||
@@ -541,6 +567,18 @@ export class WallpaperSwitcher {
     // Keyboard navigation
     window.addEventListener("keydown", (e) => {
       if (!this.isOpen) return;
+
+      const inner = this.container?.querySelector(".wallpaper_switcher_inner");
+      if (
+        inner?.classList.contains("submenu_active") ||
+        this.container?.classList.contains("submenu_active")
+      ) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          attemptCloseSubmenu();
+        }
+        return;
+      }
 
       if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
         e.preventDefault();
@@ -604,6 +642,13 @@ export class WallpaperSwitcher {
   close() {
     if (!this.isOpen) return;
     this.isOpen = false;
+    const inner = this.container?.querySelector(".wallpaper_switcher_inner");
+    if (
+      inner?.classList.contains("submenu_active") ||
+      this.container?.classList.contains("submenu_active")
+    ) {
+      closeSubmenu(true);
+    }
     this.bar?.closeSidebar?.();
     this.bar?.hideActions();
 

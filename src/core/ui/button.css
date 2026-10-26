@@ -1,5 +1,5 @@
 @layer components {
-/* ============================================================================
+  /* ============================================================================
    UNIFIED BUTTON COMPONENT (.btn)
    ============================================================================
    1) `.btn` is the single bar-button component. Every button follows the same
@@ -13,9 +13,9 @@
       buttons, transparent tabs…) stay unaffected.
    ============================================================================ */
 
-/* Shared field chrome for bare buttons and the `.btn` component. */
-button,
-.btn {
+  /* Shared field chrome for bare buttons and the `.btn` component. */
+  button,
+  .btn {
     background-color: var(--button);
     border: none;
     box-shadow: none;
@@ -35,109 +35,105 @@ button,
     justify-content: center;
     gap: 10px;
     font-weight: 400;
-}
+  }
 
-/* Bar buttons (leading icon / body / trailing action) hug the left edge; plain
+  /* Bar buttons (leading icon / body / trailing action) hug the left edge; plain
    action buttons stay centered like the shared field chrome. */
-.btn:has(> i[data-icon]:first-child),
-.btn:has(> svg:first-child),
-.btn:has(.btn_body),
-.btn[data-action] {
+  .btn:has(> i[data-icon]:first-child),
+  .btn:has(> svg:first-child),
+  .btn:has(.btn_body),
+  .btn[data-action] {
     justify-content: flex-start;
     text-align: left;
-}
+  }
 
-/* Zone 1 — Leading icon (optional). */
-.btn > i[data-icon]:first-child,
-.btn > svg:first-child {
+  /* Zone 1 — Leading icon (optional). */
+  .btn > i[data-icon]:first-child,
+  .btn > svg:first-child {
     flex-shrink: 0;
-}
+  }
 
-/* Align icon with the top title line when a description is present */
-.btn:has(.btn_desc) > i[data-icon]:first-child,
-.btn:has(.btn_desc) > svg:first-child {
+  /* Align icon with the top title line when a description is present */
+  .btn:has(.btn_desc) > i[data-icon]:first-child,
+  .btn:has(.btn_desc) > svg:first-child {
     align-self: flex-start;
     margin-top: 4px;
-}
+  }
 
-/* Zone 2 — Body (title + optional description). */
-.btn_body {
+  /* Zone 2 — Body (title + optional description). */
+  .btn_body {
     display: flex;
     flex-direction: column;
     gap: 2px;
     min-width: 0;
     text-align: left;
-}
+  }
 
-.btn_title {
+  .btn_title {
     font-weight: 400;
     line-height: 20px;
     color: var(--text-primary);
-}
+  }
 
-.btn_desc {
+  .btn_desc {
     font-size: 0.8em;
     line-height: 1.4;
     color: var(--text-secondary);
     white-space: normal;
     word-break: break-word;
     overflow-wrap: anywhere;
-}
+  }
 
-/* Two-line layout, only when a description is present. */
-.btn:has(.btn_desc) {
+  /* Two-line layout, only when a description is present. */
+  .btn:has(.btn_desc) {
     height: auto !important;
     min-height: 40px !important;
     padding-top: 10px;
     padding-bottom: 10px;
-}
+  }
 
-/* Zone 3 — Trailing action, auto-rendered by `core/ui/button.js`. */
-.btn > .btn_action_icon,
-.btn > .sbsctsvg,
-.btn > .ts-track {
+  /* Zone 3 — Trailing action, auto-rendered by `core/ui/button.js`. */
+  .btn > .btn_action_icon,
+  .btn > .sbsctsvg,
+  .btn > .ts-track {
     margin-left: auto;
     flex-shrink: 0;
-}
+  }
 
-.btn > .btn_action_icon {
+  .btn > .btn_action_icon {
     display: flex;
     align-items: center;
     justify-content: center;
-}
+  }
 
-button:hover,
-.btn:hover {
+  button:hover,
+  .btn:hover {
     background-color: var(--button-hov);
-}
+  }
 
-button:active,
-.btn:active {
+  button:active,
+  .btn:active {
     background-color: var(--button-act);
-}
+  }
 
-button:disabled,
-.btn:disabled,
-.btn[disabled] {
+  button:disabled,
+  .btn:disabled,
+  .btn[disabled] {
     pointer-events: none;
-    cursor: not-allowed;
     opacity: 0.5;
-}
+  }
 
-/* Toggle bars behave as normal .btn with switch track affordance. */
-.btn[data-action="toggle"] {
-    cursor: default;
-}
+  /* Toggle bars behave as normal .btn with switch track affordance. */
 
-.btn[data-action="toggle"] > input {
+  .btn[data-action="toggle"] > input {
     position: absolute;
     opacity: 0;
     width: 0;
     height: 0;
-}
+  }
 
-/* --- Material 3 Expressive Toggle Switch --- */
-:root {
+  /* --- Material 3 Expressive Toggle Switch --- */
+  :root {
     --ts-track-width: 40px;
     --ts-track-height: 24px;
     --ts-thumb-size-off: 10px;
@@ -152,9 +148,9 @@ button:disabled,
     --ts-track-on-bg: #ffffff;
     --ts-track-on-border: #ffffff;
     --ts-thumb-on-color: #454545;
-}
+  }
 
-.ts-track {
+  .ts-track {
     width: var(--ts-track-width);
     height: var(--ts-track-height);
     background-color: var(--ts-track-off-bg);
@@ -163,13 +159,13 @@ button:disabled,
     position: relative;
     box-sizing: border-box;
     transition:
-        background-color 0.24s cubic-bezier(0.2, 0, 0, 1),
-        border-color 0.24s cubic-bezier(0.2, 0, 0, 1);
+      background-color 0.24s cubic-bezier(0.2, 0, 0, 1),
+      border-color 0.24s cubic-bezier(0.2, 0, 0, 1);
     flex-shrink: 0;
     pointer-events: none;
-}
+  }
 
-.ts-thumb {
+  .ts-thumb {
     position: absolute;
     top: 50%;
     left: 4px;
@@ -179,90 +175,93 @@ button:disabled,
     border-radius: 50%;
     transform: translate(0, -50%);
     transition:
-        transform 0.28s cubic-bezier(0.2, 0, 0, 1),
-        width 0.24s cubic-bezier(0.2, 0, 0, 1),
-        height 0.24s cubic-bezier(0.2, 0, 0, 1),
-        background-color 0.24s cubic-bezier(0.2, 0, 0, 1);
-}
+      transform 0.28s cubic-bezier(0.2, 0, 0, 1),
+      width 0.24s cubic-bezier(0.2, 0, 0, 1),
+      height 0.24s cubic-bezier(0.2, 0, 0, 1),
+      background-color 0.24s cubic-bezier(0.2, 0, 0, 1);
+  }
 
-/* Hover on unselected toggle */
-.btn[data-action="toggle"]:hover .ts-track {
+  /* Hover on unselected toggle */
+  .btn[data-action="toggle"]:hover .ts-track {
     border-color: rgba(255, 255, 255, 0.4);
     background-color: rgba(255, 255, 255, 0.1);
-}
+  }
 
-.btn[data-action="toggle"]:hover .ts-thumb {
+  .btn[data-action="toggle"]:hover .ts-thumb {
     background-color: rgba(255, 255, 255, 0.9);
-}
+  }
 
-/* Selected (ON) State */
-.btn[data-action="toggle"] input:checked + .ts-track {
+  /* Selected (ON) State */
+  .btn[data-action="toggle"] input:checked + .ts-track {
     background-color: var(--ts-track-on-bg);
     border-color: var(--ts-track-on-border);
-}
+  }
 
-.btn[data-action="toggle"] input:checked + .ts-track .ts-thumb {
+  .btn[data-action="toggle"] input:checked + .ts-track .ts-thumb {
     width: var(--ts-thumb-size-on);
     height: var(--ts-thumb-size-on);
     background-color: var(--ts-thumb-on-color);
-    transform: translate(calc(var(--ts-track-width) - var(--ts-thumb-size-on) - 8px), -50%);
-}
+    transform: translate(
+      calc(var(--ts-track-width) - var(--ts-thumb-size-on) - 8px),
+      -50%
+    );
+  }
 
-/* Hover on selected toggle */
-.btn[data-action="toggle"]:hover input:checked + .ts-track {
+  /* Hover on selected toggle */
+  .btn[data-action="toggle"]:hover input:checked + .ts-track {
     background-color: #f0f0f5;
     border-color: #f0f0f5;
-}
+  }
 
-/* Keyboard accessibility */
-.btn[data-action="toggle"] input:focus-visible + .ts-track {
+  /* Keyboard accessibility */
+  .btn[data-action="toggle"] input:focus-visible + .ts-track {
     outline: 2px solid rgba(255, 255, 255, 0.6);
     outline-offset: 2px;
-}
+  }
 
-/* Danger variant (replaces the legacy `.danger_btn` / `.btn_warning`). */
-.btn[data-variant="danger"] {
+  /* Danger variant (replaces the legacy `.danger_btn` / `.btn_warning`). */
+  .btn[data-variant="danger"] {
     background-color: var(--color-danger);
     border-color: var(--color-danger-border);
     color: #ffa0a0;
-}
+  }
 
-.btn[data-variant="danger"]:hover {
+  .btn[data-variant="danger"]:hover {
     background-color: rgba(255, 85, 85, 0.25);
     border-color: var(--color-danger-border);
-}
+  }
 
-.btn[data-variant="danger"]:active {
+  .btn[data-variant="danger"]:active {
     background-color: var(--color-danger-act);
     border-color: var(--color-danger-border);
-}
+  }
 
-a {
+  a {
     color: var(--text-primary);
-}
+  }
 
-a:hover {
+  a:hover {
     color: rgba(255, 255, 255, 0.5);
-}
+  }
 
-/* Instant hover feedback */
-button:hover,
-.btn:hover,
-.bg_coll_card:hover,
-.effect_card:hover,
-.nav_item:hover,
-.dropdown_item:hover,
-.submenu_back_btn:hover,
-.slider_step_btn:hover,
-.slider_reset_btn:hover,
-.city_item:hover,
-input:hover,
-input:focus,
-textarea:hover,
-.tooltip:hover,
-textarea:focus,
-select:hover,
-.native_select:hover {
+  /* Instant hover feedback */
+  button:hover,
+  .btn:hover,
+  .bg_coll_card:hover,
+  .effect_card:hover,
+  .nav_item:hover,
+  .dropdown_item:hover,
+  .submenu_back_btn:hover,
+  .slider_step_btn:hover,
+  .slider_reset_btn:hover,
+  .city_item:hover,
+  input:hover,
+  input:focus,
+  textarea:hover,
+  .tooltip:hover,
+  textarea:focus,
+  select:hover,
+  .native_select:hover {
     transition-duration: 0s !important;
-}
+  }
 }

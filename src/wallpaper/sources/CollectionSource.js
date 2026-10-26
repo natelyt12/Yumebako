@@ -6,9 +6,13 @@ import {
   getCollection,
   getCollectionItem,
   removeFromCollection,
+  removeMultipleFromCollection,
 } from "/src/wallpaper/sources/api/collectionDb.js";
 import { wallpaperRenderer } from "/src/wallpaper/core/renderer.js";
-import { getSettings, getDefaultWallpaperEffects } from "/src/core/storageHandler.js";
+import {
+  getSettings,
+  getDefaultWallpaperEffects,
+} from "/src/core/storageHandler.js";
 import { showNotification } from "/src/core/ui.js";
 import {
   generateImageThumbnail,
@@ -181,7 +185,29 @@ export class CollectionSource extends BaseSource {
     const items = collection.map((raw) => this._toCarouselItem(raw));
 
     this._releaseUnusedThumbs(new Set(items.map((item) => item.id)));
-    return items;
+    return this.sortItems(items);
+  }
+
+  /**
+   * Collection order: videos first, then everything else.
+   *
+   * Uploads land at the end of the DB array, so a freshly uploaded video would
+   * otherwise sit far away from the top of the strip. Sorting here (the data
+   * layer) makes the carousel and the manage grid share one order. Within each
+   * group the original upload order is preserved.
+   * @param {Array<Object>} items
+   * @returns {Array<Object>}
+   */
+  sortItems(items) {
+    if (!Array.isArray(items)) return [];
+    const videos = [];
+    const others = [];
+    for (const item of items) {
+      const isVideo =
+        item?.mediaType === "video" || Boolean(item?.type?.includes("video"));
+      (isVideo ? videos : others).push(item);
+    }
+    return [...videos, ...others];
   }
 
   /**
@@ -208,7 +234,10 @@ export class CollectionSource extends BaseSource {
     }
 
     // 2. Nếu là URL từ xa (không phải blob chết)
-    if (typeof item.thumbnailUrl === "string" && !item.thumbnailUrl.startsWith("blob:")) {
+    if (
+      typeof item.thumbnailUrl === "string" &&
+      !item.thumbnailUrl.startsWith("blob:")
+    ) {
       return item.thumbnailUrl;
     }
 
@@ -261,6 +290,29 @@ export class CollectionSource extends BaseSource {
       URL.revokeObjectURL(cachedUrl);
       this._thumbUrls.delete(String(card.id));
     }
+  }
+
+  /**
+   * Batch deletion: revoke the cached thumbs and rewrite the collection array
+   * once (`removeMultipleFromCollection`), mirroring the batched upload path.
+   * @param {Array<Object>} cards
+   */
+  async deleteItems(cards = []) {
+    if (!Array.isArray(cards) || cards.length === 0) return;
+
+    const ids = cards.map((card) => card?.id).filter(Boolean);
+    if (ids.length === 0) return;
+
+    ids.forEach((id) => {
+      const key = String(id);
+      const cachedUrl = this._thumbUrls.get(key);
+      if (cachedUrl) {
+        URL.revokeObjectURL(cachedUrl);
+        this._thumbUrls.delete(key);
+      }
+    });
+
+    await removeMultipleFromCollection(ids);
   }
 
   /** Map one collection record onto the persisted item shape. */
@@ -371,12 +423,13 @@ export class CollectionSource extends BaseSource {
     if (rawTitle && !/^info$/i.test(rawTitle) && !/^bing\b/i.test(rawTitle)) {
       return rawTitle;
     }
-    const copyright = meta?.copyright || card?.copyright || card?.raw?.copyright;
+    const copyright =
+      meta?.copyright || card?.copyright || card?.raw?.copyright;
     if (copyright) {
       const subject = copyright.split("(")[0].trim();
       if (subject && !/^info$/i.test(subject)) return subject;
     }
-    return (rawTitle && !/^info$/i.test(rawTitle)) ? rawTitle : "Bing";
+    return rawTitle && !/^info$/i.test(rawTitle) ? rawTitle : "Bing";
   }
 
   getChipSummary(card) {
@@ -392,9 +445,12 @@ export class CollectionSource extends BaseSource {
         const author = meta.user?.name || "";
         const photoBy = t("sp.meta.photo_by", "Photo by");
         const parts = [
-          author ? `<span>${escapeHtml(photoBy)} <strong>${escapeHtml(author)}</strong></span>` : `<span>Unsplash</span>`
+          author
+            ? `<span>${escapeHtml(photoBy)} <strong>${escapeHtml(author)}</strong></span>`
+            : `<span>Unsplash</span>`,
         ];
-        if (badge) parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
+        if (badge)
+          parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
         return parts.join('<span class="card-meta-sep">•</span>');
       }
 
@@ -403,35 +459,47 @@ export class CollectionSource extends BaseSource {
         const dateStr = formatDate(meta.startDate || card.startDate);
         const parts = [`<span>${escapeHtml(title)}</span>`];
         if (dateStr) parts.push(`<span>${escapeHtml(dateStr)}</span>`);
-        else if (badge) parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
+        else if (badge)
+          parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
         return parts.join('<span class="card-meta-sep">•</span>');
       }
 
       if (provider === "wallhaven") {
-        const query = (meta.query && meta.query.trim()) || meta.title || meta.category || t("sp.meta.random", "Ngẫu nhiên");
+        const query =
+          (meta.query && meta.query.trim()) ||
+          meta.title ||
+          meta.category ||
+          t("sp.meta.random", "Ngẫu nhiên");
         const parts = [`<span>${escapeHtml(query)}</span>`];
-        if (badge) parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
+        if (badge)
+          parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
         return parts.join('<span class="card-meta-sep">•</span>');
       }
 
       if (provider === "picre") {
         const platform = getPicreSourceLabel(meta.source || card.sourceUrl);
         const parts = [`<span>${escapeHtml(platform)}</span>`];
-        if (badge) parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
+        if (badge)
+          parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
         return parts.join('<span class="card-meta-sep">•</span>');
       }
 
       const name = meta.providerName || provider;
       const parts = [`<span>${escapeHtml(name)}</span>`];
-      if (badge) parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
+      if (badge)
+        parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
       return parts.join('<span class="card-meta-sep">•</span>');
     }
 
     // TH 2: Tải lên từ máy tính
     const isVideo = card.mediaType === "video" || card.type?.includes("video");
-    const typeLabel = t(`sp.meta.${isVideo ? "type_video" : "type_image"}`, isVideo ? "Video" : "Hình ảnh");
+    const typeLabel = t(
+      `sp.meta.${isVideo ? "type_video" : "type_image"}`,
+      isVideo ? "Video" : "Hình ảnh",
+    );
     const parts = [`<span>${escapeHtml(typeLabel)}</span>`];
-    if (badge) parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
+    if (badge)
+      parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
     else if (size) parts.push(`<span>${escapeHtml(size)}</span>`);
 
     return parts.join('<span class="card-meta-sep">•</span>');
@@ -484,7 +552,9 @@ export class CollectionSource extends BaseSource {
           });
         }
       } else if (provider === "wallhaven") {
-        const queryVal = (meta.query && meta.query.trim()) || t("sp.meta.random", "Ngẫu nhiên");
+        const queryVal =
+          (meta.query && meta.query.trim()) ||
+          t("sp.meta.random", "Ngẫu nhiên");
         details.push({
           label: t("sp.meta.query", "Từ khóa"),
           value: queryVal,
@@ -499,10 +569,14 @@ export class CollectionSource extends BaseSource {
         if (meta.favorites !== undefined || meta.views !== undefined) {
           const stats = [];
           if (meta.favorites !== undefined) {
-            stats.push(`<span class="meta_stat_item"><i data-icon="heart"></i> <span>${escapeHtml(formatNumber(meta.favorites))}</span></span>`);
+            stats.push(
+              `<span class="meta_stat_item"><i data-icon="heart"></i> <span>${escapeHtml(formatNumber(meta.favorites))}</span></span>`,
+            );
           }
           if (meta.views !== undefined) {
-            stats.push(`<span class="meta_stat_item"><i data-icon="eye"></i> <span>${escapeHtml(formatNumber(meta.views))}</span></span>`);
+            stats.push(
+              `<span class="meta_stat_item"><i data-icon="eye"></i> <span>${escapeHtml(formatNumber(meta.views))}</span></span>`,
+            );
           }
           details.push({
             label: t("sp.meta.favorites", "Yêu thích"),
@@ -524,7 +598,9 @@ export class CollectionSource extends BaseSource {
       const badge = getResolutionBadge(card.width, card.height);
       const res = formatResolution(card.width, card.height);
       if (res) {
-        const badgeHtml = badge ? ` <span class="meta_badge">${escapeHtml(badge)}</span>` : "";
+        const badgeHtml = badge
+          ? ` <span class="meta_badge">${escapeHtml(badge)}</span>`
+          : "";
         details.push({
           label: t("sp.meta.resolution", "Độ phân giải"),
           value: `${escapeHtml(res)}${badgeHtml}`,
@@ -545,7 +621,9 @@ export class CollectionSource extends BaseSource {
         value: meta.providerName || provider,
       });
 
-      const dateSaved = formatDate(meta.addedAt || card.addedAt || Number(String(card.id).split("_")[0]));
+      const dateSaved = formatDate(
+        meta.addedAt || card.addedAt || Number(String(card.id).split("_")[0]),
+      );
       if (dateSaved) {
         details.push({
           label: t("sp.meta.date_saved", "Ngày lưu"),
@@ -567,7 +645,10 @@ export class CollectionSource extends BaseSource {
 
     details.push({
       label: t("sp.meta.media_type", "Loại media"),
-      value: t(`sp.meta.${isVideo ? "type_video" : "type_image"}`, isVideo ? "Video" : "Hình ảnh"),
+      value: t(
+        `sp.meta.${isVideo ? "type_video" : "type_image"}`,
+        isVideo ? "Video" : "Hình ảnh",
+      ),
     });
 
     details.push({
@@ -578,7 +659,9 @@ export class CollectionSource extends BaseSource {
     const badge = getResolutionBadge(card.width, card.height);
     const res = formatResolution(card.width, card.height);
     if (res) {
-      const badgeHtml = badge ? ` <span class="meta_badge">${escapeHtml(badge)}</span>` : "";
+      const badgeHtml = badge
+        ? ` <span class="meta_badge">${escapeHtml(badge)}</span>`
+        : "";
       details.push({
         label: t("sp.meta.resolution", "Độ phân giải"),
         value: `${escapeHtml(res)}${badgeHtml}`,
@@ -594,7 +677,9 @@ export class CollectionSource extends BaseSource {
       });
     }
 
-    const dateAdded = formatDate(meta.addedAt || card.addedAt || Number(String(card.id).split("_")[0]));
+    const dateAdded = formatDate(
+      meta.addedAt || card.addedAt || Number(String(card.id).split("_")[0]),
+    );
     if (dateAdded) {
       details.push({
         label: t("sp.meta.date_added", "Ngày thêm"),

@@ -29,17 +29,19 @@ export function formatResolution(width, height) {
 }
 
 /**
- * Suy ra chuẩn badge phân giải (4K UHD, 2K QHD, FHD, HD) dựa trên kích thước ngang/dọc.
+ * Suy ra chuẩn badge phân giải (8K, 4K, 2K, FHD, HD) dựa trên kích thước ngang/dọc.
+ * Nhãn ngắn để không kéo dài chip/caption.
  * @param {number} width
  * @param {number} height
- * @returns {string} Ví dụ: "4K UHD", "2K QHD", "FHD", "HD", hoặc ""
+ * @returns {string} Ví dụ: "8K", "4K", "2K", "FHD", "HD", hoặc ""
  */
 export function getResolutionBadge(width, height) {
   if (!width || !height) return "";
   const maxDim = Math.max(width, height);
   const minDim = Math.min(width, height);
-  if (maxDim >= 3840 || minDim >= 2160) return "4K UHD";
-  if (maxDim >= 2560 || minDim >= 1440) return "2K QHD";
+  if (maxDim >= 7680 || minDim >= 4320) return "8K";
+  if (maxDim >= 3840 || minDim >= 2160) return "4K";
+  if (maxDim >= 2560 || minDim >= 1440) return "2K";
   if (maxDim >= 1920 || minDim >= 1080) return "FHD";
   if (maxDim >= 1280 || minDim >= 720) return "HD";
   return "";
