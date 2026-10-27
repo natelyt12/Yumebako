@@ -85,18 +85,17 @@
     z-index: var(--z-settings-toggle);
     display: flex;
     align-items: center;
-    gap: 4px;
-    opacity: 0.4;
+    gap: 2px;
+    padding: 3px;
+    box-sizing: border-box;
+    border-radius: 50px;
+    background-color: var(--bg-panel, rgba(8, 8, 14, 0.45));
+    -webkit-backdrop-filter: blur(12px) saturate(130%) brightness(1.06);
+    backdrop-filter: blur(12px) saturate(130%) brightness(1.06);
+    opacity: 1;
     transition:
-      opacity 0.3s var(--expo_out) 0.8s,
+      opacity 0.3s var(--expo_out),
       background-color 0.3s var(--expo_out),
-      right 0.8s var(--expo_out);
-  }
-
-  #action_buttons:hover {
-    opacity: 0.85 !important;
-    transition:
-      opacity 0.15s var(--smooth) 0s,
       right 0.8s var(--expo_out);
   }
 
@@ -132,9 +131,9 @@
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    width: 40px !important;
-    height: 40px !important;
-    padding: 12px !important;
+    width: 36px !important;
+    height: 36px !important;
+    padding: 0 !important;
     border-radius: 50px !important;
     box-shadow: none !important;
     margin: 0 !important;
@@ -158,7 +157,8 @@
   #action_buttons svg,
   #setting_toggle_btn svg,
   #wallpaper_toggle_btn svg {
-    transform: scale(1.6);
+    width: 20px;
+    height: 20px;
   }
 
   /* Slide elements off-screen during preview */

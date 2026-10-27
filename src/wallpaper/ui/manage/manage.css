@@ -315,6 +315,21 @@
     color: var(--text-primary);
   }
 
+  /* Marker for a history card that already exists in the collection.
+     Wrapped in a span because `renderIcons` swaps the inner <i> for an <svg>. */
+  .bg_coll_info_star {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    color: var(--text-primary);
+  }
+
+  .bg_coll_info_star svg {
+    width: 13px;
+    height: 13px;
+    display: block;
+  }
+
   .bg_coll_info_res {
     min-width: 0;
     overflow: hidden;

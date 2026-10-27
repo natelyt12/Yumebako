@@ -106,6 +106,13 @@ import { initDate, initClock } from "/src/core/time.js";
  */
 
 /**
+ * @typedef {Object} UnsplashConfig
+ * @property {string} query       - Search query terms.
+ * @property {string} topic       - Curated topic slug ("all", "wallpapers", "3d-renders", "nature", etc.).
+ * @property {string} orientation - Image orientation ("landscape", "portrait", "squarish").
+ */
+
+/**
  * Full merged application settings object, combining bako_settings and bako_wallpaper.
  *
  * @typedef {Object} AppSettings
@@ -122,7 +129,7 @@ import { initDate, initClock } from "/src/core/time.js";
  * @property {{query:string, categories:Object, resolution:string, sorting:string, topRange:string}} wallhavenConfig - Wallhaven search parameters.
  * @property {BingConfig}        bingConfig         - Bing wallpaper provider parameters.
  * @property {{videoSound:boolean, videoVolume:number}} collectionConfig - Collection wallpaper settings (video audio, volume).
- * @property {string}            unsplashApiKey     - User-supplied Unsplash API key.
+ * @property {UnsplashConfig}    unsplashConfig     - Unsplash provider parameters.
  * @property {boolean}           debugI18n          - Highlight missing i18n keys.
  * @property {boolean}           hideToggleButton   - Hide the settings toggle button.
  * @property {WidgetsConfig}     widgets            - Widget layer configuration.
@@ -253,7 +260,11 @@ const defaultSettings = {
     videoSound: false,
     videoVolume: 1,
   },
-  unsplashApiKey: "",
+  unsplashConfig: {
+    query: "",
+    topic: "all",
+    orientation: "landscape",
+  },
   debugI18n: false,
   debugIdbTracker: false,
   hideToggleButton: false,

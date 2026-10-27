@@ -449,16 +449,33 @@ export function initToggleSettingBtn() {
 
   if (!settingToggleBtn || !settingWrapper) return;
 
+  // Match the settings panel's slide-out transition so the trigger buttons only
+  // reappear once the panel has fully closed.
+  const ACTION_BUTTONS_RESTORE_MS = 450;
+  let actionButtonsRestoreTimer = null;
+
   const setOpenState = (isOpen) => {
+    if (actionButtonsRestoreTimer) {
+      clearTimeout(actionButtonsRestoreTimer);
+      actionButtonsRestoreTimer = null;
+    }
+
     if (isOpen) {
       settingWrapper.classList.add("setting_wrapper_opened");
       settingToggleBtn.classList.add("setting_toggle_btn_opened");
       actionButtons?.classList.add("setting_toggle_btn_opened");
       actionButtons?.classList.remove("toggle_hidden");
       updateNavShift();
-    } else {
-      settingWrapper.classList.remove("setting_wrapper_opened");
-      settingToggleBtn.classList.remove("setting_toggle_btn_opened");
+      return;
+    }
+
+    settingWrapper.classList.remove("setting_wrapper_opened");
+    settingToggleBtn.classList.remove("setting_toggle_btn_opened");
+
+    // Hold the trigger buttons hidden until the panel has finished sliding out,
+    // then reveal them (respecting the "hide toggle" preference).
+    actionButtonsRestoreTimer = setTimeout(() => {
+      actionButtonsRestoreTimer = null;
       actionButtons?.classList.remove("setting_toggle_btn_opened");
       const isDim = getSettings().hideToggleButton === true;
       if (isDim) {
@@ -466,7 +483,7 @@ export function initToggleSettingBtn() {
       } else {
         actionButtons?.classList.remove("toggle_hidden");
       }
-    }
+    }, ACTION_BUTTONS_RESTORE_MS);
   };
 
   const closeSettings = () => {

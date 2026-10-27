@@ -8,6 +8,11 @@ import {
   getResolutionBadge,
   escapeHtml,
 } from "../../sources/cardMeta.js";
+import { getCollection } from "../../sources/api/collectionDb.js";
+import {
+  isCardInCollection,
+  addCardsToCollection,
+} from "../../sources/sourceActions.js";
 
 /**
  * manageGrid.js
@@ -52,6 +57,9 @@ export function createManageGrid({
                 <button type="button" class="btn manage_toolbar_btn" data-manage-action="fetch" hidden>
                     <i data-icon="arrowClockwise"></i><span data-i18n="wallpaper_switcher.get_new_image">Lấy ảnh mới</span>
                 </button>
+                <button type="button" class="btn manage_toolbar_btn" data-manage-action="add-selected" hidden>
+                    <i data-icon="star"></i><span data-i18n="sp.api.collection.add_selected">Thêm mục đã chọn vào bộ sưu tập</span>
+                </button>
                 <button type="button" class="btn manage_toolbar_btn" data-manage-action="delete-selected" data-variant="danger" hidden>
                     <i data-icon="bulkDelete"></i><span data-i18n="sp.api.collection.delete_selected">Xóa mục đã chọn</span>
                 </button>
@@ -88,6 +96,9 @@ export function createManageGrid({
   );
   const btnUpload = toolbarEl.querySelector('[data-manage-action="upload"]');
   const btnFetch = toolbarEl.querySelector('[data-manage-action="fetch"]');
+  const btnAddSelected = toolbarEl.querySelector(
+    '[data-manage-action="add-selected"]',
+  );
   const btnDeleteSelected = toolbarEl.querySelector(
     '[data-manage-action="delete-selected"]',
   );
@@ -102,26 +113,140 @@ export function createManageGrid({
   const selectedIds = new Set();
   /** Guards async detail renders so a stale one cannot overwrite a newer one. */
   let detailToken = 0;
+  /** Rendered card ids that already exist in the personal collection. */
+  let inCollectionIds = new Set();
+  /** Guards async collection-membership refreshes. */
+  let collectionToken = 0;
 
   btnSelect.addEventListener("click", () => enterSelectMode());
   btnCancelSelect.addEventListener("click", () => exitSelectMode());
   btnSettings.addEventListener("click", () => onSettings?.());
   btnUpload.addEventListener("click", () => onUpload?.());
   btnFetch.addEventListener("click", () => onFetch?.());
+  btnAddSelected.addEventListener("click", () => addSelectedToCollection());
   btnDeleteSelected.addEventListener("click", () => deleteSelected());
+
+  /** Disable the "get new image" verb while the store is fetching.
+   *  The switcher's carousel button does the same; here the grid owns its own
+   *  toolbar, so it listens to the store state directly. */
+  const syncFetchState = () => {
+    const status = dataControl.status;
+    const busy = Boolean(dataControl.isBusy || (status && status !== "idle"));
+    if (btnFetch.disabled !== busy) btnFetch.disabled = busy;
+  };
+  dataControl.on("state:change", syncFetchState);
+  syncFetchState();
 
   translateDOM(el);
   renderIcons(el);
 
   /* ── Rendering ─────────────────────────────────────────────────────────── */
 
+  /**
+   * Grid-only ordering. History / infinite sources append new images to the
+   * end of the store list, but the grid must surface the newest one first.
+   * Other sources keep their canonical order.
+   * @param {Array<Object>} items
+   * @returns {Array<Object>}
+   */
+  function getGridItems(items) {
+    if (!dataControl.activeSource?.canGrow) return items;
+    const hasTimestamps = items.some((item) => Number(item?.addedAt) > 0);
+    if (!hasTimestamps) return [...items].reverse();
+    return [...items].sort(
+      (a, b) => (Number(b?.addedAt) || 0) - (Number(a?.addedAt) || 0),
+    );
+  }
+
+  const prefersReducedMotion = () =>
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
+
+  /**
+   * Enter + FLIP animation for the grid.
+   * - A card that was not on screen fades/rises in (staggered for the first few).
+   * - A card that moved (a neighbour was added/removed) slides to its new slot.
+   * Uses the Web Animations API so no inline styles/classes are left behind.
+   */
+  function animateCards(cardElements, previousRects) {
+    let enterIndex = 0;
+    cardElements.forEach((cardEl) => {
+      const prevRect = previousRects.get(cardEl.dataset.id);
+      if (!prevRect) {
+        const delay = Math.min(enterIndex++, 10) * 20;
+        cardEl.animate(
+          [
+            { opacity: 0, transform: "translateY(10px) scale(0.96)" },
+            { opacity: 1, transform: "translateY(0) scale(1)" },
+          ],
+          {
+            duration: 260,
+            delay,
+            easing: "cubic-bezier(0.2, 0, 0, 1)",
+            fill: "backwards",
+          },
+        );
+        return;
+      }
+      const nextRect = cardEl.getBoundingClientRect();
+      const dx = prevRect.left - nextRect.left;
+      const dy = prevRect.top - nextRect.top;
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+      cardEl.animate(
+        [
+          { transform: `translate(${dx}px, ${dy}px)` },
+          { transform: "translate(0, 0)" },
+        ],
+        { duration: 300, easing: "cubic-bezier(0.2, 0, 0, 1)" },
+      );
+    });
+  }
+
+  /** Fade the given cards out and resolve once the leave transition ends. */
+  function animateCardsOut(ids) {
+    const wanted = new Set(ids.map(String));
+    let found = 0;
+    gridEl.querySelectorAll(".bg_coll_card").forEach((cardEl) => {
+      if (!wanted.has(cardEl.dataset.id)) return;
+      cardEl.classList.add("is-removing");
+      cardEl.style.pointerEvents = "none";
+      found++;
+    });
+    if (found === 0 || prefersReducedMotion()) return Promise.resolve();
+    return new Promise((resolve) => setTimeout(resolve, 200));
+  }
+
+  /** Undo a leave animation when the deletion did not go through. */
+  function restoreCards(ids) {
+    const wanted = new Set(ids.map(String));
+    gridEl.querySelectorAll(".bg_coll_card").forEach((cardEl) => {
+      if (!wanted.has(cardEl.dataset.id)) return;
+      cardEl.classList.remove("is-removing");
+      cardEl.style.pointerEvents = "";
+    });
+  }
+
   function render() {
     const items = Array.isArray(dataControl.items)
       ? [...dataControl.items]
       : [];
+    const displayItems = getGridItems(items);
     const activeId = dataControl.activeCard?.id ?? null;
 
+    // FLIP: remember where the still-visible cards sit before the rebuild, so
+    // they slide to their new slots instead of teleporting.
+    const useMotion = !prefersReducedMotion();
+    const previousRects = new Map();
+    if (useMotion && !gridEl.hidden) {
+      gridEl.querySelectorAll(".bg_coll_card").forEach((cardEl) => {
+        previousRects.set(cardEl.dataset.id, cardEl.getBoundingClientRect());
+      });
+    }
+
     cardsById.clear();
+    // Membership is re-computed from the collection below; start clean so a
+    // previously rendered source cannot leave stale stars behind.
+    inCollectionIds = new Set();
     items.forEach((card) => cardsById.set(String(card.id), card));
 
     // Members removed by another surface (or by our own bulk delete) drop out.
@@ -141,14 +266,15 @@ export function createManageGrid({
         selectedId =
           activeId != null
             ? String(activeId)
-            : items[0]
-              ? String(items[0].id)
+            : displayItems[0]
+              ? String(displayItems[0].id)
               : null;
       }
       if (!cardsById.has(selectedId)) selectedId = null;
     }
 
     syncToolbar();
+    refreshCollectionMarkers();
 
     if (items.length === 0) {
       syncEmptyCopy();
@@ -162,8 +288,10 @@ export function createManageGrid({
     emptyEl.hidden = true;
     gridEl.hidden = false;
 
-    gridEl.replaceChildren(...items.map((card) => buildCard(card, activeId)));
+    const cardElements = displayItems.map((card) => buildCard(card, activeId));
+    gridEl.replaceChildren(...cardElements);
     renderIcons(gridEl);
+    if (useMotion) animateCards(cardElements, previousRects);
     if (isSelectMode) refreshMultiSelectionUI();
     renderDetail();
   }
@@ -251,9 +379,18 @@ export function createManageGrid({
       : formatResolution(card.width, card.height);
     const isVideoLabel = isVideo ? " is-video" : "";
 
+    const inCollection = inCollectionIds.has(String(card.id));
     const left = [
       isActive
         ? `<i data-icon="particleCheck" class="bg_coll_info_check"></i>`
+        : "",
+      inCollection
+        ? `<span class="bg_coll_info_star" title="${escapeHtml(
+            t(
+              "sp.api.collection.added_to_collection",
+              "Đã có trong bộ sưu tập",
+            ),
+          )}"><i data-icon="starFill"></i></span>`
         : "",
       badge ? `<span class="meta_badge">${escapeHtml(badge)}</span>` : "",
       mainLabel
@@ -382,6 +519,13 @@ export function createManageGrid({
     btnFetch.hidden = isSelectMode || isCollection;
     btnDeleteSelected.hidden = !isSelectMode;
 
+    // Bulk "add to collection" only makes sense for sources that can store
+    // items (history / infinite sources), never for the collection itself.
+    const canAddToCollection =
+      Array.isArray(source?.actions) &&
+      source.actions.some((action) => action.id === "add");
+    btnAddSelected.hidden = !isSelectMode || !canAddToCollection;
+
     const settingsLabel = isCollection
       ? t("sp.api.collection.settings_title")
       : t("wallpaper_switcher.extra_settings", {
@@ -409,6 +553,19 @@ export function createManageGrid({
         : t("sp.api.collection.delete_selected");
     const span = btnDeleteSelected.querySelector("span");
     if (span && span.textContent !== label) span.textContent = label;
+
+    if (!btnAddSelected.hidden) {
+      btnAddSelected.disabled = count === 0;
+      const addLabel =
+        count > 0
+          ? t("sp.api.collection.add_selected_count", { count })
+          : t("sp.api.collection.add_selected");
+      const addSpan = btnAddSelected.querySelector("span");
+      if (addSpan && addSpan.textContent !== addLabel) {
+        addSpan.textContent = addLabel;
+      }
+      btnAddSelected.title = addLabel;
+    }
   }
 
   function enterSelectMode() {
@@ -480,6 +637,83 @@ export function createManageGrid({
     });
   }
 
+  /* ── Collection membership (star marker + bulk add) ───────────────────── */
+
+  /**
+   * Fetch the collection once, mark which rendered cards already live in it,
+   * then repaint the captions so a star sits next to the applied check.
+   */
+  async function refreshCollectionMarkers() {
+    const token = ++collectionToken;
+    const source = dataControl.activeSource;
+    const supportsAdd =
+      Array.isArray(source?.actions) &&
+      source.actions.some((action) => action.id === "add");
+
+    if (!supportsAdd) {
+      inCollectionIds = new Set();
+      return;
+    }
+
+    let collection = [];
+    try {
+      collection = await getCollection();
+    } catch (err) {
+      console.error("[ManageGrid] Failed to read collection:", err);
+      return;
+    }
+
+    if (token !== collectionToken) return;
+
+    const next = new Set();
+    cardsById.forEach((card, id) => {
+      if (isCardInCollection(card, source, collection)) next.add(id);
+    });
+    inCollectionIds = next;
+    patchCardInfo();
+  }
+
+  /** Repaint every caption from the current active + stored state. */
+  function patchCardInfo() {
+    const activeId = dataControl.activeCard?.id ?? null;
+    gridEl.querySelectorAll(".bg_coll_card").forEach((cardEl) => {
+      const card = cardsById.get(cardEl.dataset.id);
+      if (!card) return;
+      const isActive = activeId != null && String(card.id) === String(activeId);
+      const info = cardEl.querySelector(".bg_coll_info");
+      if (info) info.innerHTML = buildInfoHtml(card, isActive);
+    });
+    renderIcons(gridEl);
+  }
+
+  /** Bulk "add to collection" for the current multi-selection. */
+  async function addSelectedToCollection() {
+    if (!isSelectMode || selectedIds.size === 0) return;
+
+    const source = dataControl.activeSource;
+    const cards = [...selectedIds]
+      .map((id) => cardsById.get(id))
+      .filter(Boolean);
+    if (cards.length === 0) return;
+
+    btnAddSelected.disabled = true;
+    try {
+      const added = await addCardsToCollection(cards, source);
+      if (added > 0) {
+        showNotification(
+          t("sp.api.collection.add_selected_success", { count: added }),
+          "success",
+        );
+      }
+      await refreshCollectionMarkers();
+    } catch (err) {
+      console.error("[ManageGrid] Bulk add to collection failed:", err);
+      showNotification(t("sp.api.collection.add_error"), "error");
+    } finally {
+      btnAddSelected.disabled = false;
+    }
+  }
+
   async function deleteSelected() {
     if (!isSelectMode || selectedIds.size === 0) return;
 
@@ -508,9 +742,20 @@ export function createManageGrid({
         dataControl.items.findIndex((card) => String(card.id) === id),
       )
       .filter((index) => index >= 0);
+    if (indices.length === 0) return;
 
+    // Leave select mode first so the re-render triggered by `card:deleted` does
+    // not re-add number badges to the remaining cards.
+    exitSelectMode();
+
+    // Play the leave animation, then delete. The `card:deleted` event rebuilds
+    // the grid and the FLIP pass slides the remaining cards into the gap.
+    await animateCardsOut(ids);
     const ok = await dataControl.deleteCards(indices);
-    if (!ok) return;
+    if (!ok) {
+      restoreCards(ids);
+      return;
+    }
 
     if (
       activeId != null &&
@@ -519,9 +764,6 @@ export function createManageGrid({
     ) {
       dataControl.setHardIndex(dataControl.currentIndex);
     }
-
-    exitSelectMode();
-    render();
   }
 
   /* ── Selection & detail pane ──────────────────────────────────────────── */
@@ -695,8 +937,12 @@ export function createManageGrid({
 
       btn.addEventListener("click", async () => {
         await runDetailAction(action, card, btn);
-        // Adding flips the button to "remove from collection".
-        if (action.id === "add") renderDetail();
+        if (action.id === "add") {
+          // Real-time: repaint the caption star, then flip the button
+          // between add <-> remove from collection.
+          await refreshCollectionMarkers();
+          renderDetail();
+        }
       });
       row.appendChild(btn);
     });
@@ -744,16 +990,22 @@ export function createManageGrid({
     const wasActive = String(dataControl.activeCard?.id) === String(card.id);
     if (wasActive) selectedId = null;
 
+    // Play the leave animation, then delete. `card:deleted` re-renders the grid
+    // (with a FLIP slide for the cards closing the gap).
+    const cardKey = String(card.id);
+    await animateCardsOut([cardKey]);
+
     // `preserveCursor` keeps the desktop card in place when a different card is
     // removed (DataControl otherwise jumps to the deletion neighbourhood).
     const ok = await dataControl.deleteCard(index, { preserveCursor: true });
-    if (!ok) return;
+    if (!ok) {
+      restoreCards([cardKey]);
+      return;
+    }
 
     if (wasActive && dataControl.items.length > 0) {
       dataControl.setHardIndex(dataControl.currentIndex);
     }
-
-    render();
   }
 
   /* ── Lifecycle ────────────────────────────────────────────────────────── */
@@ -772,6 +1024,7 @@ export function createManageGrid({
       // `performCloseSubmenu` clears `.submenu_body` once the motion is over.
       dataControl.off("card:added", onItemsChanged);
       dataControl.off("card:deleted", onItemsChanged);
+      dataControl.off("state:change", syncFetchState);
       cardsById.clear();
     },
   };

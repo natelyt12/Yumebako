@@ -532,19 +532,6 @@ export class WallpaperSwitcher {
       this.close();
     });
 
-    // Settings button click (opens settings panel)
-    const settingsBtn = this.container.querySelector(
-      "#wallpaper_switcher_settings_btn",
-    );
-    settingsBtn?.addEventListener("click", (e) => {
-      e.stopPropagation();
-      this.close();
-      const toggleBtn = document.getElementById("setting_toggle_btn");
-      if (toggleBtn) {
-        toggleBtn.click();
-      }
-    });
-
     // Click outside to close wallpaper switcher
     document.addEventListener("pointerdown", (e) => {
       if (!this.isOpen) return;
@@ -614,6 +601,10 @@ export class WallpaperSwitcher {
     }
 
     // Hide action buttons (Settings & Wallpaper toggle triggers) just like Settings panel
+    if (this._actionButtonsTimer) {
+      clearTimeout(this._actionButtonsTimer);
+      this._actionButtonsTimer = null;
+    }
     const actionButtons = document.getElementById("action_buttons");
     actionButtons?.classList.add("wallpaper_switcher_opened");
     actionButtons?.classList.remove("toggle_hidden");
@@ -655,15 +646,21 @@ export class WallpaperSwitcher {
     this._pendingSourceId = null;
     this.carouselEl?.classList.remove("is-swapping");
 
-    // Restore action buttons
+    // Restore action buttons only after the switcher has fully slid away.
     const actionButtons = document.getElementById("action_buttons");
-    actionButtons?.classList.remove("wallpaper_switcher_opened");
-    const isDim = getSettings().hideToggleButton === true;
-    if (isDim) {
-      actionButtons?.classList.add("toggle_hidden");
-    } else {
-      actionButtons?.classList.remove("toggle_hidden");
+    if (this._actionButtonsTimer) {
+      clearTimeout(this._actionButtonsTimer);
     }
+    this._actionButtonsTimer = setTimeout(() => {
+      this._actionButtonsTimer = null;
+      actionButtons?.classList.remove("wallpaper_switcher_opened");
+      const isDim = getSettings().hideToggleButton === true;
+      if (isDim) {
+        actionButtons?.classList.add("toggle_hidden");
+      } else {
+        actionButtons?.classList.remove("toggle_hidden");
+      }
+    }, 450);
 
     // Input is gated on the engine being active: while the switcher is hidden,
     // wheel and drag events must not reach it at all.

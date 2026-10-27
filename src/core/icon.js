@@ -35,6 +35,7 @@ import playCircleIcon from "@phosphor-icons/core/assets/regular/play-circle.svg?
 import filmStripIcon from "@phosphor-icons/core/assets/regular/film-strip.svg?raw";
 import starIcon from "@phosphor-icons/core/assets/regular/star.svg?raw";
 import starFillIcon from "@phosphor-icons/core/assets/fill/star-fill.svg?raw";
+import cameraIcon from "@phosphor-icons/core/assets/regular/camera.svg?raw";
 
 function withSize(svg, size = 24, style = "") {
   return svg.replace(
@@ -55,6 +56,8 @@ export const Icons = {
   preview: withSize(eyeIcon, 18),
   eye: withSize(eyeIcon, 14),
   heart: withSize(heartIcon, 14),
+  download: withSize(downloadSimpleIcon, 14),
+  camera: withSize(cameraIcon, 14),
   reset: withSize(arrowCounterClockwiseIcon),
   sliderDec: withSize(minusIcon),
   sliderInc: withSize(plusIcon),

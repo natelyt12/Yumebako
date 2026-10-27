@@ -69,6 +69,8 @@ export class SwitcherBar {
     this.manageGrid = null;
     this._token = 0;
     this._isBusy = false;
+    /** Pending timer that clears the action row after it has faded out. */
+    this._actionsClearTimer = null;
   }
 
   /**
@@ -88,7 +90,7 @@ export class SwitcherBar {
 
     this._bindEvents();
     this.renderTabs();
-    this.syncState(this.dataControl.getState());
+    this.syncState(this.dataControl.getState(), true);
     if (this.metaWrapperEl) {
       this.metaWrapperEl.addEventListener("mouseenter", () => {
         this._updateMetaExpandedHeight();
@@ -281,14 +283,15 @@ export class SwitcherBar {
   /**
    * Đồng bộ giao diện tổng thể theo State của DataControl.
    * @param {Object} state
+   * @param {boolean} [immediate=false]
    */
-  syncState(state) {
+  syncState(state, immediate = false) {
     this.setBusy(state.isBusy || state.status !== "idle");
     this.syncCounter(state);
     this.syncLoader(state);
     this.syncMetaInfo(state.softCard || state.activeCard);
     this.syncActiveTab(state.sourceId);
-    this.syncRightSlot(state.sourceId);
+    this.syncRightSlot(state.sourceId, immediate);
     if (!state.cardCount || state.cardCount === 0 || !state.activeCard) {
       this.renderActions(null);
     }
@@ -508,32 +511,51 @@ export class SwitcherBar {
 
   /**
    * Ẩn cụm nút action với hiệu ứng fade out.
+   *
+   * The DOM is only cleared *after* the fade so the buttons slide away
+   * smoothly instead of snapping out of existence. Clearing is cancelled by
+   * the next `renderActions` call, which then fades the row back in.
    */
   hideActions() {
     if (!this.actionsContainer) return;
+    // Invalidate any in-flight render so it cannot repopulate the row after
+    // this hide was requested (e.g. a soft-select during an awaited action).
+    this._token++;
     this.actionsContainer.classList.add("is-hidden");
+    clearTimeout(this._actionsClearTimer);
+    this._actionsClearTimer = setTimeout(() => {
+      this._actionsClearTimer = null;
+      if (!this.actionsContainer.classList.contains("is-hidden")) return;
+      this.actionsContainer.innerHTML = "";
+      this.actionsContainer.classList.add("hidden");
+    }, 220);
   }
 
   /**
    * Render action buttons for active settled card.
+   *
+   * The row is **instance-scoped**: it belongs to the wallpaper on stage, so
+   * the whole row fades out while the carousel moves and fades back in once a
+   * card settles. Source-scoped controls (manage / customize / fetch / upload /
+   * settings) are handled separately and animate one by one.
    * @param {Object|null} card
    */
   async renderActions(card = this.dataControl.activeCard) {
     if (!this.actionsContainer) return;
 
     const token = ++this._token;
+    // A fresh render supersedes the pending post-fade DOM clear.
+    clearTimeout(this._actionsClearTimer);
+    this._actionsClearTimer = null;
+
     const source = this.switcher?.activeSource;
     const actions = source?.actions || [];
 
     if (!card || actions.length === 0) {
-      this.actionsContainer.innerHTML = "";
-      this.actionsContainer.classList.add("hidden");
-      this.actionsContainer.classList.add("is-hidden");
+      // Let the current row fade out and clear itself after the transition.
+      this.hideActions();
       return;
     }
-
-    // Đảm bảo ở trạng thái ẩn trước khi cập nhật DOM các nút mới
-    this.actionsContainer.classList.add("is-hidden");
 
     // Kiểm tra tính khả dụng của từng action
     const context = {
@@ -556,7 +578,8 @@ export class SwitcherBar {
 
     if (token !== this._token) return;
 
-    this.actionsContainer.innerHTML = "";
+    // Build into a fragment so the row swaps atomically (no half-painted list).
+    const frag = document.createDocumentFragment();
     actions.forEach((action, index) => {
       const { verdict, resolved } = states[index];
       if (verdict === false) return;
@@ -587,27 +610,35 @@ export class SwitcherBar {
         this._executeAction(action, card, btn);
       });
 
-      this.actionsContainer.appendChild(btn);
+      frag.appendChild(btn);
     });
 
-    if (this.actionsContainer.childElementCount > 0) {
-      const wasHidden = this.actionsContainer.classList.contains("hidden");
-      this.actionsContainer.classList.remove("hidden");
-      if (wasHidden) {
-        void this.actionsContainer.offsetWidth;
-      }
-      renderIcons(this.actionsContainer);
-      this._applyBusyToActions();
+    if (!frag.childElementCount) {
+      this.hideActions();
+      return;
+    }
 
-      // Kích hoạt fade-in mượt mà khi card đã settle và các nút đã sẵn sàng
+    const wasHidden =
+      this.actionsContainer.classList.contains("is-hidden") ||
+      this.actionsContainer.classList.contains("hidden");
+
+    this.actionsContainer.innerHTML = "";
+    this.actionsContainer.appendChild(frag);
+    this.actionsContainer.classList.remove("hidden");
+    renderIcons(this.actionsContainer);
+    this._applyBusyToActions();
+
+    if (wasHidden) {
+      // Commit the collapsed state before transitioning the new row in.
+      this.actionsContainer.classList.add("is-hidden");
+      void this.actionsContainer.offsetWidth;
       requestAnimationFrame(() => {
         if (token === this._token) {
           this.actionsContainer.classList.remove("is-hidden");
         }
       });
     } else {
-      this.actionsContainer.classList.add("hidden");
-      this.actionsContainer.classList.add("is-hidden");
+      this.actionsContainer.classList.remove("is-hidden");
     }
   }
 
@@ -709,14 +740,30 @@ export class SwitcherBar {
   /* ── Right Slot (Upload & Extra Settings) ───────────────────────────────── */
 
   /**
+   * Show/hide a source-scoped control.
+   *
+   * Intentionally instant — no animation. The source swap already fades the
+   * carousel; animating these controls individually fought with layout reflow
+   * and the async load, so they simply appear/disappear as they originally did.
+   * @param {HTMLElement|null} btn
+   * @param {boolean} visible
+   */
+  _setButtonVisible(btn, visible) {
+    if (!btn) return;
+    btn.classList.toggle("hidden", !visible);
+    btn.classList.remove("is-hidden");
+  }
+
+  /**
    * Synchronize right slot controls according to current source capabilities:
    * - Fetch button: visible when source.canGrow is true (for remote sources)
    * - Upload button: visible for Collection
    * - Settings button: visible when source has provider settings
    *
    * @param {string} [sourceId]
+   * @param {boolean} [immediate=false]
    */
-  syncRightSlot(sourceId = this.dataControl.activeSourceId) {
+  syncRightSlot(sourceId = this.dataControl.activeSourceId, immediate = false) {
     const id =
       sourceId ||
       this.dataControl.activeSourceId ||
@@ -736,7 +783,7 @@ export class SwitcherBar {
 
     // Only sources with a browsable window get the manage view (Bing does not).
     if (this.manageBtn) {
-      this.manageBtn.classList.toggle("hidden", !MANAGE_SOURCES.has(id));
+      this._setButtonVisible(this.manageBtn, MANAGE_SOURCES.has(id), immediate);
       const manageLabel = this.getManageLabel(id);
       const manageSpan = this.manageBtn.querySelector("span");
       if (manageSpan && manageSpan.textContent !== manageLabel) {
@@ -747,11 +794,11 @@ export class SwitcherBar {
 
     // Wallpaper customization is a Collection concept for now.
     if (this.customizeBtn) {
-      this.customizeBtn.classList.toggle("hidden", id !== "collection");
+      this._setButtonVisible(this.customizeBtn, id === "collection", immediate);
     }
 
     if (this.fetchBtn) {
-      this.fetchBtn.classList.toggle("hidden", !canGrow);
+      this._setButtonVisible(this.fetchBtn, canGrow, immediate);
       const labelSpan = this.fetchBtn.querySelector("span");
       const label =
         source?.moreLabel ||
@@ -763,7 +810,7 @@ export class SwitcherBar {
       if (this.fetchBtn.title !== label) this.fetchBtn.title = label;
     }
     if (this.uploadBtn) {
-      this.uploadBtn.classList.toggle("hidden", !isCollection);
+      this._setButtonVisible(this.uploadBtn, isCollection, immediate);
       const uploadLabel = t(
         "sp.api.collection.upload_btn",
         "Tải lên ảnh / video",
@@ -772,7 +819,7 @@ export class SwitcherBar {
         this.uploadBtn.title = uploadLabel;
     }
     if (this.settingsBtn) {
-      this.settingsBtn.classList.toggle("hidden", !hasExtraSettings);
+      this._setButtonVisible(this.settingsBtn, hasExtraSettings, immediate);
       const sourceName = t(
         `wallpaper_switcher.source.${id}`,
         source?.name || id,
@@ -831,10 +878,7 @@ export class SwitcherBar {
   }
 
   _applyBusyToActions() {
-    if (
-      !this.actionsContainer ||
-      this.actionsContainer.classList.contains("is-hidden")
-    )
+    if (!this.actionsContainer || !this.actionsContainer.childElementCount)
       return;
     this.actionsContainer.querySelectorAll("button").forEach((btn) => {
       const blocked = btn.dataset.blocked === "1";

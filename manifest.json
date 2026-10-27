@@ -12,7 +12,9 @@
     "https://*.wallhaven.cc/*",
     "https://*.open-meteo.com/*",
     "https://*.pic.re/*",
-    "https://*.bing.com/*"
+    "https://*.bing.com/*",
+    "https://*.workers.dev/*",
+    "https://images.unsplash.com/*"
   ],
   "permissions": ["storage", "unlimitedStorage"],
   "icons": {

@@ -187,7 +187,7 @@
     /* Minimum width of the expanded panel. The collapsed chip always hugs its
        summary text; a summary wider than this floor simply keeps the panel at
        that same width, and the detail content follows it. */
-    --meta-expanded-w: 260px;
+    --meta-expanded-w: 320px;
     --meta-radius: calc(
       var(--meta-chip-h) / 2
     ); /* 14px: Bán kính cung tròn bán nguyệt tuyệt đối */
@@ -404,6 +404,21 @@
     word-break: break-word;
   }
 
+  .wallpaper_switcher_meta_body .meta_value a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-color: rgba(255, 255, 255, 0.4);
+    transition:
+      color 0.15s var(--smooth),
+      text-decoration-color 0.15s var(--smooth);
+  }
+
+  .wallpaper_switcher_meta_body .meta_value a:hover {
+    color: var(--accent, #60a5fa);
+    text-decoration-color: var(--accent, #60a5fa);
+  }
+
   /* Values that end with a chip (e.g. the Resolution row) lay the text and the
      badge out on one flex line, so the badge gets a real gap and is vertically
      centred with the text instead of sitting on the baseline. */
@@ -598,15 +613,12 @@
     align-items: center;
     gap: 6px;
     opacity: 1;
-    transform: translateY(0);
-    transition:
-      opacity 0.2s var(--smooth),
-      transform 0.2s var(--smooth);
+    /* Pure fade when the row leaves/enters with the wallpaper (no slide). */
+    transition: opacity 0.2s var(--smooth);
   }
 
   .wallpaper_source_actions.is-hidden {
     opacity: 0;
-    transform: translateY(6px);
     pointer-events: none;
   }
 
@@ -776,11 +788,11 @@
       opacity 0.2s var(--smooth);
   }
 
-  .wallpaper_manage_btn,
-  .wallpaper_customize_btn,
-  .wallpaper_upload_btn,
-  .wallpaper_fetch_btn,
-  .wallpaper_source_settings,
+  /* ── Bar action buttons (shared layout) ─────────────────────────────────
+     Layout only. The instance action row (`.wallpaper_source_actions`) owns the
+     only animation here (a pure opacity fade); the source-scoped controls
+     (manage / customize / fetch / upload / settings) appear and disappear
+     instantly. */
   .wallpaper_action {
     width: auto;
     height: 34px;
@@ -792,11 +804,6 @@
     justify-content: center;
   }
 
-  .wallpaper_manage_btn > svg,
-  .wallpaper_customize_btn > svg,
-  .wallpaper_upload_btn > svg,
-  .wallpaper_fetch_btn > svg,
-  .wallpaper_source_settings > svg,
   .wallpaper_action > svg {
     width: 16px;
     height: 16px;

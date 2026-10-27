@@ -1,23 +1,43 @@
 import { RemoteSource } from "./RemoteSource.js";
-import { fetchUnsplashQueue } from "/src/wallpaper/sources/api/unsplashAPI.js";
+import {
+  fetchUnsplashQueue,
+  trackUnsplashDownload,
+} from "/src/wallpaper/sources/api/unsplashAPI.js";
 import { getFromStore, saveToStore } from "/src/core/db.js";
-import { getSettings } from "/src/core/storageHandler.js";
 import { t } from "/src/core/i18n.js";
 import {
   formatResolution,
   getResolutionBadge,
   formatFileSize,
+  formatNumber,
   escapeHtml,
 } from "./cardMeta.js";
 
 /**
+ * Trích xuất chuỗi địa điểm sạch từ object hoặc string, tránh render [object Object].
+ * @param {string|Object|null} loc
+ * @returns {string}
+ */
+function formatLocation(loc) {
+  if (!loc) return "";
+  if (typeof loc === "string") {
+    const trimmed = loc.trim();
+    return trimmed === "[object Object]" ? "" : trimmed;
+  }
+  if (typeof loc === "object") {
+    if (typeof loc.name === "string" && loc.name) return loc.name.trim();
+    const parts = [loc.city, loc.country].filter(Boolean);
+    if (parts.length > 0) return parts.join(", ").trim();
+  }
+  return "";
+}
+
+/**
  * UnsplashSource.js
  * ---------------------------------------------------------------------------
- * Switcher source for Unsplash. Requires an Access Key, configured in the
- * source's own settings panel (`unsplashApiKey`), so the tab stays available.
- *
- * Like Wallhaven it keeps the batch returned by one API call in the app's
- * `data:unsplash` queue and materializes items one at a time.
+ * Switcher source for Unsplash.
+ * Uses a Cloudflare Worker proxy to safely fetch curated, high-res photos
+ * and keep the queue in IndexedDB.
  */
 export class UnsplashSource extends RemoteSource {
   static id = "unsplash";
@@ -25,34 +45,24 @@ export class UnsplashSource extends RemoteSource {
   static providerId = "unsplash";
   static storageKey = "provider_state:unsplash";
 
-  /** The Access Key is entered in this source's own settings panel. */
+  /** Unsplash options (query, topics, orientation) in sidebar. */
   get hasProviderSettings() {
     return true;
   }
 
   /** Take the next photo off the persisted queue, refilling it if empty. */
   async fetchItem() {
-    const apiKey = getSettings().unsplashApiKey;
-    if (!apiKey) {
-      throw new Error(
-        t(
-          "sp.api.unsplash.no_key",
-          "Vui lòng nhập Unsplash Access Key trong phần cài đặt nguồn Unsplash.",
-        ),
-      );
-    }
-
     const key = this.constructor.storageKey;
     const storeData = (await getFromStore(key)) || { queue: [], applied: null };
     const queue = Array.isArray(storeData.queue) ? storeData.queue : [];
 
     if (queue.length === 0) {
-      queue.push(...(await fetchUnsplashQueue(apiKey)));
+      queue.push(...(await fetchUnsplashQueue()));
       storeData.queue_total = queue.length;
     }
 
     const entry = queue.shift();
-    if (!entry?.urls?.regular) return null;
+    if (!entry?.urls?.regular && !entry?.urls?.full) return null;
 
     storeData.queue = queue;
     await saveToStore(key, storeData);
@@ -63,19 +73,28 @@ export class UnsplashSource extends RemoteSource {
       sourceUrl: entry.links?.html || "https://unsplash.com",
       title: entry.user?.name ? `Unsplash • ${entry.user.name}` : "Unsplash",
       category: "Unsplash",
-      thumbnailUrl: entry.urls.small || entry.urls.regular,
+      thumbnailUrl: entry.urls.thumb || entry.urls.regular,
       trackUrl: entry.links?.download_location || "",
       width: entry.width || 0,
       height: entry.height || 0,
       size: 0,
+      views: entry.views ?? entry.raw?.views ?? 0,
+      downloads: entry.downloads ?? entry.raw?.downloads ?? 0,
+      likes: entry.likes ?? entry.raw?.likes ?? 0,
+      exif: entry.exif || entry.raw?.exif || null,
       user: entry.user
         ? {
             name: entry.user.name || "",
             username: entry.user.username || "",
-            link: entry.user.links?.html || "",
+            link: entry.user.link || entry.user.links?.html || "",
           }
         : null,
-      location: entry.location?.name || entry.user?.location || "",
+      location: formatLocation(
+        entry.location ||
+          entry.raw?.location ||
+          entry.user?.location ||
+          entry.raw?.user?.location,
+      ),
       raw: entry,
     });
   }
@@ -110,19 +129,35 @@ export class UnsplashSource extends RemoteSource {
     if (!card) return [];
     const details = [];
 
+    // 1. Tác giả có liên kết (clickable link)
     const authorName =
       card.user?.name ||
       (card.title?.startsWith("Unsplash • ") ? card.title.slice(11) : "");
     const username = card.user?.username;
+    const authorLink = card.user?.link;
+
     if (authorName) {
+      const authorDisplay = username
+        ? `${escapeHtml(authorName)} (@${escapeHtml(username)})`
+        : escapeHtml(authorName);
+      const authorHtml = authorLink
+        ? `<a href="${escapeHtml(authorLink)}" target="_blank" rel="noopener noreferrer">${authorDisplay}</a>`
+        : authorDisplay;
+
       details.push({
         label: t("sp.meta.author", "Tác giả"),
-        value: username ? `${authorName} (@${username})` : authorName,
+        value: authorHtml,
+        html: true,
       });
     }
 
-    const loc =
-      card.location || card.raw?.location?.name || card.user?.location;
+    // 2. Địa điểm chụp (chuỗi sạch)
+    const loc = formatLocation(
+      card.location ||
+        card.raw?.location ||
+        card.user?.location ||
+        card.raw?.user?.location,
+    );
     if (loc) {
       details.push({
         label: t("sp.meta.location", "Địa điểm"),
@@ -130,6 +165,63 @@ export class UnsplashSource extends RemoteSource {
       });
     }
 
+    // 3. Tên máy ảnh (Camera)
+    const exif = card.exif || card.raw?.exif;
+    if (exif?.camera) {
+      details.push({
+        label: t("sp.meta.camera", "Máy ảnh"),
+        value: exif.camera,
+      });
+    }
+
+    // 4. Thông số chụp (Khẩu độ, Tốc độ, Tiêu cự, ISO)
+    if (exif) {
+      const settings = [];
+      if (exif.aperture) settings.push(exif.aperture);
+      if (exif.exposure_time) settings.push(exif.exposure_time);
+      if (exif.focal_length) settings.push(exif.focal_length);
+      if (exif.iso) settings.push(`ISO ${exif.iso}`);
+
+      if (settings.length > 0) {
+        details.push({
+          label: t("sp.meta.camera_exif", "Thông số"),
+          value: settings.join(" • "),
+        });
+      }
+    }
+
+    // 5. Thống kê tương tác (Lượt xem, Lượt tải, Lượt thích)
+    const views = card.views ?? card.raw?.views;
+    const downloads = card.downloads ?? card.raw?.downloads;
+    const likes = card.likes ?? card.raw?.likes;
+
+    if (views || downloads || likes) {
+      const stats = [];
+      if (views) {
+        stats.push(
+          `<span class="meta_stat_item" title="${escapeHtml(t("sp.meta.views", "Lượt xem"))}"><i data-icon="eye"></i> <span>${escapeHtml(formatNumber(views))}</span></span>`,
+        );
+      }
+      if (downloads) {
+        stats.push(
+          `<span class="meta_stat_item" title="${escapeHtml(t("sp.meta.downloads", "Lượt tải"))}"><i data-icon="download"></i> <span>${escapeHtml(formatNumber(downloads))}</span></span>`,
+        );
+      }
+      if (likes) {
+        stats.push(
+          `<span class="meta_stat_item" title="${escapeHtml(t("sp.meta.favorites", "Yêu thích"))}"><i data-icon="heart"></i> <span>${escapeHtml(formatNumber(likes))}</span></span>`,
+        );
+      }
+      if (stats.length > 0) {
+        details.push({
+          label: t("sp.meta.stats", "Tương tác"),
+          value: stats.join(""),
+          html: true,
+        });
+      }
+    }
+
+    // 6. Độ phân giải
     const badge = getResolutionBadge(card.width, card.height);
     const res = formatResolution(card.width, card.height);
     if (res) {
@@ -143,6 +235,7 @@ export class UnsplashSource extends RemoteSource {
       });
     }
 
+    // 7. Dung lượng file
     const size = formatFileSize(card.size);
     if (size) {
       details.push({
@@ -151,6 +244,7 @@ export class UnsplashSource extends RemoteSource {
       });
     }
 
+    // 8. Nguồn
     details.push({
       label: t("sp.meta.source", "Nguồn ảnh"),
       value: "Unsplash",
@@ -160,15 +254,13 @@ export class UnsplashSource extends RemoteSource {
   }
 
   /**
-   * Unsplash's API guidelines require hitting the download endpoint whenever
-   * a photo is used, otherwise the account can be rate-limited.
+   * Báo cáo download tracking theo quy định của Unsplash khi hình nền được áp dụng.
    */
   async apply(item, options) {
     await super.apply(item, options);
 
-    const apiKey = getSettings().unsplashApiKey;
-    if (item.trackUrl && apiKey) {
-      fetch(`${item.trackUrl}&client_id=${apiKey}`).catch(() => {});
+    if (item.trackUrl) {
+      trackUnsplashDownload(item.trackUrl);
     }
   }
 }
