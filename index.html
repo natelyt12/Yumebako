@@ -1,48 +1,54 @@
 <!doctype html>
 <html lang="en">
-
-<head>
+  <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title data-i18n="tab_new"></title>
     <link rel="stylesheet" href="/src/style.css" />
     <!-- web icon -->
     <link rel="icon" href="/assets/icons/icon-16.png" />
-</head>
+  </head>
 
-<body>
+  <body>
     <div class="container">
-        <div class="onload_animation_frame">
-            <div class="wavy background_container">
-                <div class="image"></div>
-                <video class="video" loop muted></video>
-                <!-- Bloom Layer -->
-                <div class="bloom_container">
-                    <div class="image"></div>
-                    <video class="video" loop muted></video>
-                </div>
-            </div>
-            <div class="wallpaper_effect_container"></div>
+      <div class="onload_animation_frame">
+        <div class="wavy background_container">
+          <div class="image"></div>
+          <video class="video" loop muted></video>
+          <!-- Bloom Layer -->
+          <div class="bloom_container">
+            <div class="image"></div>
+            <video class="video" loop muted></video>
+          </div>
         </div>
-        <!-- Static effects: outside onload_animation_frame, not affected by bg transforms -->
-        <div class="static_effect_container"></div>
-        <div class="overlay"></div>
+        <div class="wallpaper_effect_container"></div>
+      </div>
+      <!-- Static effects: outside onload_animation_frame, not affected by bg transforms -->
+      <div class="static_effect_container"></div>
+      <div class="overlay"></div>
+      <div
+        class="wallpaper_credit"
+        id="wallpaper_credit"
+        aria-hidden="true"
+      ></div>
 
-        <div class="safemode">
-            <p data-i18n="sp.appearance.presentation_mode_active">Chế độ thuyết trình đang bật</p>
-        </div>
+      <div class="safemode">
+        <p data-i18n="sp.appearance.presentation_mode_active">
+          Chế độ thuyết trình đang bật
+        </p>
+      </div>
 
-        <div id="widgets_container"></div>
+      <div id="widgets_container"></div>
     </div>
 
     <!-- Action Buttons (Settings & Wallpaper Switcher) -->
     <div id="action_buttons" class="action_buttons">
-        <button type="button" id="wallpaper_toggle_btn">
-            <i data-icon="sidebar_wallpaper"></i>
-        </button>
-        <button type="button" id="setting_toggle_btn">
-            <i data-icon="settings"></i>
-        </button>
+      <button type="button" id="wallpaper_toggle_btn">
+        <i data-icon="sidebar_wallpaper"></i>
+      </button>
+      <button type="button" id="setting_toggle_btn">
+        <i data-icon="settings"></i>
+      </button>
     </div>
 
     <!-- Wallpaper Switcher (Bottom Slider) -->
@@ -50,8 +56,7 @@
 
     <!-- Settings -->
     <div id="setting_wrapper" class="preload"></div>
-</body>
-<!-- Script -->
-<script type="module" src="/src/main.js"></script>
-
+  </body>
+  <!-- Script -->
+  <script type="module" src="/src/main.js"></script>
 </html>

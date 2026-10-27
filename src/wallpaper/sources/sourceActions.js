@@ -5,6 +5,7 @@ import {
   removeFromCollection,
   getCollection,
 } from "/src/wallpaper/sources/api/collectionDb.js";
+import { trackDownloadOnce, withUnsplashUtm } from "./api/unsplashAPI.js";
 import {
   generateImageThumbnail,
   generateVideoThumbnail,
@@ -48,12 +49,18 @@ async function download(card, { source }) {
   link.download = `wallpaper_${card.id}.${extensionFor(blob.type)}`;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+  // Unsplash: a real file download is a "use" event. Safe no-op elsewhere.
+  void trackDownloadOnce(card);
 }
 
 /** Open the card's original page in a new tab. */
 function viewSource(card, { source }) {
   const url = source.getSourceUrl(card);
-  window.open(url, "_blank");
+  // Unsplash requires UTM on links back to their site.
+  const isUnsplash =
+    source?.id === "unsplash" || card?.metadata?.provider === "unsplash";
+  window.open(isUnsplash ? withUnsplashUtm(url) : url, "_blank");
 }
 
 /** Only a card that came from a page has one to show: local files do not. */
@@ -109,6 +116,11 @@ async function addCardToCollection(card, source) {
     ? await generateVideoThumbnail(blob)
     : await generateImageThumbnail(blob);
 
+  // Unsplash: saving the photo locally is also a "use". `trackDownloadOnce`
+  // sets the flag synchronously so the metadata below records it and a later
+  // download from the collection will not re-send the tracking request.
+  void trackDownloadOnce(card);
+
   await addToCollection({
     type: isVideo ? "video" : "image",
     blob,
@@ -129,7 +141,7 @@ async function addCardToCollection(card, source) {
       copyright: card.copyright || "",
       startDate: card.startDate || "",
       user: card.user || null,
-      addedAt: Date.now(),
+      downloadTracked: card.downloadTracked === true,
     },
   });
 

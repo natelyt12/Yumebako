@@ -1,7 +1,8 @@
 import { RemoteSource } from "./RemoteSource.js";
 import {
   fetchUnsplashQueue,
-  trackUnsplashDownload,
+  trackDownloadOnce,
+  withUnsplashUtm,
 } from "/src/wallpaper/sources/api/unsplashAPI.js";
 import { getFromStore, saveToStore } from "/src/core/db.js";
 import { t } from "/src/core/i18n.js";
@@ -141,7 +142,7 @@ export class UnsplashSource extends RemoteSource {
         ? `${escapeHtml(authorName)} (@${escapeHtml(username)})`
         : escapeHtml(authorName);
       const authorHtml = authorLink
-        ? `<a href="${escapeHtml(authorLink)}" target="_blank" rel="noopener noreferrer">${authorDisplay}</a>`
+        ? `<a href="${escapeHtml(withUnsplashUtm(authorLink))}" target="_blank" rel="noopener noreferrer">${authorDisplay}</a>`
         : authorDisplay;
 
       details.push({
@@ -244,7 +245,7 @@ export class UnsplashSource extends RemoteSource {
       });
     }
 
-    // 8. Nguồn
+    // 8. Nguồn (link đã có ở nút "Xem nguồn ảnh" + credit overlay)
     details.push({
       label: t("sp.meta.source", "Nguồn ảnh"),
       value: "Unsplash",
@@ -254,13 +255,32 @@ export class UnsplashSource extends RemoteSource {
   }
 
   /**
+   * Unsplash requires attribution wherever the photo is shown: photographer
+   * name + profile and the photo page, both with UTM parameters.
+   * @param {Object} card
+   * @returns {{name: string, profileUrl: string, photoUrl: string}|null}
+   */
+  getAttribution(card) {
+    if (!card) return null;
+    const user = card.user || card.raw?.user || null;
+    const name = user?.name || "";
+    const profile = user?.link || user?.links?.html || "";
+    const photo = card.raw?.links?.html || card.sourceUrl || "";
+    if (!name && !photo) return null;
+    return {
+      name,
+      profileUrl: withUnsplashUtm(profile),
+      photoUrl: withUnsplashUtm(photo),
+    };
+  }
+
+  /**
    * Báo cáo download tracking theo quy định của Unsplash khi hình nền được áp dụng.
    */
   async apply(item, options) {
     await super.apply(item, options);
 
-    if (item.trackUrl) {
-      trackUnsplashDownload(item.trackUrl);
-    }
+    // Applying the photo is a real "use" event. Tracked at most once per photo.
+    void trackDownloadOnce(item);
   }
 }

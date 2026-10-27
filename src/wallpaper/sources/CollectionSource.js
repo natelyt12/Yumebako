@@ -29,6 +29,7 @@ import {
   getPicreSourceLabel,
   escapeHtml,
 } from "./cardMeta.js";
+import { withUnsplashUtm } from "./api/unsplashAPI.js";
 
 const FALLBACK_THUMB = "/image/fallback.jpg";
 const VIDEO_HARD_LIMIT = 500 * 1024 * 1024;
@@ -438,6 +439,22 @@ export class CollectionSource extends BaseSource {
     return rawTitle && !/^info$/i.test(rawTitle) ? rawTitle : "Bing";
   }
 
+  /** Unsplash credit for a collection copy (kept in the stored metadata). */
+  getAttribution(card) {
+    const meta = card?.metadata || {};
+    if ((meta.provider || "") !== "unsplash") return null;
+    const user = meta.user || card?.user || null;
+    const name = user?.name || "";
+    const profile = user?.link || "";
+    const photo = meta.source || meta.url || "";
+    if (!name && !photo) return null;
+    return {
+      name,
+      profileUrl: withUnsplashUtm(profile),
+      photoUrl: withUnsplashUtm(photo),
+    };
+  }
+
   getChipSummary(card) {
     if (!card) return "";
     const meta = card.metadata || {};
@@ -524,9 +541,14 @@ export class CollectionSource extends BaseSource {
         const author = meta.user?.name;
         const username = meta.user?.username;
         if (author) {
+          const authorLabel = username ? `${author} (@${username})` : author;
+          const authorLink = meta.user?.link;
           details.push({
             label: t("sp.meta.author", "Tác giả"),
-            value: username ? `${author} (@${username})` : author,
+            value: authorLink
+              ? `<a href="${escapeHtml(withUnsplashUtm(authorLink))}" target="_blank" rel="noopener noreferrer">${escapeHtml(authorLabel)}</a>`
+              : authorLabel,
+            html: Boolean(authorLink),
           });
         }
         if (meta.user?.location || meta.location) {

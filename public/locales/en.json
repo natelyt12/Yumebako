@@ -307,6 +307,7 @@
     "sp.meta.local_device": "On this device",
     "sp.meta.location": "Location",
     "sp.meta.media_type": "Media type",
+    "sp.meta.on": "on",
     "sp.meta.photo_by": "Photo by",
     "sp.meta.platform": "Platform",
     "sp.meta.query": "Query",

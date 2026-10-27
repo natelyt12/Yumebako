@@ -1,6 +1,13 @@
 import { applyOnloadAnimation } from "/src/wallpaper/onload/index.js";
 import { dataControl } from "/src/wallpaper/core/DataControl.js";
-import { getSettings, saveSettings, subscribe, getDefaultWallpaperEffects } from "/src/core/storageHandler.js";
+import {
+  getSettings,
+  saveSettings,
+  subscribe,
+  getDefaultWallpaperEffects,
+} from "/src/core/storageHandler.js";
+import { t } from "/src/core/i18n.js";
+import { escapeHtml } from "../sources/cardMeta.js";
 import { applyWallpaperFilters } from "./filter.js";
 import { applyWallpaperPosition } from "../bgEditor.js";
 
@@ -14,194 +21,246 @@ import { applyWallpaperPosition } from "../bgEditor.js";
 const OVERLAY_FADE_MS = 400;
 
 class WallpaperRenderer {
-    constructor() {
-        this.globalUI = null;
-        this.hasActiveBackground = false;
-        this.currentBlobUrl = null;
-        this.currentType = null;
-        this.currentId = null;
-        this._renderToken = 0;
-        this._applyToken = 0;
+  constructor() {
+    this.globalUI = null;
+    this.hasActiveBackground = false;
+    this.currentBlobUrl = null;
+    this.currentType = null;
+    this.currentId = null;
+    this._renderToken = 0;
+    this._applyToken = 0;
+  }
+
+  initUI() {
+    if (this.globalUI) return;
+    this.globalUI = {
+      bg: document.querySelector(".image"),
+      video: document.querySelector(".video"),
+      overlay: document.querySelector(".overlay"),
+    };
+  }
+
+  async _fadeToOverlay() {
+    this.initUI();
+    const overlay = this.globalUI?.overlay;
+    if (!overlay) return;
+
+    overlay.style.transition = `opacity ${OVERLAY_FADE_MS}ms var(--ease_in_out)`;
+    if (Number(getComputedStyle(overlay).opacity) >= 1) return;
+
+    overlay.style.opacity = 1;
+
+    await new Promise((resolve) => {
+      let timer = null;
+      const finish = () => {
+        overlay.removeEventListener("transitionend", onEnd);
+        if (timer) clearTimeout(timer);
+        resolve();
+      };
+      const onEnd = (event) => {
+        if (event.target === overlay && event.propertyName === "opacity")
+          finish();
+      };
+
+      overlay.addEventListener("transitionend", onEnd);
+      timer = setTimeout(finish, OVERLAY_FADE_MS + 120);
+    });
+  }
+
+  async apply(data, { firstRun = false } = {}) {
+    this.initUI();
+    const ui = this.globalUI;
+    if (!ui) return false;
+
+    if (!data || !data.blob) {
+      console.error("Invalid wallpaper data", data);
+      return false;
     }
 
-    initUI() {
-        if (this.globalUI) return;
-        this.globalUI = {
-            bg: document.querySelector(".image"),
-            video: document.querySelector(".video"),
-            overlay: document.querySelector(".overlay"),
-        };
+    if (!firstRun && this.currentId && data.id && this.currentId === data.id) {
+      return true;
     }
 
-    async _fadeToOverlay() {
-        this.initUI();
-        const overlay = this.globalUI?.overlay;
-        if (!overlay) return;
+    const token = ++this._renderToken;
 
-        overlay.style.transition = `opacity ${OVERLAY_FADE_MS}ms var(--ease_in_out)`;
-        if (Number(getComputedStyle(overlay).opacity) >= 1) return;
+    if (!firstRun) await this._fadeToOverlay();
+    // Nếu đã có request apply mới hơn trong lúc fade overlay -> huỷ request cũ ngay
+    if (token !== this._renderToken) return false;
 
-        overlay.style.opacity = 1;
+    const oldBlob = this.currentBlobUrl;
+    let newBlobUrl = URL.createObjectURL(data.blob);
 
-        await new Promise((resolve) => {
-            let timer = null;
-            const finish = () => {
-                overlay.removeEventListener("transitionend", onEnd);
-                if (timer) clearTimeout(timer);
-                resolve();
-            };
-            const onEnd = (event) => {
-                if (event.target === overlay && event.propertyName === "opacity") finish();
-            };
-
-            overlay.addEventListener("transitionend", onEnd);
-            timer = setTimeout(finish, OVERLAY_FADE_MS + 120);
-        });
+    // Giải mã bất đồng bộ ngoài Main Thread để triệt tiêu hiện tượng khựng khung hình
+    if (data.type !== "video" && newBlobUrl) {
+      try {
+        const decoder = new Image();
+        decoder.src = newBlobUrl;
+        if (typeof decoder.decode === "function") {
+          await decoder.decode();
+        }
+      } catch {
+        // Fallback tự nhiên nếu giải mã gặp lỗi
+      }
     }
 
-    async apply(data, { firstRun = false } = {}) {
-        this.initUI();
-        const ui = this.globalUI;
-        if (!ui) return false;
+    // Nếu trong lúc giải mã đã có một request hình nền mới hơn -> huỷ ngay bản cũ để tránh đè giao diện
+    if (token !== this._renderToken) {
+      URL.revokeObjectURL(newBlobUrl);
+      return false;
+    }
 
-        if (!data || !data.blob) {
-            console.error("Invalid wallpaper data", data);
-            return false;
+    this.currentId = data.id || null;
+    this.currentType = data.type;
+    this.currentBlobUrl = newBlobUrl;
+    this.hasActiveBackground = true;
+
+    // Áp dụng bộ hiệu ứng riêng của hình nền này trong lúc overlay đang che kín màn hình
+    const effects = data.effects || getDefaultWallpaperEffects();
+    applyWallpaperFilters(effects.filter);
+    applyWallpaperPosition(effects.position);
+
+    dataControl.isApplyingCardEffects = true;
+    try {
+      const currentConf = getSettings().wallpaperConfig || {};
+      saveSettings({
+        wallpaperPosition: effects.position,
+        wallpaperConfig: {
+          ...currentConf,
+          source: dataControl.activeSourceId || currentConf.source,
+          activeWallpaperId: data.id,
+          activeCollectionItemId:
+            dataControl.activeSourceId === "collection"
+              ? data.id
+              : currentConf.activeCollectionItemId,
+          brightness: effects.filter?.brightness ?? 1,
+          contrast: effects.filter?.contrast ?? 1,
+          saturate: effects.filter?.saturate ?? 1,
+          bloom: effects.filter?.bloom ?? 0,
+          blur: effects.filter?.blur ?? 0,
+          mode: effects.position?.mode || currentConf.mode || "cover",
+        },
+        wavy: effects.wavy,
+        particles: effects.particles,
+        onload: effects.onload,
+      });
+    } finally {
+      dataControl.isApplyingCardEffects = false;
+    }
+
+    if (data.type === "video") {
+      const collectionConfig = getSettings().collectionConfig || {};
+      const soundEnabled = Boolean(collectionConfig.videoSound);
+      const volume = Math.max(
+        0,
+        Math.min(1, collectionConfig.videoVolume ?? 0.5),
+      );
+
+      document.querySelectorAll(".video").forEach((v) => {
+        v.style.display = "block";
+        const isBloom = v.parentElement?.classList.contains("bloom_container");
+        v.muted = isBloom || !soundEnabled;
+        v.volume = volume;
+        if (newBlobUrl) {
+          v.src = newBlobUrl;
+          v.play().catch(() => {});
         }
+      });
+      document.querySelectorAll(".image").forEach((img) => {
+        img.style.display = "";
+        img.style.backgroundImage = "none";
+        img.style.backgroundColor = "";
+      });
+    } else {
+      document.querySelectorAll(".video").forEach((v) => {
+        v.style.display = "none";
+        v.pause();
+        v.removeAttribute("src");
+      });
 
-        if (!firstRun && this.currentId && data.id && this.currentId === data.id) {
-            return true;
-        }
-
-        const token = ++this._renderToken;
-
-        if (!firstRun) await this._fadeToOverlay();
-        // Nếu đã có request apply mới hơn trong lúc fade overlay -> huỷ request cũ ngay
-        if (token !== this._renderToken) return false;
-
-        const oldBlob = this.currentBlobUrl;
-        let newBlobUrl = URL.createObjectURL(data.blob);
-
-        // Giải mã bất đồng bộ ngoài Main Thread để triệt tiêu hiện tượng khựng khung hình
-        if (data.type !== "video" && newBlobUrl) {
-            try {
-                const decoder = new Image();
-                decoder.src = newBlobUrl;
-                if (typeof decoder.decode === "function") {
-                    await decoder.decode();
-                }
-            } catch {
-                // Fallback tự nhiên nếu giải mã gặp lỗi
-            }
-        }
-
-        // Nếu trong lúc giải mã đã có một request hình nền mới hơn -> huỷ ngay bản cũ để tránh đè giao diện
-        if (token !== this._renderToken) {
-            URL.revokeObjectURL(newBlobUrl);
-            return false;
-        }
-
-        this.currentId = data.id || null;
-        this.currentType = data.type;
-        this.currentBlobUrl = newBlobUrl;
-        this.hasActiveBackground = true;
-
-        // Áp dụng bộ hiệu ứng riêng của hình nền này trong lúc overlay đang che kín màn hình
-        const effects = data.effects || getDefaultWallpaperEffects();
-        applyWallpaperFilters(effects.filter);
-        applyWallpaperPosition(effects.position);
-
-        dataControl.isApplyingCardEffects = true;
-        try {
-            const currentConf = getSettings().wallpaperConfig || {};
-            saveSettings({
-                wallpaperPosition: effects.position,
-                wallpaperConfig: {
-                    ...currentConf,
-                    source: dataControl.activeSourceId || currentConf.source,
-                    activeWallpaperId: data.id,
-                    activeCollectionItemId: dataControl.activeSourceId === "collection" ? data.id : currentConf.activeCollectionItemId,
-                    brightness: effects.filter?.brightness ?? 1,
-                    contrast: effects.filter?.contrast ?? 1,
-                    saturate: effects.filter?.saturate ?? 1,
-                    bloom: effects.filter?.bloom ?? 0,
-                    blur: effects.filter?.blur ?? 0,
-                    mode: effects.position?.mode || currentConf.mode || "cover",
-                },
-                wavy: effects.wavy,
-                particles: effects.particles,
-                onload: effects.onload,
-            });
-        } finally {
-            dataControl.isApplyingCardEffects = false;
-        }
-
-        if (data.type === "video") {
-            const collectionConfig = getSettings().collectionConfig || {};
-            const soundEnabled = Boolean(collectionConfig.videoSound);
-            const volume = Math.max(0, Math.min(1, collectionConfig.videoVolume ?? 0.5));
-
-            document.querySelectorAll(".video").forEach((v) => {
-                v.style.display = "block";
-                const isBloom = v.parentElement?.classList.contains("bloom_container");
-                v.muted = isBloom || !soundEnabled;
-                v.volume = volume;
-                if (newBlobUrl) {
-                    v.src = newBlobUrl;
-                    v.play().catch(() => { });
-                }
-            });
-            document.querySelectorAll(".image").forEach((img) => {
-                img.style.display = "";
-                img.style.backgroundImage = "none";
-                img.style.backgroundColor = "";
-            });
+      document.querySelectorAll(".image").forEach((img) => {
+        img.style.display = "";
+        img.style.backgroundColor = "";
+        if (newBlobUrl) {
+          img.style.backgroundImage = `url(${newBlobUrl})`;
         } else {
-            document.querySelectorAll(".video").forEach((v) => {
-                v.style.display = "none";
-                v.pause();
-                v.removeAttribute("src");
-            });
-
-            document.querySelectorAll(".image").forEach((img) => {
-                img.style.display = "";
-                img.style.backgroundColor = "";
-                if (newBlobUrl) {
-                    img.style.backgroundImage = `url(${newBlobUrl})`;
-                } else {
-                    img.style.backgroundImage = "none";
-                }
-            });
+          img.style.backgroundImage = "none";
         }
-
-        if (oldBlob && oldBlob !== newBlobUrl) {
-            URL.revokeObjectURL(oldBlob);
-        }
-
-        if (firstRun) {
-            applyOnloadAnimation();
-        } else if (ui.overlay) {
-            ui.overlay.style.opacity = 0;
-        }
-
-        return true;
+      });
     }
 
-    bindDataControl() {
-        dataControl.on("card:hard", async ({ card, sourceId, firstRun }) => {
-            if (!card) return;
-            const token = ++this._applyToken;
-            const source = dataControl.sources.get(sourceId) || dataControl.activeSource;
-            if (!source) return;
-            try {
-                const result = await source.apply(card, { firstRun: Boolean(firstRun) });
-                if (result === false || token !== this._applyToken) return;
-            } catch (err) {
-                if (token !== this._applyToken) return;
-                console.error("[WallpaperRenderer] Error applying wallpaper for card:", card.id, err);
-            }
+    if (oldBlob && oldBlob !== newBlobUrl) {
+      URL.revokeObjectURL(oldBlob);
+    }
+
+    if (firstRun) {
+      applyOnloadAnimation();
+    } else if (ui.overlay) {
+      ui.overlay.style.opacity = 0;
+    }
+
+    return true;
+  }
+
+  bindDataControl() {
+    dataControl.on("card:hard", async ({ card, sourceId, firstRun }) => {
+      if (!card) return;
+      const token = ++this._applyToken;
+      const source =
+        dataControl.sources.get(sourceId) || dataControl.activeSource;
+      if (!source) return;
+      try {
+        const result = await source.apply(card, {
+          firstRun: Boolean(firstRun),
         });
+        if (result === false || token !== this._applyToken) return;
+        this.updateCredit(source, card);
+      } catch (err) {
+        if (token !== this._applyToken) return;
+        console.error(
+          "[WallpaperRenderer] Error applying wallpaper for card:",
+          card.id,
+          err,
+        );
+      }
+    });
+  }
+
+  /**
+   * Show/hide the photo attribution on the wallpaper. Sources that require
+   * credit (Unsplash) implement `getAttribution`; everyone else returns null.
+   */
+  updateCredit(source, card) {
+    const el = document.getElementById("wallpaper_credit");
+    if (!el) return;
+
+    const credit = source?.getAttribution?.(card) || null;
+    if (!credit) {
+      el.classList.remove("is-visible");
+      el.setAttribute("aria-hidden", "true");
+      el.replaceChildren();
+      return;
     }
+
+    const photoBy = escapeHtml(t("sp.meta.photo_by", "Photo by"));
+    const onWord = escapeHtml(t("sp.meta.on", "on"));
+    const authorLabel = escapeHtml(credit.name || "");
+    const photo = credit.photoUrl
+      ? `<a href="${escapeHtml(credit.photoUrl)}" target="_blank" rel="noopener noreferrer">Unsplash</a>`
+      : "Unsplash";
+
+    if (!authorLabel) {
+      // No photographer name (e.g. a seed card): link to the source only.
+      el.innerHTML = `<span>${photo}</span>`;
+    } else {
+      const author = credit.profileUrl
+        ? `<a href="${escapeHtml(credit.profileUrl)}" target="_blank" rel="noopener noreferrer">${authorLabel}</a>`
+        : authorLabel;
+      el.innerHTML = `<span>${photoBy} ${author} ${onWord} ${photo}</span>`;
+    }
+
+    el.classList.add("is-visible");
+    el.setAttribute("aria-hidden", "false");
+  }
 }
 
 export const wallpaperRenderer = new WallpaperRenderer();
@@ -212,15 +271,15 @@ wallpaperRenderer.bindDataControl();
  * @param {Object} [config]
  */
 export function updateVideoAudio(config = getSettings().collectionConfig) {
-    const soundEnabled = Boolean(config?.videoSound);
-    const volume = Math.max(0, Math.min(1, config?.videoVolume ?? 1));
-    document.querySelectorAll(".video").forEach((v) => {
-        const isBloom = v.parentElement?.classList.contains("bloom_container");
-        v.muted = isBloom || !soundEnabled;
-        v.volume = volume;
-    });
+  const soundEnabled = Boolean(config?.videoSound);
+  const volume = Math.max(0, Math.min(1, config?.videoVolume ?? 1));
+  document.querySelectorAll(".video").forEach((v) => {
+    const isBloom = v.parentElement?.classList.contains("bloom_container");
+    v.muted = isBloom || !soundEnabled;
+    v.volume = volume;
+  });
 }
 
 subscribe("collectionConfig", (newConfig) => {
-    updateVideoAudio(newConfig);
+  updateVideoAudio(newConfig);
 });

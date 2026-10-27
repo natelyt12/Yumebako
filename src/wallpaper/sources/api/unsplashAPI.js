@@ -40,6 +40,101 @@ export async function trackUnsplashDownload(downloadLocationUrl) {
   }
 }
 
+/** UTM params Unsplash requires on every link back to their site. */
+export const UNSPLASH_UTM = "utm_source=yumebako&utm_medium=referral";
+
+/**
+ * Append the Unsplash UTM params to a URL (profile / photo page / homepage).
+ * @param {string} url
+ * @returns {string}
+ */
+export function withUnsplashUtm(url) {
+  if (!url) return "";
+  return `${url}${url.includes("?") ? "&" : "?"}${UNSPLASH_UTM}`;
+}
+
+/* ── At-most-once tracking ──────────────────────────────────────────────────
+   Keys are the Unsplash photo id (`raw.id`, or the card id for seed/collection
+   copies) so the same photo is never reported twice, no matter how many card
+   instances exist. Persisted alongside the Unsplash provider state. */
+
+const TRACKED_LIMIT = 1000;
+const trackedIds = new Set();
+let trackedLoaded = false;
+let trackedLoadPromise = null;
+let trackedPersistTimer = null;
+
+async function ensureTrackedLoaded() {
+  if (trackedLoaded) return;
+  if (!trackedLoadPromise) {
+    trackedLoadPromise = (async () => {
+      try {
+        const storeData = (await getFromStore(UNSPLASH_STORAGE_KEY)) || {};
+        if (Array.isArray(storeData.trackedIds)) {
+          storeData.trackedIds.forEach((id) => trackedIds.add(String(id)));
+        }
+      } catch (err) {
+        console.warn("[unsplashAPI] Failed to load tracked ids:", err);
+      } finally {
+        trackedLoaded = true;
+      }
+    })();
+  }
+  await trackedLoadPromise;
+}
+
+function scheduleTrackedPersist() {
+  if (trackedPersistTimer) return;
+  trackedPersistTimer = setTimeout(async () => {
+    trackedPersistTimer = null;
+    try {
+      // Keep storage bounded: drop the oldest keys beyond the cap.
+      while (trackedIds.size > TRACKED_LIMIT) {
+        trackedIds.delete(trackedIds.values().next().value);
+      }
+      const storeData = (await getFromStore(UNSPLASH_STORAGE_KEY)) || {};
+      storeData.trackedIds = [...trackedIds];
+      await saveToStore(UNSPLASH_STORAGE_KEY, storeData);
+    } catch (err) {
+      console.warn("[unsplashAPI] Failed to persist tracked ids:", err);
+    }
+  }, 600);
+}
+
+/**
+ * Report a real Unsplash "use" (download / apply / save) **at most once** per photo.
+ *
+ * Unsplash only needs to know the photo was used once; re-sending while the user
+ * browses or re-applies would inflate their counts and burn our rate limit. The
+ * id is recorded synchronously (before the request) so rapid clicks cannot slip
+ * a second call through the async gap.
+ *
+ * Safe for any source: cards without a `trackUrl` (everything but Unsplash) are
+ * ignored.
+ *
+ * @param {Object} card
+ */
+export async function trackDownloadOnce(card) {
+  if (!card) return;
+  const trackUrl = card.trackUrl || card.raw?.links?.download_location;
+  if (!trackUrl) return;
+
+  const key = String(card.raw?.id ?? card.id ?? trackUrl);
+  if (card.downloadTracked) return;
+
+  await ensureTrackedLoaded();
+  if (trackedIds.has(key)) {
+    card.downloadTracked = true;
+    return;
+  }
+
+  card.downloadTracked = true;
+  trackedIds.add(key);
+  scheduleTrackedPersist();
+
+  await trackUnsplashDownload(trackUrl);
+}
+
 /**
  * Tải danh sách ảnh Unsplash từ Cloudflare Worker Proxy.
  * Đọc tham số query, topics, orientation từ unsplashConfig.
@@ -72,10 +167,20 @@ export async function fetchUnsplashQueue() {
 
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
-        throw new Error(t("sp.api.unsplash.access_denied", "Không có quyền truy cập Unsplash"));
+        throw new Error(
+          t(
+            "sp.api.unsplash.access_denied",
+            "Không có quyền truy cập Unsplash",
+          ),
+        );
       }
       if (response.status === 429) {
-        throw new Error(t("sp.api.unsplash.rate_limit", "Vượt quá giới hạn lượt gọi Unsplash"));
+        throw new Error(
+          t(
+            "sp.api.unsplash.rate_limit",
+            "Vượt quá giới hạn lượt gọi Unsplash",
+          ),
+        );
       }
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -141,7 +246,11 @@ export async function getUnsplashData(refresh = false) {
     }
 
     const nextItem = storeData.queue.shift();
-    if (!nextItem || !nextItem.urls || (!nextItem.urls.regular && !nextItem.urls.full)) {
+    if (
+      !nextItem ||
+      !nextItem.urls ||
+      (!nextItem.urls.regular && !nextItem.urls.full)
+    ) {
       return { error: t("sp.api.unsplash.corrupted_data", "Dữ liệu bị hỏng") };
     }
 
@@ -170,11 +279,10 @@ export async function getUnsplashData(refresh = false) {
 
     await saveToStore(UNSPLASH_STORAGE_KEY, storeData);
 
-    // Kích hoạt download tracking
-    if (storeData.applied.download_location) {
-      trackUnsplashDownload(storeData.applied.download_location);
-    }
-
+    // NOTE: tracking is intentionally NOT fired here. Pulling a photo out of
+    // the queue is not a user action, so reporting it would violate Unsplash's
+    // "download on use" guideline. Tracking is fired by the real actions
+    // (apply / download / add to collection) via `trackDownloadOnce`.
     return storeData.applied;
   } catch (error) {
     console.error("[unsplashAPI] Error in getUnsplashData:", error);

@@ -208,6 +208,16 @@ export class BaseSource {
     return item?.sourceUrl || "";
   }
 
+  /**
+   * Attribution shown wherever the photo is displayed (photographer name +
+   * links). Only sources that require it (Unsplash) override this.
+   * @param {CardItem} _item
+   * @returns {{name: string, profileUrl: string, photoUrl: string}|null}
+   */
+  getAttribution(_item) {
+    return null;
+  }
+
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
   /**
@@ -232,6 +242,7 @@ export class BaseSource {
       height: 0,
       size: 0,
       addedAt: Date.now(),
+      downloadTracked: false,
       effects: raw?.effects
         ? JSON.parse(JSON.stringify(raw.effects))
         : getDefaultWallpaperEffects(),
