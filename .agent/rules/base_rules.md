@@ -20,6 +20,7 @@ These are the rules the agent must always keep in mind when coding a new feature
 - **Output & Workflow:**
   - Do **NOT** create or update walkthrough artifacts (`walkthrough.md`).
   - Do **NOT** run `npm run build` after changes unless explicitly requested by the user or checking syntax error.
+  - Do **NOT** run tests (`pnpm test`) automatically after changes; ONLY run tests when the user explicitly requests to commit or run tests.
 - **Continuous refactoring:** The user refactors the codebase very often. If a request makes any guidance in this rule file outdated, **proactively ask the user** whether this rule file should be updated instead of forcing a wrong implementation.
 - **UI work:** Before changing markup, styles, or user-facing interactions, read and follow `.agent/rules/ui_rules.md`. Keep that file aligned when shared UI conventions change.
 - **Locale sync (i18n):** Whenever a feature is ADDED or REMOVED:
