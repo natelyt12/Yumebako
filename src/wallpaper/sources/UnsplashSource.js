@@ -258,7 +258,7 @@ export class UnsplashSource extends RemoteSource {
    * Unsplash requires attribution wherever the photo is shown: photographer
    * name + profile and the photo page, both with UTM parameters.
    * @param {Object} card
-   * @returns {{name: string, profileUrl: string, photoUrl: string}|null}
+   * @returns {{name: string, profileUrl: string, photoUrl: string, unsplashUrl: string}|null}
    */
   getAttribution(card) {
     if (!card) return null;
@@ -271,6 +271,7 @@ export class UnsplashSource extends RemoteSource {
       name,
       profileUrl: withUnsplashUtm(profile),
       photoUrl: withUnsplashUtm(photo),
+      unsplashUrl: withUnsplashUtm("https://unsplash.com"),
     };
   }
 

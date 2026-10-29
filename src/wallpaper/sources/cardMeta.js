@@ -7,7 +7,7 @@ import { getSettings } from "/src/core/storageHandler.js";
 export const PICRE_SOURCE_MAP = [
   { match: "pixiv.net", label: "Pixiv" },
   { match: "deviantart.com", label: "DeviantArt" },
-  { match: "twitter.com", label: "Twitter" },
+  { match: "twitter.com", label: "X" },
   { match: "x.com", label: "X" },
   { match: "artstation.com", label: "ArtStation" },
   { match: "danbooru.donmai.us", label: "Danbooru" },

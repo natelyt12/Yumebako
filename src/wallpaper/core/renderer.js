@@ -244,18 +244,18 @@ class WallpaperRenderer {
     const photoBy = escapeHtml(t("sp.meta.photo_by", "Photo by"));
     const onWord = escapeHtml(t("sp.meta.on", "on"));
     const authorLabel = escapeHtml(credit.name || "");
-    const photo = credit.photoUrl
-      ? `<a href="${escapeHtml(credit.photoUrl)}" target="_blank" rel="noopener noreferrer">Unsplash</a>`
-      : "Unsplash";
+    const unsplashUrl = credit.unsplashUrl || credit.photoUrl || "https://unsplash.com";
+    const unsplash = `<a href="${escapeHtml(unsplashUrl)}" target="_blank" rel="noopener noreferrer">Unsplash</a>`;
+
 
     if (!authorLabel) {
       // No photographer name (e.g. a seed card): link to the source only.
-      el.innerHTML = `<span>${photo}</span>`;
+      el.innerHTML = `<span>${unsplash}</span>`;
     } else {
       const author = credit.profileUrl
         ? `<a href="${escapeHtml(credit.profileUrl)}" target="_blank" rel="noopener noreferrer">${authorLabel}</a>`
         : authorLabel;
-      el.innerHTML = `<span>${photoBy} ${author} ${onWord} ${photo}</span>`;
+      el.innerHTML = `<span>${photoBy} ${author} ${onWord} ${unsplash}</span>`;
     }
 
     el.classList.add("is-visible");

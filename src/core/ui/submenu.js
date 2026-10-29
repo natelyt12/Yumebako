@@ -186,11 +186,6 @@ export function openSubmenu(config = {}) {
   };
   updateSubmenuDirtyUI();
 
-  if (title) {
-    submenuView.setAttribute("aria-label", title);
-  } else {
-    submenuView.removeAttribute("aria-label");
-  }
 
   // Clear previous custom content sections inside body
   submenuBody.innerHTML = "";

@@ -452,6 +452,7 @@ export class CollectionSource extends BaseSource {
       name,
       profileUrl: withUnsplashUtm(profile),
       photoUrl: withUnsplashUtm(photo),
+      unsplashUrl: withUnsplashUtm("https://unsplash.com"),
     };
   }
 

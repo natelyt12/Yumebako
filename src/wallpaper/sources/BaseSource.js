@@ -212,7 +212,7 @@ export class BaseSource {
    * Attribution shown wherever the photo is displayed (photographer name +
    * links). Only sources that require it (Unsplash) override this.
    * @param {CardItem} _item
-   * @returns {{name: string, profileUrl: string, photoUrl: string}|null}
+   * @returns {{name: string, profileUrl: string, photoUrl: string, unsplashUrl?: string}|null}
    */
   getAttribution(_item) {
     return null;
