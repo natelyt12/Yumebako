@@ -99,7 +99,7 @@ Use the shared UI components through `src/core/ui.js` and their implementations 
 
 - Use the icon registry in `src/core/icon.js` (Phosphor raw SVGs). In markup use `<i data-icon="iconName"></i>` and call `renderIcons(rootNode)` for dynamically injected markup; do not depend on emoji or unrelated icon sets for interface controls.
 - Never hardcode user-facing text. Add keys to both `public/locales/en.json` and `public/locales/vi.json` and follow the locale-sync/sorting workflow in `.agent/rules/base_rules.md`.
-- In markup, use `data-i18n` for text, `data-i18n-placeholder` for placeholders, `data-i18n-title` for native title text, and `data-i18n-html` only for intentional translated HTML (with `data-i18n-link` when translated bracket text becomes a link).
+- In markup, use `data-i18n` for text, `data-i18n-placeholder` for placeholders, and `data-i18n-html` only for intentional translated HTML (with `data-i18n-link` when translated bracket text becomes a link).
 - In JavaScript, use `t(key, variables)` from `src/core/i18n.js`. Translate newly created or injected content with `translateDOM` or the relevant component initializer.
 - Use `.tooltip` for explanatory notes and descriptions. Keep help text concise and supplementary; it should not replace a visible label or required instruction.
 
@@ -107,7 +107,11 @@ Use the shared UI components through `src/core/ui.js` and their implementations 
 
 - Use native interactive elements (`button`, `input`, `select`, links) for actions and controls. Do not make a plain `div` clickable when a semantic element can express the same behavior.
 - Ensure every control has sensible keyboard operation and a visible focus indicator. Preserve existing `:focus-visible` behavior and add a component-scoped focus style when a new custom control otherwise has none.
-- **Strictly no `aria-label`:** Do NOT use `aria-label` anywhere in the project (neither in static HTML templates nor assigned dynamically via JavaScript). Use visible semantic text labels, semantic elements (`<label>`, `<button>`), native `title`, or `data-i18n-title` instead.
+- **Strictly no `aria-label` and no `title` / browser tooltips on buttons:**
+  - Do NOT use `aria-label` anywhere in the project (neither in static HTML templates nor assigned dynamically via JavaScript).
+  - Do NOT put `title`, `data-i18n-title`, or `data-action-title` on buttons, icons, or interactive controls (neither in HTML markup nor dynamically in JS via `el.title = ...` or `btn.dataset.actionTitle = ...`) to avoid unwanted native browser hover tooltips.
+  - **Exception (Slider):** The icon-only adjustment buttons in `createSlider` (`resetBtn`, `decBtn`, `incBtn` in `src/core/ui/slider.js`) are an approved exception and retain `title` and `data-i18n-title` for context.
+  - Everywhere else, use visible semantic text labels, semantic elements (`<label>`, `<button>`), or dedicated UI styling instead.
 - Make states distinguishable beyond hover alone: selected/active, disabled, open, error, and destructive states must remain clear without relying only on color.
 - Keep hover and pressed feedback consistent with the shared button/input states. Disabled controls must not appear interactive or dispatch their normal action.
 - Respect the existing animation language and keep motion purposeful. Avoid animating layout-heavy properties unnecessarily; where practical, reduce or remove nonessential motion when `prefers-reduced-motion` is requested.

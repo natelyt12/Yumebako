@@ -385,12 +385,7 @@ export function createManageGrid({
         ? `<i data-icon="particleCheck" class="bg_coll_info_check"></i>`
         : "",
       inCollection
-        ? `<span class="bg_coll_info_star" title="${escapeHtml(
-            t(
-              "sp.api.collection.added_to_collection",
-              "Đã có trong bộ sưu tập",
-            ),
-          )}"><i data-icon="starFill"></i></span>`
+        ? `<span class="bg_coll_info_star"><i data-icon="starFill"></i></span>`
         : "",
       badge ? `<span class="meta_badge">${escapeHtml(badge)}</span>` : "",
       mainLabel
@@ -476,7 +471,6 @@ export function createManageGrid({
 
     btn.innerHTML = `<i data-icon="${isActive ? "particleCheck" : "imageBadge"}"></i><span></span>`;
     btn.querySelector("span").textContent = label;
-    btn.title = label;
     btn.disabled = isActive;
   }
 
@@ -535,7 +529,6 @@ export function createManageGrid({
     if (settingsSpan && settingsSpan.textContent !== settingsLabel) {
       settingsSpan.textContent = settingsLabel;
     }
-    btnSettings.title = settingsLabel;
 
     const fetchLabel =
       source?.moreLabel || t("wallpaper_switcher.get_new_image");
@@ -543,7 +536,6 @@ export function createManageGrid({
     if (fetchSpan && fetchSpan.textContent !== fetchLabel) {
       fetchSpan.textContent = fetchLabel;
     }
-    btnFetch.title = fetchLabel;
 
     const count = selectedIds.size;
     btnDeleteSelected.disabled = count === 0;
@@ -564,7 +556,6 @@ export function createManageGrid({
       if (addSpan && addSpan.textContent !== addLabel) {
         addSpan.textContent = addLabel;
       }
-      btnAddSelected.title = addLabel;
     }
   }
 
@@ -933,7 +924,6 @@ export function createManageGrid({
       if (action.danger) btn.dataset.variant = "danger";
       btn.innerHTML = `<i data-icon="${resolved?.icon ?? action.icon}"></i><span></span>`;
       btn.querySelector("span").textContent = label;
-      btn.title = label;
 
       btn.addEventListener("click", async () => {
         await runDetailAction(action, card, btn);

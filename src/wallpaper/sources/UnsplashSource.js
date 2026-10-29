@@ -200,17 +200,17 @@ export class UnsplashSource extends RemoteSource {
       const stats = [];
       if (views) {
         stats.push(
-          `<span class="meta_stat_item" title="${escapeHtml(t("sp.meta.views", "Lượt xem"))}"><i data-icon="eye"></i> <span>${escapeHtml(formatNumber(views))}</span></span>`,
+          `<span class="meta_stat_item"><i data-icon="eye"></i> <span>${escapeHtml(formatNumber(views))}</span></span>`,
         );
       }
       if (downloads) {
         stats.push(
-          `<span class="meta_stat_item" title="${escapeHtml(t("sp.meta.downloads", "Lượt tải"))}"><i data-icon="download"></i> <span>${escapeHtml(formatNumber(downloads))}</span></span>`,
+          `<span class="meta_stat_item"><i data-icon="download"></i> <span>${escapeHtml(formatNumber(downloads))}</span></span>`,
         );
       }
       if (likes) {
         stats.push(
-          `<span class="meta_stat_item" title="${escapeHtml(t("sp.meta.favorites", "Yêu thích"))}"><i data-icon="heart"></i> <span>${escapeHtml(formatNumber(likes))}</span></span>`,
+          `<span class="meta_stat_item"><i data-icon="heart"></i> <span>${escapeHtml(formatNumber(likes))}</span></span>`,
         );
       }
       if (stats.length > 0) {

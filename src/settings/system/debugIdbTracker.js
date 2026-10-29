@@ -560,8 +560,8 @@ function createTrackerDOM() {
         <div class="idb_head" id="idb_drag_handle">
             <span class="idb_title">⚡ BakoDB Live</span>
             <div class="idb_head_actions">
-                <button class="idb_btn" id="idb_btn_refresh" title="Làm mới">↻</button>
-                <button class="idb_btn" id="idb_btn_close" title="Đóng">✕</button>
+                <button class="idb_btn" id="idb_btn_refresh">↻</button>
+                <button class="idb_btn" id="idb_btn_close">✕</button>
             </div>
         </div>
         <div class="idb_toolbar">
@@ -666,7 +666,7 @@ function showTooltip(key, val) {
             <span class="idb_tooltip_title" title="${key}">${key}</span>
             <div class="idb_tooltip_actions">
                 <span class="idb_tooltip_badge">${summary}</span>
-                <button class="idb_tooltip_pin" id="idb_btn_pin" title="${isPinned ? "Bỏ ghim" : "Ghim ra góc phải"}">${isPinned ? "📌" : "📍"}</button>
+                <button class="idb_tooltip_pin" id="idb_btn_pin">${isPinned ? "📌" : "📍"}</button>
             </div>
         </div>
         <div class="idb_tooltip_content">${escapeHtml(contentText)}</div>
@@ -728,7 +728,7 @@ function createPinnedCard(key, storeName, val) {
             <span class="idb_pinned_title" title="${key}">📌 ${key}</span>
             <div class="idb_pinned_actions">
                 <span class="idb_pinned_badge">${summary}</span>
-                <button class="idb_pinned_close" title="Bỏ ghim">✕</button>
+                <button class="idb_pinned_close">✕</button>
             </div>
         </div>
         <div class="idb_pinned_content">${escapeHtml(contentText)}</div>

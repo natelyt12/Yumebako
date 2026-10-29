@@ -204,7 +204,6 @@ function showAnchorMenu(x, y, container) {
         anchorsList.forEach(item => {
             const btn = document.createElement("button");
             btn.className = "anchor-cell";
-            btn.title = item.title;
             btn.dataset.ax = item.ax;
             btn.dataset.ay = item.ay;
             btn.innerHTML = ANCHOR_ICONS[`${item.ax},${item.ay}`] || "";

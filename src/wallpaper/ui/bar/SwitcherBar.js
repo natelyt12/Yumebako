@@ -203,7 +203,7 @@ export class SwitcherBar {
     const content = `
             <div class="wallpaper_manage_submenu_header">
                 <span class="wallpaper_manage_submenu_title">${manageLabel}</span>
-                <button type="button" class="wallpaper_switcher_icon_btn submenu_back_btn" data-i18n-title="sp.sb.close" title="Đóng">
+                <button type="button" class="wallpaper_switcher_icon_btn submenu_back_btn">
                     <i data-icon="close"></i>
                 </button>
             </div>
@@ -594,15 +594,11 @@ export class SwitcherBar {
         resolved?.fallback ?? action.fallback,
       );
       btn.querySelector("span").textContent = label;
-      btn.dataset.actionTitle = label;
 
       if (verdict?.disabled) {
         btn.dataset.blocked = "1";
         btn.dataset.blockReason = verdict.reason || "";
         btn.disabled = true;
-        btn.title = verdict.reason || "";
-      } else {
-        btn.title = label;
       }
 
       btn.addEventListener("click", (e) => {
@@ -789,7 +785,6 @@ export class SwitcherBar {
       if (manageSpan && manageSpan.textContent !== manageLabel) {
         manageSpan.textContent = manageLabel;
       }
-      this.manageBtn.title = manageLabel;
     }
 
     // Wallpaper customization is a Collection concept for now.
@@ -807,16 +802,9 @@ export class SwitcherBar {
       if (labelSpan && labelSpan.textContent !== label) {
         labelSpan.textContent = label;
       }
-      if (this.fetchBtn.title !== label) this.fetchBtn.title = label;
     }
     if (this.uploadBtn) {
       this._setButtonVisible(this.uploadBtn, isCollection, immediate);
-      const uploadLabel = t(
-        "sp.api.collection.upload_btn",
-        "Tải lên ảnh / video",
-      );
-      if (this.uploadBtn.title !== uploadLabel)
-        this.uploadBtn.title = uploadLabel;
     }
     if (this.settingsBtn) {
       this._setButtonVisible(this.settingsBtn, hasExtraSettings, immediate);
@@ -830,9 +818,6 @@ export class SwitcherBar {
       const labelSpan = this.settingsBtn.querySelector("span");
       if (labelSpan && labelSpan.textContent !== settingsLabel) {
         labelSpan.textContent = settingsLabel;
-      }
-      if (this.settingsBtn.title !== settingsLabel) {
-        this.settingsBtn.title = settingsLabel;
       }
     }
   }
@@ -884,18 +869,6 @@ export class SwitcherBar {
       const blocked = btn.dataset.blocked === "1";
       const disabled = this._isBusy || blocked;
       if (btn.disabled !== disabled) btn.disabled = disabled;
-      if (blocked) return;
-
-      if (this._isBusy) {
-        const title = t(
-          "wallpaper_switcher.wait_for_wallpaper",
-          "Đang tải hình nền…",
-        );
-        if (btn.title !== title) btn.title = title;
-      } else {
-        const title = btn.dataset.actionTitle || "";
-        if (btn.title !== title) btn.title = title;
-      }
     });
   }
 }
