@@ -1,4 +1,4 @@
-/**
+﻿/**
  * scenario.js
  * ---------------------------------------------------------------------------
  * Dựng một carousel thật (CarouselEngine + DOM) và lái nó bằng chuỗi sự kiện bánh

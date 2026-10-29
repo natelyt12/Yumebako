@@ -46,7 +46,7 @@ This document defines the standard four-layer architecture for Yumebako's Wallpa
 
 ### Layer 1: UI (`src/wallpaper/ui/`, `src/wallpaper/core/WallpaperSwitcher.js`)
 
-- **Role:** Present the interface, 3D carousel motion (`CarouselEngine`), bottom control bar (`SwitcherBar`), and open/close coordinator (`WallpaperSwitcher`).
+- **Role:** Present the interface, dynamic-width accordion carousel motion (`CarouselEngine`), bottom control bar (`SwitcherBar`), and open/close coordinator (`WallpaperSwitcher`).
 - **Rules:**
   - **Do not access the database or fetch external APIs directly:** Route all image loading, deletion, and source-switching requests through `dataControl` methods (`requestMore()`, `deleteCard()`, `switchSource()`).
   - **The "+" action card has been removed:** The carousel contains only real image cards. Load more images through the `#wallpaper_fetch_btn` (`dataControl.requestMore()`) or the `#wallpaper_upload_btn` (for Collection) in `SwitcherBar`.

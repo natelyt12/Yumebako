@@ -1,4 +1,4 @@
-/**
+﻿/**
  * perf.js
  * ---------------------------------------------------------------------------
  * Trang đo hiệu năng THẬT trong browser cho CarouselEngine.

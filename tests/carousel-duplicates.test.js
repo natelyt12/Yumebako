@@ -18,7 +18,7 @@ const WIDTH = 1788;
 function mountEngine() {
   const dom = new JSDOM(
     `<!doctype html><html><body>
-       <div id="stage"><div id="track"></div></div>
+       <div id="stage"><div class="carousel-viewfinder"></div><div id="track"></div></div>
      </body></html>`,
     { pretendToBeVisual: true },
   );
@@ -51,13 +51,18 @@ async function withEngine(run) {
     "../src/wallpaper/ui/carousel/CarouselEngine.js"
   );
 
+  const container = document.getElementById("stage");
+  const track = document.getElementById("track");
+  const viewfinder = container.querySelector(".carousel-viewfinder");
+
   const engine = new CarouselEngine({
-    container: document.getElementById("stage"),
-    track: document.getElementById("track"),
+    container,
+    track,
+    viewfinder,
   });
 
   try {
-    await run({ document, engine, track: document.getElementById("track") });
+    await run({ document, engine, track, container, viewfinder });
   } finally {
     engine.destroy();
     dom.window.close();
@@ -157,4 +162,83 @@ test("syncItems: id dạng số và dạng chuỗi của cùng bản ghi dùng l
       assert.equal(el, before[i], `thẻ ${i} phải giữ nguyên element (không dựng lại)`);
     });
     assertTrackIntegrity(engine, track, "sau khi chuẩn hoá id");
+  }));
+
+test("syncItems: cập nhật _bgUrl và background-image khi ảnh đổi URL mới", () =>
+  withEngine(async ({ engine, track }) => {
+    engine.setItems([item("a"), item("b")], 0, { silent: true });
+    const cardA = engine.els[0];
+
+    // Giả lập thẻ đã nạp ảnh trước đó
+    cardA._isImageLoaded = true;
+    const bg = cardA.querySelector(".card-bg");
+    bg.style.backgroundImage = 'url("blob:a")';
+
+    // Đồng bộ lại với item mang URL mới
+    const updatedA = { id: "a", name: "a", sub: "", url: "blob:a_new" };
+    engine.syncItems([updatedA, item("b")], 0, { silent: true });
+
+    assert.equal(engine.els[0], cardA, "vẫn giữ nguyên DOM node cũ");
+    assert.equal(cardA._bgUrl, "blob:a_new", "URL phải được cập nhật");
+    assert.equal(cardA.dataset.bgUrl, "blob:a_new");
+    assert.ok(bg.style.backgroundImage.includes("blob:a_new"), "background-image phải được gán lại");
+    assertTrackIntegrity(engine, track, "sau khi cập nhật url");
+  }));
+
+test("syncItems & setItems: danh sách rỗng chuyển container sang is-empty và ẩn viewfinder", () =>
+  withEngine(async ({ engine, container, viewfinder }) => {
+    engine.setItems([item("a"), item("b")], 0, { silent: true });
+    assert.equal(container.classList.contains("is-empty"), false);
+    assert.equal(viewfinder.classList.contains("is-hidden"), false);
+
+    // Đồng bộ về danh sách rỗng
+    engine.syncItems([], 0, { silent: true });
+    assert.equal(engine.count, 0);
+    assert.equal(container.classList.contains("is-empty"), true);
+    assert.equal(viewfinder.classList.contains("is-hidden"), true);
+
+    // Nạp lại danh sách mới
+    engine.setItems([item("c")], 0, { silent: true });
+    assert.equal(engine.count, 1);
+    assert.equal(container.classList.contains("is-empty"), false);
+    assert.equal(viewfinder.classList.contains("is-hidden"), false);
+  }));
+
+test("visibleIndexRange: trả về đúng dải index giao cắt với viewport", () =>
+  withEngine(async ({ engine }) => {
+    const manyItems = Array.from({ length: 20 }, (_, i) => item(`card_${i}`));
+    engine.setItems(manyItems, 10, { silent: true });
+
+    const range = engine.visibleIndexRange();
+    assert.ok(range.first <= 10, "first index phải nằm về bên trái hoặc bằng tâm");
+    assert.ok(range.last >= 10, "last index phải nằm về bên phải hoặc bằng tâm");
+    assert.ok(range.first >= 0, "first không âm");
+    assert.ok(range.last < 20, "last trong giới hạn danh sách");
+
+    // Khi danh sách rỗng
+    engine.setItems([], 0, { silent: true });
+    const emptyRange = engine.visibleIndexRange();
+    assert.deepEqual(emptyRange, { first: -1, last: -1 }, "danh sách rỗng trả về { first: -1, last: -1 }");
+  }));
+
+test("stepByKey: tôn trọng cooldown NAV_COOLDOWN_MS để chống spam phím", () =>
+  withEngine(async ({ engine }) => {
+    engine.setItems([item("a"), item("b"), item("c"), item("d")], 0, { silent: true });
+    engine.setActive(true);
+
+    let steppedDelta = 0;
+    const originalStep = engine.step.bind(engine);
+    engine.step = (delta) => {
+      steppedDelta += delta;
+      return originalStep(delta);
+    };
+
+    // Bấm phím lần 1
+    engine.stepByKey(1);
+    assert.equal(steppedDelta, 1, "lần bấm đầu tiên phải được kích hoạt");
+
+    // Bấm phím dồn dập ngay lập tức (< 80ms)
+    engine.stepByKey(1);
+    engine.stepByKey(1);
+    assert.equal(steppedDelta, 1, "các lần bấm trong khoảng cooldown phải bị bỏ qua");
   }));

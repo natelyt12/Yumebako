@@ -61,7 +61,7 @@ yumebako/
     │   ├── motion/       # Dynamic visual shaders/animations (BaseMotion, MotionEngine, noise, wavy)
     │   ├── particles/    # Particle systems (rain, snow, fireflies, dust, static cinematic/vignette)
     │   ├── sources/      # Wallpaper providers (Wallhaven, Unsplash, Bing, Picre, Collection)
-    │   └── ui/           # Wallpaper UI (SwitcherBar, 3D CarouselEngine, Source Settings sidebar)
+    │   └── ui/           # Wallpaper UI (SwitcherBar, CarouselEngine accordion strip, Source Settings sidebar)
     └── widgets/          # Desktop widgets on the startpage
         ├── handler.js    # Widget lifecycle and positioning manager
         ├── editmode.js   # Widget edit/drag-and-drop layout manager

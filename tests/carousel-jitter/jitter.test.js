@@ -233,6 +233,55 @@ test("xóa khi cú snap đang chạy: carousel từ chối để store không l�
   );
 });
 
+test("xóa thẻ cuối cùng duy nhất: dải chuyển sang trạng thái rỗng và resolve true", { timeout: 30000 }, async () => {
+  await withScenario(
+    { count: 1, containerWidth: 1600, duration: 600 },
+    async ({ engine, container, advanceFrame }) => {
+      assert.equal(engine.count, 1, "khởi tạo với đúng 1 thẻ");
+      assert.equal(container.classList.contains("is-empty"), false, "chưa có class is-empty");
+
+      let outcome;
+      const pending = engine.deleteActiveCard().then((val) => {
+        outcome = val;
+        return val;
+      });
+
+      let guard = 0;
+      while (outcome === undefined && guard < 300) {
+        await advanceFrame();
+        guard += 1;
+      }
+      await pending;
+
+      assert.equal(outcome, true, "deleteActiveCard của thẻ cuối cùng phải resolve true");
+      assert.equal(engine.count, 0, "danh sách phải về rỗng");
+      assert.equal(engine.hardIndex, 0, "hardIndex đặt lại 0");
+      assert.equal(engine.isDeleting, false, "thoát trạng thái đang xóa");
+      assert.equal(container.classList.contains("is-empty"), true, "container nhận class is-empty");
+    },
+  );
+});
+
+test("xóa khi dải rỗng: carousel từ chối xóa và trả về false", { timeout: 30000 }, async () => {
+  await withScenario(
+    { count: 1, containerWidth: 1600, duration: 600 },
+    async ({ engine, advanceFrame }) => {
+      const del1 = engine.deleteActiveCard();
+      let guard = 0;
+      while (engine.count > 0 && guard < 300) {
+        await advanceFrame();
+        guard += 1;
+      }
+      await del1;
+
+      // Giờ dải đã rỗng (count === 0)
+      assert.equal(engine.count, 0);
+      const outcome = await engine.deleteActiveCard();
+      assert.equal(outcome, false, "dải rỗng phải từ chối xóa và trả về false");
+    },
+  );
+});
+
 /**
  * Đếm số lần engine thật sự dựng một cú snap mới.
  *

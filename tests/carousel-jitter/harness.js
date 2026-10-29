@@ -1,4 +1,4 @@
-/**
+﻿/**
  * harness.js
  * ---------------------------------------------------------------------------
  * Đo jitter trong BROWSER THẬT — bổ sung cho `jitter.test.js` (chạy headless).

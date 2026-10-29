@@ -1,4 +1,4 @@
-/**
+﻿/**
  * probe.js
  * ---------------------------------------------------------------------------
  * Bộ đo jitter của CarouselEngine — dùng chung cho test trong Node và cho trang

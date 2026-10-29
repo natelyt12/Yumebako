@@ -1,4 +1,4 @@
-/**
+﻿/**
  * virtualClock.js
  * ---------------------------------------------------------------------------
  * Đồng hồ ảo để chạy CarouselEngine mà không cần thời gian thật.

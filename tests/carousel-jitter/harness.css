@@ -1,4 +1,4 @@
-/* ── Harness chrome only ───────────────────────────────────────────────────
+﻿/* ── Harness chrome only ───────────────────────────────────────────────────
    Khung trang để đo, KHÔNG phải giao diện của app. Phần sân khấu carousel dùng
    lại đúng `carousel.css` của app (xem harness.js), nên ở đây chỉ cần vô hiệu
    hoá lớp wrapper toàn màn hình mà `switcher.css` thường áp cho nó. */
