@@ -10,7 +10,7 @@ import { DEFAULT_BG_EASING, OVERLAY_FADE_EASING, resolveEasing } from "./easing.
  *
  * Counterpart of `particles/EffectsEngine.js` and `motion/WavyEngine.js`:
  *   OnloadEngine  (this file)  ↔ EffectsEngine      — runtime
- *   OnloadEditorUI             ↔ EffectsEditorUI    — settings panel
+ *   ui/customize/onloadPanel   ↔ EffectsEditorUI    — settings panel
  *   presets.js                 ↔ particles/registry — pluggable presets
  *
  * The engine owns the DOM elements, the timeout bookkeeping and the actual

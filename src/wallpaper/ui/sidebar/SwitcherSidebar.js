@@ -152,7 +152,6 @@ export class SwitcherSidebar {
     this.sidebarEl.classList.add("is-open");
     this.sidebarEl.removeAttribute("aria-hidden");
     this.overlayEl?.classList.add("is-open");
-    this.settingsBtn?.classList.add("is-active");
 
     // Sync view state
     view.onOpen?.();
@@ -176,7 +175,6 @@ export class SwitcherSidebar {
     // `inert` also removes the closed panel from the tab order and from AT.
     this.sidebarEl?.setAttribute("inert", "");
     this.overlayEl?.classList.remove("is-open");
-    this.settingsBtn?.classList.remove("is-active");
 
     if (this.currentSourceId) {
       const view = this.views.get(this.currentSourceId);

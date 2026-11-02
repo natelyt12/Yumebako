@@ -14,7 +14,7 @@ export const MOTION_REGISTRY = {
 /** Display order used to build the motion-type dropdown. */
 export const MOTION_ORDER = [NoiseMotion.ID, OrganicMotion.ID];
 
-export const DEFAULT_MOTION = NoiseMotion.ID;
+export const DEFAULT_MOTION = OrganicMotion.ID;  // "Natural Drift"
 
 /**
  * Resolve a motion type id to its class, falling back to the default for

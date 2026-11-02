@@ -1,10 +1,14 @@
 import { renderIcons } from "/src/core/icon.js";
 import { t } from "/src/core/i18n.js";
-import { showConfirm, openSubmenu } from "/src/core/ui.js";
+import { showConfirm, openSubmenu, closeSubmenu } from "/src/core/ui.js";
 import { getSettings, saveSettings } from "/src/core/storageHandler.js";
 import { resolveCardMeta, escapeHtml } from "../../sources/cardMeta.js";
 import { SwitcherSidebar } from "../sidebar/SwitcherSidebar.js";
 import { createManageGrid } from "../manage/manageGrid.js";
+import { createFiltersPanel } from "../customize/filtersPanel.js";
+import { createOnloadPanel } from "../customize/onloadPanel.js";
+import { createParallaxPanel } from "../customize/parallaxPanel.js";
+import { createWavyPanel } from "../customize/wavyPanel.js";
 
 /** Sources whose wallpaper window is browsable/manageable in the grid. */
 const MANAGE_SOURCES = new Set([
@@ -15,6 +19,61 @@ const MANAGE_SOURCES = new Set([
 ]);
 
 /**
+ * Sections of "Customize this wallpaper", in the same order as the wallpaper
+ * tab of the Settings panel (which this submenu replaces): `labelKey` is the
+ * section name shown in the tab list.
+ */
+const CUSTOMIZE_TABS = [
+  {
+    id: "arrange",
+    icon: "arrangeWallpaper",
+    labelKey: "sp.wallpaper_customization.arrange_wallpaper",
+    label: "Điều chỉnh vị trí",
+  },
+  {
+    id: "filters",
+    icon: "filterSettings",
+    labelKey: "sp.wallpaper_customization.filters",
+    label: "Bộ lọc & màu sắc",
+  },
+  {
+    id: "particles",
+    icon: "particlesSettings",
+    labelKey: "sp.wallpaper_customization.particles_settings",
+    label: "Hiệu ứng nền",
+  },
+  {
+    id: "onload",
+    icon: "onloadSettings",
+    labelKey: "sp.wallpaper_customization.onload_settings",
+    label: "Hoạt ảnh mở trang",
+  },
+  {
+    id: "wavy",
+    icon: "wavySettings",
+    labelKey: "sp.wallpaper_customization.toggle_wavy",
+    label: "Wavy Animation",
+  },
+  {
+    id: "parallax",
+    icon: "parallaxSettings",
+    labelKey: "sp.wallpaper_customization.toggle_parallax",
+    label: "Hiệu ứng Parallax",
+  },
+];
+
+/**
+ * Section id → panel factory. Sections move here one at a time from the
+ * Settings panel; ids without a factory leave the right column empty.
+ */
+const CUSTOMIZE_PANEL_FACTORIES = {
+  filters: () => createFiltersPanel(),
+  onload: () => createOnloadPanel(),
+  wavy: () => createWavyPanel(),
+  parallax: () => createParallaxPanel(),
+};
+
+/**
  * SwitcherBar.js
  * ---------------------------------------------------------------------------
  * Component thống nhất quản lý toàn bộ thanh đáy (Bottom Bar) của WallpaperSwitcher.
@@ -22,7 +81,8 @@ const MANAGE_SOURCES = new Set([
  *   - Source Tabs: Chuyển đổi giữa các nguồn hình nền (Collection, Wallhaven, Picre...)
  *   - Counter: Bộ đếm vị trí thẻ mềm (softIndex) / tổng số thẻ
  *   - Action Buttons: Các nút hành động cho thẻ hiện tại (Download, View Source, Add to Collection, Delete)
- *   - Right Slot: Nút tải lên (Collection) hoặc cài đặt nguồn (Settings)
+ *   - Top Bar: nút cài đặt nguồn (icon) nằm bên trái tab nguồn
+ *   - Right Slot: Nút tải lên (Collection)
  *
  * Hoạt động Reactive 100% theo State của DataControl.
  */
@@ -67,6 +127,10 @@ export class SwitcherBar {
     this.tabButtons = new Map();
     this.sidebar = null;
     this.manageGrid = null;
+    /** Active Customize section panel (`{ el, isDirty, revert }`), if any. */
+    this._customizePanel = null;
+    /** Teardown for the "hold V to preview" listeners, if bound. */
+    this._previewKeyCleanup = null;
     this._token = 0;
     this._isBusy = false;
     /** Pending timer that clears the action row after it has faded out. */
@@ -136,11 +200,10 @@ export class SwitcherBar {
       this.openManageSubmenu();
     });
 
-    // Wallpaper customization (left slot, Collection only): opens Settings on
-    // the wallpaper tab.
+    // Wallpaper customization: toggles 600px bottom submenu
     this.customizeBtn?.addEventListener("click", (e) => {
       e.stopPropagation();
-      this.openWallpaperCustomization();
+      this.toggleCustomizeSubmenu();
     });
 
     // Fetch button (for sources that support fetching more)
@@ -198,6 +261,9 @@ export class SwitcherBar {
     }
 
     this.closeSidebar();
+    host.classList.remove("customization_active");
+    host.style.removeProperty("--switcher-submenu-height");
+    this.customizeBtn?.classList.remove("active");
 
     const manageLabel = this.getManageLabel();
     const content = `
@@ -249,28 +315,287 @@ export class SwitcherBar {
   }
 
   /**
-   * Close the switcher and open the Settings panel on the wallpaper tab.
-   * The panel is injected lazily, so wait until its nav exists before switching.
+   * Bật / tắt submenu tùy chỉnh hiệu ứng hình nền (cao 600px).
    */
-  openWallpaperCustomization() {
-    this.switcher?.close();
+  toggleCustomizeSubmenu() {
+    const host = this.container.closest(".wallpaper_switcher_inner");
+    if (!host) return;
 
-    const toggleBtn = document.getElementById("setting_toggle_btn");
-    if (!toggleBtn) return;
-    toggleBtn.click();
+    if (host.classList.contains("customization_active")) {
+      closeSubmenu();
+      return;
+    }
 
-    let tries = 0;
-    const activateWallpaperTab = () => {
-      const navItem = document.querySelector(
-        '#setting_wrapper .nav_item[data-tab="wallpaper"]',
-      );
-      if (navItem) {
-        navItem.click();
+    this.openCustomizeSubmenu();
+  }
+
+  /**
+   * Mở submenu tùy chỉnh hiệu ứng hình nền cao 1200px, trượt từ dưới lên.
+   */
+  openCustomizeSubmenu() {
+    const host = this.container.closest(".wallpaper_switcher_inner");
+    if (!host) return;
+
+    const currentHeight = Math.round(host.getBoundingClientRect().height);
+    if (currentHeight > 0) {
+      host.style.setProperty("--switcher-inner-height", `${currentHeight}px`);
+    }
+
+    this.closeSidebar();
+
+    if (this.manageGrid) {
+      this.manageGrid.destroy();
+      this.manageGrid = null;
+    }
+
+    host.classList.add("customization_active");
+    host.style.setProperty("--switcher-submenu-height", "min(1200px, 100vh)");
+    this.customizeBtn?.classList.add("active");
+
+    const title = t("sp.wallpaper_customization.title", "Tùy chỉnh hình nền");
+    const tabsHtml = CUSTOMIZE_TABS.map(
+      (tab, index) => `
+        <button
+          type="button"
+          class="wallpaper_customize_tab${index === 0 ? " is-active" : ""}"
+          role="tab"
+          aria-selected="${index === 0}"
+          aria-controls="wallpaper_customize_panel"
+          data-customize-tab="${tab.id}"
+        >
+          <i data-icon="${tab.icon}"></i>
+          <span class="wallpaper_customize_tab_label" data-i18n="${tab.labelKey}">${escapeHtml(tab.label)}</span>
+        </button>
+      `,
+    ).join("");
+
+    const content = `
+      <div class="wallpaper_customize_submenu_header">
+        <span class="wallpaper_customize_submenu_title">${title}</span>
+        <div class="wallpaper_customize_submenu_tools">
+          <span
+            class="wallpaper_customize_preview_hint"
+            data-i18n="wallpaper_switcher.hold_v_preview"
+          >Hold V to preview wallpaper</span>
+          <button type="button" class="wallpaper_switcher_icon_btn submenu_back_btn">
+            <i data-icon="close"></i>
+          </button>
+        </div>
+      </div>
+      <div class="wallpaper_customize_submenu_content" id="wallpaper_customize_submenu_content">
+        <aside class="wallpaper_customize_sidebar">
+          <div class="wallpaper_customize_preview_block">
+            <span
+              class="wallpaper_customize_preview_label"
+              data-i18n="wallpaper_switcher.currently_editing"
+            >Currently editing:</span>
+            <div class="manage_detail_figure wallpaper_customize_preview" id="wallpaper_customize_preview"></div>
+          </div>
+          <div class="wallpaper_customize_tabs" role="tablist" aria-label="${escapeHtml(title)}">
+            ${tabsHtml}
+          </div>
+        </aside>
+        <section
+          class="wallpaper_customize_panel"
+          id="wallpaper_customize_panel"
+          role="tabpanel"
+        ></section>
+      </div>
+    `;
+
+    openSubmenu({
+      container: host,
+      title,
+      content,
+      direction: "bottom",
+      isDirty: () => Boolean(this._customizePanel?.isDirty?.()),
+      onClose: () => {
+        // Closing with an unsaved live preview: restore the saved filters
+        // before the panel (and its DOM) goes away.
+        if (this._customizePanel?.isDirty?.()) this._customizePanel.revert();
+        this._customizePanel = null;
+        this._unbindPreviewKey(host);
+        host.classList.remove("customization_active");
+        // Keep `--switcher-submenu-height`: `onClose` runs before the shared
+        // component drops `.submenu_active`, and removing the token there would
+        // make the open rule fall back to `100vh` for a beat — the host flashes
+        // full-screen before morphing back. It is overwritten on the next open
+        // (and cleared by `openManageSubmenu`).
+        this.customizeBtn?.classList.remove("active");
+      },
+    });
+
+    this._renderCustomizePreview(host.querySelector("#wallpaper_customize_preview"));
+    this._bindCustomizeTabs(host);
+    this._bindPreviewKey(host);
+  }
+
+  /**
+   * "Hold V to preview wallpaper": while V is held inside this editor the glass
+   * surface is dropped (instantly) so the wallpaper shows through, without
+   * hiding the panel content. Scoped to the open Customize submenu, and ignored
+   * while typing in a field.
+   * @param {HTMLElement} host
+   * @private
+   */
+  _bindPreviewKey(host) {
+    this._unbindPreviewKey(host);
+
+    const setPreview = (active) => {
+      host.classList.toggle("wallpaper_preview_active", active);
+    };
+
+    const onKeyDown = (e) => {
+      if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key?.toLowerCase() !== "v") return;
+      const target = e.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          /^(input|textarea|select)$/i.test(target.tagName))
+      ) {
         return;
       }
-      if (tries++ < 20) setTimeout(activateWallpaperTab, 50);
+      if (!host.classList.contains("customization_active")) return;
+      setPreview(true);
     };
-    activateWallpaperTab();
+
+    const onKeyUp = (e) => {
+      if (e.key?.toLowerCase() === "v") setPreview(false);
+    };
+
+    // A keyup can be lost when the window loses focus mid-hold, so any signal
+    // that the hold ended also clears the preview.
+    const onBlur = () => setPreview(false);
+
+    this._previewKeyCleanup = () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+      document.removeEventListener("visibilitychange", onBlur);
+      setPreview(false);
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
+    document.addEventListener("visibilitychange", onBlur);
+  }
+
+  /**
+   * Release the "hold V" listeners (safe to call when none are bound).
+   * @param {HTMLElement} host
+   * @private
+   */
+  _unbindPreviewKey(host) {
+    this._previewKeyCleanup?.();
+    this._previewKeyCleanup = null;
+    host?.classList.remove("wallpaper_preview_active");
+  }
+
+  /**
+   * Paint the desktop wallpaper's thumbnail in the Customize sidebar preview,
+   * using the same figure as the Manage grid's detail pane.
+   * @param {HTMLElement|null} figure
+   * @private
+   */
+  _renderCustomizePreview(figure) {
+    if (!figure) return;
+
+    const card = this.dataControl.activeCard;
+    const src = card?.thumbnailUrl || card?.url || "";
+    const isVideo =
+      card?.mediaType === "video" || Boolean(card?.type?.includes("video"));
+
+    const fallback = () => {
+      const box = document.createElement("div");
+      box.className = "bg_coll_no_thumb";
+      box.innerHTML = `<i data-icon="${isVideo ? "videoBadge" : "imageBadge"}"></i>`;
+      figure.replaceChildren(box);
+      renderIcons(box);
+    };
+
+    if (!src) {
+      fallback();
+      return;
+    }
+
+    const img = document.createElement("img");
+    img.src = src;
+    img.alt = card?.title || "";
+    img.decoding = "async";
+    img.addEventListener("error", fallback, { once: true });
+    figure.replaceChildren(img);
+  }
+
+  /**
+   * Vertical tab strip of the Customize panel: one section at a time. The
+   * section content lands in `#wallpaper_customize_panel`.
+   * @param {HTMLElement} host
+   * @private
+   */
+  _bindCustomizeTabs(host) {
+    const tabs = Array.from(host.querySelectorAll(".wallpaper_customize_tab"));
+    if (tabs.length === 0) return;
+
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        this._selectCustomizeTab(host, tab.dataset.customizeTab);
+      });
+    });
+
+    // Prefer the first section that already has a panel (Filters today), so the
+    // right column is useful as soon as the submenu opens.
+    const initial =
+      tabs.find((tab) => CUSTOMIZE_PANEL_FACTORIES[tab.dataset.customizeTab]) ||
+      tabs[0];
+    if (initial) this._selectCustomizeTab(host, initial.dataset.customizeTab);
+  }
+
+  /**
+   * Activate one Customize section and mount its panel into the right column.
+   * Reverts any unsaved live preview of the section being left.
+   * @param {HTMLElement} host
+   * @param {string} tabId
+   * @private
+   */
+  _selectCustomizeTab(host, tabId) {
+    const tabs = Array.from(host.querySelectorAll(".wallpaper_customize_tab"));
+    tabs.forEach((tab) => {
+      const isActive = tab.dataset.customizeTab === tabId;
+      tab.classList.toggle("is-active", isActive);
+      tab.setAttribute("aria-selected", String(isActive));
+    });
+
+    const panelHost = host.querySelector("#wallpaper_customize_panel");
+    if (!panelHost) return;
+
+    if (this._customizePanel?.isDirty?.()) {
+      this._customizePanel.revert();
+    }
+    this._customizePanel = null;
+    panelHost.replaceChildren();
+
+    const factory = CUSTOMIZE_PANEL_FACTORIES[tabId];
+    if (!factory) {
+      const tabDef = CUSTOMIZE_TABS.find((t) => t.id === tabId);
+      const placeholder = document.createElement("div");
+      placeholder.className = "wallpaper_customize_placeholder";
+      placeholder.innerHTML = `
+        <div class="customize_placeholder_icon">
+          <i data-icon="${tabDef?.icon || "settings"}"></i>
+        </div>
+        <span class="customize_placeholder_title">${escapeHtml(t(tabDef?.labelKey, tabDef?.label || tabId))}</span>
+        <span class="customize_placeholder_desc">${escapeHtml(t("common.coming_soon", "Đang hoàn thiện..."))}</span>
+      `;
+      panelHost.appendChild(placeholder);
+      renderIcons(placeholder);
+      return;
+    }
+
+    const panel = factory();
+    this._customizePanel = panel;
+    panelHost.appendChild(panel.el);
   }
 
   /**
@@ -808,17 +1133,6 @@ export class SwitcherBar {
     }
     if (this.settingsBtn) {
       this._setButtonVisible(this.settingsBtn, hasExtraSettings, immediate);
-      const sourceName = t(
-        `wallpaper_switcher.source.${id}`,
-        source?.name || id,
-      );
-      const settingsLabel = t("wallpaper_switcher.extra_settings", {
-        source: sourceName,
-      });
-      const labelSpan = this.settingsBtn.querySelector("span");
-      if (labelSpan && labelSpan.textContent !== settingsLabel) {
-        labelSpan.textContent = settingsLabel;
-      }
     }
   }
 

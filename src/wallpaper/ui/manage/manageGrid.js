@@ -45,12 +45,11 @@ export function createManageGrid({
   el.innerHTML = `
         <div class="manage_toolbar" hidden>
             <div class="manage_toolbar_group">
-                <button type="button" class="btn manage_toolbar_btn" data-manage-action="select">
-                    <i data-icon="selectMode"></i><span data-i18n="sp.api.collection.select_mode">Chọn nhiều</span>
+                <button type="button" class="btn manage_toolbar_btn" data-manage-action="settings">
+                    <i data-icon="settings"></i><span data-i18n="sp.api.collection.settings_title">Cài đặt bộ sưu tập</span>
                 </button>
-                <button type="button" class="btn manage_toolbar_btn" data-manage-action="cancel-select" hidden>
-                    <i data-icon="close"></i><span data-i18n="sp.api.collection.cancel_select_mode">Hủy chọn</span>
-                </button>
+            </div>
+            <div class="manage_toolbar_group">
                 <button type="button" class="btn manage_toolbar_btn" data-manage-action="upload">
                     <i data-icon="upload"></i><span data-i18n="sp.api.collection.upload_btn">Tải lên ảnh / video</span>
                 </button>
@@ -63,10 +62,11 @@ export function createManageGrid({
                 <button type="button" class="btn manage_toolbar_btn" data-manage-action="delete-selected" data-variant="danger" hidden>
                     <i data-icon="bulkDelete"></i><span data-i18n="sp.api.collection.delete_selected">Xóa mục đã chọn</span>
                 </button>
-            </div>
-            <div class="manage_toolbar_group">
-                <button type="button" class="btn manage_toolbar_btn" data-manage-action="settings">
-                    <i data-icon="settings"></i><span data-i18n="sp.api.collection.settings_title">Cài đặt bộ sưu tập</span>
+                <button type="button" class="btn manage_toolbar_btn" data-manage-action="select">
+                    <i data-icon="selectMode"></i><span data-i18n="sp.api.collection.select_mode">Chọn nhiều</span>
+                </button>
+                <button type="button" class="btn manage_toolbar_btn" data-manage-action="cancel-select" hidden>
+                    <i data-icon="close"></i><span data-i18n="sp.api.collection.cancel_select_mode">Hủy chọn</span>
                 </button>
             </div>
         </div>
@@ -1001,8 +1001,14 @@ export function createManageGrid({
   /* ── Lifecycle ────────────────────────────────────────────────────────── */
 
   const onItemsChanged = () => render();
+  // The wallpaper can also change from outside the grid (carousel settling,
+  // deletion safety-net). Repaint just the applied markers so the grid never
+  // disagrees with the desktop about which card is active.
+  const onActiveChanged = () =>
+    syncActiveCards(dataControl.activeCard?.id ?? null);
   dataControl.on("card:added", onItemsChanged);
   dataControl.on("card:deleted", onItemsChanged);
+  dataControl.on("card:hard", onActiveChanged);
 
   render();
 
@@ -1014,6 +1020,7 @@ export function createManageGrid({
       // `performCloseSubmenu` clears `.submenu_body` once the motion is over.
       dataControl.off("card:added", onItemsChanged);
       dataControl.off("card:deleted", onItemsChanged);
+      dataControl.off("card:hard", onActiveChanged);
       dataControl.off("state:change", syncFetchState);
       cardsById.clear();
     },

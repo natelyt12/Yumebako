@@ -1,0 +1,119 @@
+@layer features {
+  /* ── Customize panel sections ─────────────────────────────────────────────
+     Content mounted into `#wallpaper_customize_panel` (right column of the
+     wallpaper switcher's "Customize this wallpaper" submenu). Each migrated
+     Settings section owns one module here and only reuses global components
+     (sliders, buttons, utilities). */
+
+  .wallpaper_filter_panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  /* Sub-group label inside a section ("Heavy Effects"). Mirrors the Settings
+     panel's `.setting_title` look, but lives here because the Customize panel
+     loads without the Settings stylesheet. */
+  .wallpaper_filter_group_title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    user-select: none;
+  }
+
+  .wallpaper_filter_group_title::after {
+    content: "";
+    height: 1px;
+    flex: 1;
+    background: linear-gradient(to right, var(--divider), transparent);
+    opacity: 0.45;
+  }
+
+
+  /* ── Shared slider layout ─────────────────────────────────────────────────
+     Two columns, so a panel can pair related controls (X | Y, zoom | blur …)
+     instead of stacking every slider vertically. */
+  .wallpaper_slider_grid {
+    display: grid;
+    /* Two columns whenever the panel is wide enough, one column in the narrow
+       Settings submenu the same panels still fall back to. */
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    align-items: start;
+    gap: 16px 20px;
+    min-width: 0;
+  }
+
+  /* A grid cell that stacks several slider groups in one column. */
+  .wallpaper_slider_col {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+  }
+
+  /* ── Wavy Animation panel ───────────────────────────────────────────────── */
+
+  .wallpaper_wavy_panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .wallpaper_wavy_content,
+  .wallpaper_wavy_advanced,
+  .wallpaper_wavy_shared {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  /* ── Parallax panel ─────────────────────────────────────────────────────── */
+
+  .wallpaper_parallax_panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .wallpaper_parallax_content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  /* ── Startup Animation panel ─────────────────────────────────────────────── */
+
+  .wallpaper_onload_panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .wallpaper_onload_group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  /* Advanced block keeps the Settings panel's spacing without its stylesheet. */
+  .wallpaper_onload_advanced {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+}

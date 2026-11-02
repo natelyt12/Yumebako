@@ -6,7 +6,6 @@
  *
  *   motion/
  *     WavyEngine.js       runtime: controller, animation loop, parallax state
- *     WavyEditorUI.js     settings panels + sidebar toggles
  *     BaseMotion.js       abstract generator
  *     registry.js         id -> generator class
  *     MotionEngine.js     id -> resolved config -> sampler instance
@@ -14,7 +13,6 @@
  *     impl/               NoiseMotion, OrganicMotion
  */
 export { getWavyParallaxState, getSmoothedMouse, getWavyController } from "./WavyEngine.js";
-export { initializeWavySettings, toggleWavyVisibility } from "./WavyEditorUI.js";
 
 // Motion generators — exported for consumers that want to reason about the
 // available algorithms without reaching into the folder internals.

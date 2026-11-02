@@ -25,7 +25,7 @@ import { initDate, initClock } from "/src/core/time.js";
 
 /**
  * @typedef {Object} WavyMotionConfig
- * @property {string}  motionType        - Active motion generator id (e.g. "noise").
+ * @property {string}  motionType        - Active motion generator id (e.g. "organic").
  * @property {number}  scale             - Wallpaper upscale factor to hide translation edges (e.g. 1.04).
  * @property {boolean} advanced          - Whether advanced sliders are shown in the editor.
  * @property {number}  parallaxInertia   - Spring inertia for parallax movement.
@@ -157,7 +157,7 @@ export function getDefaultWallpaperEffects() {
       enabled: false,
       parallaxEnabled: false,
       config: {
-        motionType: "noise",
+        motionType: "organic",
         scale: 1.04,
         advanced: false,
         parallaxInertia: 0.03,
@@ -212,7 +212,7 @@ const defaultSettings = {
     enabled: false,
     parallaxEnabled: false,
     config: {
-      motionType: "noise",
+      motionType: "organic",
       scale: 1.04,
       advanced: false,
       parallaxInertia: 0.03,

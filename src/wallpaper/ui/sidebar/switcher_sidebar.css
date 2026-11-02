@@ -28,7 +28,7 @@
   .wallpaper_switcher_sidebar {
     position: absolute;
     top: 0;
-    right: 0;
+    left: 0;
     bottom: 0;
     width: 380px;
     max-width: calc(100vw - 32px);
@@ -40,18 +40,18 @@
        label/unit, plain descriptions...). Without this they inherit the page's
        default black and become unreadable on the glass surface. */
     color: var(--text-primary);
-    border-left: 1px solid var(--glass-border-sm, rgba(255, 255, 255, 0.12));
+    border-right: 1px solid var(--glass-border-sm, rgba(255, 255, 255, 0.12));
     border-top: 1px solid rgba(255, 255, 255, 0.14);
 
     /* Shadow uses a negative spread so it stays horizontal: the drawer must not
        use clip-path here — clip-path creates a Backdrop Root that cancels the
        backdrop-filter of ::before (the glass would stop blurring). */
     box-shadow:
-      -12px 0 28px -24px rgba(0, 0, 0, 0.6),
-      inset 1px 0 0 rgba(255, 255, 255, 0.08);
+      12px 0 28px -24px rgba(0, 0, 0, 0.6),
+      inset -1px 0 0 rgba(255, 255, 255, 0.08);
 
     /* Closing state: matches #setting_wrapper exit curve & timing */
-    transform: translateX(100%);
+    transform: translateX(-100%);
     visibility: hidden;
     pointer-events: none;
     z-index: 50;
@@ -140,7 +140,7 @@
     flex: 1;
     min-width: 0;
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: -0.01em;
     color: var(--text-primary);
     user-select: none;
@@ -209,7 +209,7 @@
     align-items: center;
     gap: 8px;
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--text-muted);
@@ -274,7 +274,7 @@
     box-shadow: none;
     color: var(--text-secondary);
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 600;
     white-space: nowrap;
     display: flex;
     align-items: center;
@@ -322,7 +322,7 @@
 
   .wh_cat_pill[aria-pressed="true"] {
     color: var(--ts-thumb-on-color, #454545);
-    font-weight: 600;
+    font-weight: 700;
     background-color: transparent;
   }
 
@@ -337,12 +337,5 @@
   .wh_cat_pill:focus-visible {
     outline: 2px solid rgba(255, 255, 255, 0.4);
     outline-offset: 1px;
-  }
-
-  /* Highlight the source settings button when sidebar is active */
-  .wallpaper_source_settings.is-active {
-    background: var(--button-active, rgba(255, 255, 255, 0.18));
-    color: var(--text-primary);
-    border-color: var(--glass-border-sm, rgba(255, 255, 255, 0.2));
   }
 }

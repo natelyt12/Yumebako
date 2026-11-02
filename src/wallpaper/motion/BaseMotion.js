@@ -6,8 +6,8 @@ export const MAX_DT = 0.05;
 
 /**
  * Descriptor for a single slider control rendered by the generic settings editor
- * (WavyEditorUI, EffectsEditorUI). Entries sharing the same `group` are rendered
- * together as a labelled block; `tooltipKey` is shown once at the end of the group.
+ * (ui/customize/wavyPanel, EffectsEditorUI). Entries sharing the same `group` are
+ * rendered together as a labelled block; `tooltipKey` is shown once at the end of the group.
  *
  * @typedef {Object} SliderSettingSpec
  * @property {string}  key          - Property name in the generator's config bag.
@@ -28,7 +28,7 @@ export const MAX_DT = 0.05;
  * Mirrors the role of `ParticleEffect` for the particles system: each concrete
  * implementation declares its own `ID`, its own `DEFAULTS` and the list of
  * sliders the settings panel should render (`getSettingsSpec()`), while the
- * generic editor in `WavyEditorUI.js` stays completely unaware of the physics.
+ * generic editor in `ui/customize/wavyPanel.js` stays unaware of the physics.
  *
  * Adding a new motion type therefore means: create a subclass, register it in
  * `registry.js`. No template and no editor change required.

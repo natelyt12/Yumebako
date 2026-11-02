@@ -155,8 +155,15 @@ export class WallpaperSwitcher {
         this.carousel?.scrollToCard(0);
         this.bar?.renderActions(dataControl.activeCard);
         this.syncEmptyState(false);
-      } else if (isAtLast && addedCards && addedCards.length > 0) {
-        // Người dùng đang đứng ở ảnh cuối cùng trước khi thêm -> tự động cuộn sang ảnh tiếp theo
+      } else if (
+        isAtLast &&
+        addedCards &&
+        addedCards.length > 0 &&
+        this.isCarouselViewActive()
+      ) {
+        // Người dùng đang đứng ở ảnh cuối cùng trước khi thêm -> tự động cuộn sang ảnh tiếp theo.
+        // Chỉ khi carousel đang hiển thị: lấy ảnh mới từ lưới quản lý không được
+        // đổi hình nền desktop sau lưng người dùng.
         const nextIndex = dataControl.currentIndex + 1;
         this.carousel.scrollToCard(nextIndex);
         this.syncEmptyState(false);
@@ -207,6 +214,17 @@ export class WallpaperSwitcher {
   /** True while the carousel is fading/loading a different source. */
   get isSourceTransitioning() {
     return this._isSwapping;
+  }
+
+  /**
+   * True when the carousel (main view) is what the user is looking at. False
+   * while a submenu — the manage grid or the wallpaper customization panel —
+   * covers it, so actions taken there never switch the desktop wallpaper.
+   * @returns {boolean}
+   */
+  isCarouselViewActive() {
+    const host = this.container?.querySelector(".wallpaper_switcher_inner");
+    return Boolean(host) && !host.classList.contains("submenu_active");
   }
 
   /** Sources the user can actually browse right now (see `BaseSource.isAvailable`). */

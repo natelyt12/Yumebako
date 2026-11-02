@@ -40,7 +40,7 @@
   .wallpaper_switcher_inner {
     position: relative;
     width: 100%;
-    /* Cao theo nội dung: thanh tab trên + sân khấu carousel 420px + thanh dưới. */
+    /* Cao theo nội dung: thanh tab trên + sân stage carousel 420px + thanh dưới. */
     height: var(--switcher-inner-height, 546px);
     max-height: 90vh;
     display: flex;
@@ -50,6 +50,11 @@
     overflow: visible;
     box-sizing: border-box;
     padding: 12px 0 20px 0;
+    /* Customize panel: page-like content width and the fixed sidebar column.
+       Edit these two values to resize the panel / the sidebar (the section
+       content column absorbs the remaining width). */
+    --customize-max-width: 1200px;
+    --customize-sidebar-width: 300px;
     /* Không fade khi mở/đóng: bảng trượt lên là đủ, độ mờ đã do từng thẻ trong
        carousel đảm nhiệm (xem `geometry.js`). */
     transform: translateY(calc(100% + 50px));
@@ -91,9 +96,249 @@
 
   /* Khung cha morph lên toàn màn hình khi submenu mở */
   .wallpaper_switcher_inner.submenu_active {
-    height: 100vh;
-    max-height: 100vh;
+    height: var(--switcher-submenu-height, 100vh);
+    max-height: var(--switcher-submenu-height, 100vh);
     overflow: hidden;
+    /* The sheet's glass lives on ::before, whose shadow gets clipped by the
+       `overflow: hidden` used to mask the sliding panel. Repaint the same
+       ambient shadow on the host itself so panels that do not fill the screen
+       (Customize) still read as a floating card. */
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45);
+  }
+
+  .wallpaper_switcher_inner.submenu_active.customization_active {
+    height: 1200px;
+    max-height: min(1200px, 100vh);
+  }
+
+  .wallpaper_customize_submenu_content {
+    flex: 1;
+    width: 100%;
+    max-width: var(--customize-max-width);
+    margin: 0 auto;
+    min-height: 0;
+    box-sizing: border-box;
+    padding: 24px max(24px, 3.5vw);
+    display: grid;
+    /* Preview + section list on the left (fixed width), section content on the
+       right (absorbs the rest). */
+    grid-template-columns: var(--customize-sidebar-width) minmax(0, 1fr);
+    gap: 16px;
+    overflow: hidden;
+  }
+
+  .wallpaper_customize_sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* Reuses `.manage_detail_figure` for the exact look of the Manage grid's
+     detail preview; the block only stacks the "currently editing" label above
+     it and pins both against flex shrinking. */
+  .wallpaper_customize_preview_block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .wallpaper_customize_preview_label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    user-select: none;
+    padding-left: 2px;
+  }
+
+  .wallpaper_customize_tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-height: 0;
+  }
+
+  /* Vertical tab item: clean flat glass without border/box-shadow */
+  .wallpaper_customize_tab {
+    position: relative;
+    width: 100%;
+    height: 42px;
+    margin: 0;
+    padding: 0 14px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    box-shadow: none;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    text-align: left;
+    color: var(--text-secondary);
+    cursor: pointer;
+    user-select: none;
+    transition:
+      background-color 0.2s var(--smooth),
+      color 0.2s var(--smooth);
+  }
+
+  /* Inner elements (icon + label) slide slightly to the right on hover and remain shifted when active */
+  .wallpaper_customize_tab > svg,
+  .wallpaper_customize_tab_label {
+    transition:
+      transform 0.24s var(--expo_out),
+      opacity 0.2s var(--smooth),
+      color 0.2s var(--smooth);
+  }
+
+  .wallpaper_customize_tab > svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    opacity: 0.7;
+  }
+
+  .wallpaper_customize_tab:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+  }
+
+  .wallpaper_customize_tab:hover > svg {
+    opacity: 0.95;
+    transform: translateX(4px);
+  }
+
+  .wallpaper_customize_tab:hover .wallpaper_customize_tab_label {
+    transform: translateX(4px);
+  }
+
+  .wallpaper_customize_tab.is-active {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    border: none;
+    box-shadow: none;
+  }
+
+  .wallpaper_customize_tab.is-active > svg {
+    opacity: 1;
+    transform: translateX(4px);
+    color: var(--text-primary);
+  }
+
+  .wallpaper_customize_tab.is-active .wallpaper_customize_tab_label {
+    font-weight: 700;
+    transform: translateX(4px);
+  }
+
+  /* Left accent capsule on active tab: morphs from height 0 */
+  .wallpaper_customize_tab::before {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 0;
+    border-radius: 4px;
+    background: var(--text-primary, #ffffff);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      height 0.28s var(--expo_out),
+      opacity 0.2s var(--smooth);
+  }
+
+  .wallpaper_customize_tab.is-active::before {
+    height: 16px;
+    opacity: 1;
+  }
+
+  .wallpaper_customize_tab_label {
+    font-size: 0.95em;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Placeholder for sections still in development */
+  .wallpaper_customize_placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 260px;
+    gap: 12px;
+    color: var(--text-muted);
+    text-align: center;
+    user-select: none;
+  }
+
+  .customize_placeholder_icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--glass-border-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+  }
+
+  .customize_placeholder_icon svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .customize_placeholder_title {
+    font-size: 1.1em;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .customize_placeholder_desc {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+  }
+
+  .wallpaper_customize_panel {
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    /* The switcher shell does not set a text colour; without this the panel's
+       controls (slider labels, inputs) inherit the page default black. */
+    color: var(--text-primary);
+    /* Divider between the sidebar and the section content, mirroring the
+       Manage grid's detail pane. */
+    border-left: 1px solid var(--glass-border-sm);
+    padding-left: 24px;
+    transition: border-color 0.22s var(--smooth);
+  }
+
+  @media (max-width: 900px) {
+    .wallpaper_customize_submenu_content {
+      grid-template-columns: minmax(0, 1fr);
+      overflow-y: auto;
+    }
+
+    .wallpaper_customize_sidebar,
+    .wallpaper_customize_panel {
+      overflow: visible;
+    }
+
+    /* Stacked layout: the vertical divider no longer separates two columns. */
+    .wallpaper_customize_panel {
+      border-left: none;
+      padding-left: 0;
+    }
   }
 
   /* 1. Main View: giữ layout; hiệu ứng fade + lùi (recede) do component submenu
@@ -118,7 +363,8 @@
      quy định (`position:absolute; inset` + 4 hướng trượt). Ở đây chỉ giữ phần
      nội dung đặc thù của bảng "Quản lý hình nền". */
 
-  .wallpaper_manage_submenu_header {
+  .wallpaper_manage_submenu_header,
+  .wallpaper_customize_submenu_header {
     width: 100%;
     max-width: 1800px;
     margin: 0 auto;
@@ -128,11 +374,55 @@
     align-items: center;
     justify-content: space-between;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
   }
 
-  .wallpaper_manage_submenu_title {
-    font-size: 15px;
+  /* The Customize panel uses a page-like width, so its header follows it to
+     keep the title/close button aligned with the content. */
+  .wallpaper_customize_submenu_header {
+    max-width: var(--customize-max-width);
+  }
+
+  .wallpaper_customize_submenu_tools {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  /* Keyboard affordance for the hold-to-preview shortcut. */
+  .wallpaper_customize_preview_hint {
+    font-size: 0.8em;
     font-weight: 600;
+    color: var(--text-muted);
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  /* Hold V: hide the whole sheet (glass + content) so only the wallpaper
+     remains. Instant, no fade either way. */
+  .wallpaper_switcher_inner.wallpaper_preview_active {
+    box-shadow: none !important;
+  }
+
+  .wallpaper_switcher_inner.wallpaper_preview_active::before {
+    opacity: 0 !important;
+  }
+
+  /* The sheet's content goes too, leaving only the wallpaper. Opacity (not
+     visibility/pointer-events) so the controls underneath keep receiving
+     pointer input while previewing. */
+  .wallpaper_switcher_inner.wallpaper_preview_active
+    .wallpaper_customize_submenu_header,
+  .wallpaper_switcher_inner.wallpaper_preview_active
+    .wallpaper_customize_submenu_content {
+    opacity: 0 !important;
+  }
+
+  .wallpaper_manage_submenu_title,
+  .wallpaper_customize_submenu_title {
+    font-size: 15px;
+    font-weight: 700;
     color: var(--text-primary);
   }
 
@@ -174,6 +464,11 @@
     gap: 10px;
   }
 
+  /* Source settings trigger: icon button sitting just left of the source tabs. */
+  .wallpaper_source_settings {
+    flex-shrink: 0;
+  }
+
   .wallpaper_switcher_top_right {
     display: flex;
     align-items: center;
@@ -188,6 +483,12 @@
        summary text; a summary wider than this floor simply keeps the panel at
        that same width, and the detail content follows it. */
     --meta-expanded-w: 320px;
+    /* Single source of truth for the summary weight: the invisible sizer (which
+       reserves the collapsed width) and the visible header must render the text
+       at the same weight, otherwise the sizer measures narrower than the header
+       and the text overflows past the chip's right padding. Meta info stays on
+       the Base tier (600) per the font-weight hierarchy. */
+    --meta-summary-fw: 600;
     --meta-radius: calc(
       var(--meta-chip-h) / 2
     ); /* 14px: Bán kính cung tròn bán nguyệt tuyệt đối */
@@ -221,8 +522,12 @@
     align-items: center;
     height: var(--meta-chip-h);
     padding: 0 12px;
+    /* Mirror the card's 1px frame so the reserved width matches the header's
+       usable width exactly (card = sizer width, minus its own border). */
+    border: 1px solid transparent;
+    box-sizing: border-box;
     font-size: 11px;
-    font-weight: 500;
+    font-weight: var(--meta-summary-fw);
     white-space: nowrap;
     user-select: none;
   }
@@ -268,7 +573,7 @@
     justify-content: flex-start;
     padding: 0 12px;
     font-size: 11px;
-    font-weight: 500;
+    font-weight: var(--meta-summary-fw);
     color: var(--text-secondary);
     white-space: nowrap;
     user-select: none;
@@ -289,7 +594,7 @@
     align-items: center;
     padding: 1px 5px;
     font-size: 9.5px;
-    font-weight: 700;
+    font-weight: 800;
     border-radius: 4px;
     background: rgba(255, 255, 255, 0.12);
     color: var(--text-primary);
@@ -390,7 +695,7 @@
 
   .wallpaper_switcher_meta_body .meta_label {
     color: var(--text-secondary);
-    font-weight: 500;
+    font-weight: 600;
     font-size: 11px;
     flex-shrink: 0;
     min-width: 75px;
@@ -399,7 +704,7 @@
 
   .wallpaper_switcher_meta_body .meta_value {
     color: var(--text-primary);
-    font-weight: 500;
+    font-weight: 600;
     text-align: right;
     word-break: break-word;
   }
@@ -491,7 +796,7 @@
     border: 1px solid var(--glass-border-sm);
     box-sizing: border-box;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     color: var(--text-secondary);
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.5px;
@@ -577,6 +882,11 @@
     max-width: 1800px;
     padding: 12px max(24px, 3.5vw) 0;
     box-sizing: border-box;
+    /* The action row is faded, emptied and `hidden` while the carousel moves.
+       Without a floor here the bar collapses to its 12px padding, and because
+       the main view is bottom-aligned the top bar (with the whole carousel
+       block) drops down and then jumps back when the next row mounts. */
+    min-height: 46px;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center;
@@ -684,7 +994,7 @@
     box-shadow: none;
     color: var(--text-secondary);
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 600;
     white-space: nowrap;
     display: flex;
     align-items: center;
@@ -702,7 +1012,7 @@
   /* Giữ nguyên thứ tự tự nhiên của các nguồn (không switch lên đầu) */
   .wallpaper_source_tab.active {
     color: var(--ts-thumb-on-color, #454545);
-    font-weight: 600;
+    font-weight: 700;
   }
 
   /* Khoảng cách giữa các tab cạnh nhau khi mở rộng */
@@ -776,7 +1086,7 @@
 
   .wallpaper_source_tab.active {
     color: var(--ts-thumb-on-color, #454545);
-    font-weight: 600;
+    font-weight: 700;
     background-color: transparent;
   }
 
@@ -799,7 +1109,7 @@
     gap: 8px;
     border-radius: 9px;
     font-size: 12px;
-    font-weight: 400;
+    font-weight: 600;
     white-space: nowrap;
     justify-content: center;
   }

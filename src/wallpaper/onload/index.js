@@ -1,5 +1,4 @@
 import { OnloadEngine } from "./OnloadEngine.js";
-import { OnloadEditorUI } from "./OnloadEditorUI.js";
 
 /**
  * Public entry point for the startup-animation feature.
@@ -10,12 +9,12 @@ import { OnloadEditorUI } from "./OnloadEditorUI.js";
  *
  *   onload/
  *     OnloadEngine.js    runtime: DOM refs, timing, play/reset cycle
- *     OnloadEditorUI.js  settings panel + live preview
  *     presets.js         overlay-mode registry + every preset + id → class registry
  *     easing.js          id -> CSS easing token
+ *
+ * The editor UI lives with the other section panels in `../ui/customize/`.
  */
 export { OnloadEngine, resolvePlayConfig, resolvePresetConfig } from "./OnloadEngine.js";
-export { OnloadEditorUI } from "./OnloadEditorUI.js";
 
 export {
     BasePreset,
@@ -42,7 +41,6 @@ export {
 } from "./easing.js";
 
 const engine = new OnloadEngine();
-const editor = new OnloadEditorUI(engine);
 
 /** The live engine instance (mirrors `getWavyController()`). */
 export function getOnloadEngine() {
@@ -52,9 +50,4 @@ export function getOnloadEngine() {
 /** Play the saved startup animation (called once the wallpaper is painted). */
 export function applyOnloadAnimation() {
     engine.apply();
-}
-
-/** Attach the settings-panel trigger button. */
-export function initializeOnloadSettings() {
-    editor.initialize();
 }

@@ -11,7 +11,7 @@ import { createMotionSampler, resolveMotionConfig } from "./MotionEngine.js";
  *
  * Counterpart of `particles/EffectsEngine.js`:
  *   WavyEngine      (this file)      ↔ EffectsEngine      — runtime
- *   WavyEditorUI                     ↔ EffectsEditorUI    — settings panel
+ *   ui/customize/wavyPanel           ↔ EffectsEditorUI    — settings panel
  *   motion/registry  + motion/impl   ↔ particles/registry — pluggable modules
  *
  * The settings panel never touches the controller directly; it goes through
