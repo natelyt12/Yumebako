@@ -86,11 +86,11 @@
 
   :root {
     --slider-track-height: 36px;
-    --slider-wave-width: 2.8px;
-    --slider-flat-width: 2.8px;
-    --slider-thumb-width: 2px;
-    --slider-thumb-height: 24px;
-    --slider-thumb-hover-extend: 8px;
+    --slider-wave-width: 4px;
+    --slider-flat-width: 4px;
+    --slider-thumb-width: 3px;
+    --slider-thumb-height: 32px;
+    --slider-thumb-hover-extend: 4px;
     --slider-thumb-radius: 4px;
     --slider-num-width: 76px;
     --slider-unit-width: 48px;

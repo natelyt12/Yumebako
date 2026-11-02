@@ -64,7 +64,7 @@
 
 .clock-ampm {
     font-size: 2rem;
-    font-weight: 600;
+    font-weight: 700;
     margin-left: 12px;
     opacity: 0.7;
     text-transform: uppercase;
@@ -83,13 +83,13 @@
 
 .clock-date {
     font-size: 1.5rem;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.5px;
 }
 
 .clock-lunar {
     font-size: 1.2rem;
-    font-weight: 500;
+    font-weight: 600;
     opacity: 0.8;
 }
 }

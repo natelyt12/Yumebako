@@ -327,7 +327,7 @@ function createTrackerDOM() {
         }
         .idb_item_key {
             font-size: 10.5px;
-            font-weight: 500;
+            font-weight: 600;
             color: #58a6ff;
             white-space: nowrap;
             overflow: hidden;

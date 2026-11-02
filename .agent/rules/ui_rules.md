@@ -10,7 +10,11 @@ Follow these rules whenever adding or changing user-facing markup, styles, contr
 ## 1. Visual foundation
 
 - Keep the existing dark, translucent glass visual language. Reuse the design tokens in `src/styles/variables.css` for surfaces, text, borders, interaction states, status colors, easing, and stacking order. Do not introduce a parallel palette or scatter one-off colors when an existing token fits.
-- Use the existing Mulish font stack and sizing rhythm. Preserve the established rounded control shapes, restrained borders, translucent surfaces, and subtle motion rather than adding unrelated visual treatments.
+- Use the primary **Quicksand** font stack (`"Quicksand", "Mulish", sans-serif`) and sizing rhythm. Quicksand is self-hosted offline via variable font (`public/assets/fonts/Quicksand-VariableFont_wght.ttf`, weight 300–800) in `src/styles/fonts.css`, with Mulish preserved as fallback. Preserve the established rounded control shapes, restrained borders, translucent surfaces, and subtle motion rather than adding unrelated visual treatments.
+- **Font-Weight Hierarchy**: Standardized across the entire application into 3 levels:
+  - **Base / Regular (`600`)**: Default body text, descriptions (`.btn_desc`), input fields, inactive tabs/chips, secondary labels, and meta info.
+  - **Bold / Medium (`700`)**: Action row titles (`.btn_title`), active navigation/source tabs (`.active`), card titles, slider values, date numbers, and primary statistics.
+  - **Extra Bold / Heavy (`800`)**: Major section headers (`.setting_title`, `.source_sidebar_section_title`), modal/dialog titles (`.dialog_title`), app branding (`.app_name`), and technical badges/tags (`.meta_badge`).
 - Size type from the root scale: `html` uses `--font-size-root` (pinned in `px` so the browser's default font-size setting cannot shrink the extension UI) and everything below uses `em`/`rem`. Change that one token to rescale the whole interface instead of overriding sizes per component.
 - Keep the `html`/`html body` typography rules **outside** `@layer` (see `src/styles/base.css`). Chromium injects an unlayered `body { font-size: 75%; font-family: system-ui }` rule into extension pages, and unlayered styles outrank every cascade layer — layering the shell typography makes the extension render smaller than the dev server.
 - Prefer design tokens over hardcoded colors, radii, shadows, and animation curves. Component-specific values belong in the component stylesheet; promote a value to a shared token only when multiple surfaces need the same semantic value.

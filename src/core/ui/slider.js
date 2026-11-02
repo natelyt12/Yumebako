@@ -9,15 +9,15 @@ import { confirmReset } from "./dialog.js";
  */
 export const SLIDER_CONFIG = {
   // Wave animation speed (px/sec) — lower = slower/gentler, higher = faster
-  speed: 6,
+  speed: -10,
   // Distance between wave peaks in pixels — higher = wider & rounder wave, lower = tighter wave
-  wavelength: 20,
+  wavelength: 30,
   // Height of wave peaks from center in pixels — higher = taller waves, lower = flatter waves
-  amplitude: 3,
+  amplitude: 4,
   // SVG sampling step in pixels — smaller = smoother curve (1.0 - 2.0 is optimal)
-  stepPx: 1.4,
+  stepPx: 1.5,
   // Gap in pixels between thumb and tracks (active wave line & inactive flat line)
-  thumbGap: 6,
+  thumbGap: 8,
   // Track horizontal padding in pixels from left & right container edges
   trackPadding: 8,
   // Center Y coordinate of wave & line in pixels (half of track height 36px)
@@ -414,6 +414,7 @@ export function createSlider(options) {
       thumb.classList.remove("dragging");
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
+      window.removeEventListener("blur", onMouseUp);
 
       // Chốt giá trị đúng một lần khi thả tay (kể cả cú click không kéo,
       // vì mousedown đã nhảy tới vị trí mới).
@@ -424,6 +425,7 @@ export function createSlider(options) {
 
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup", onMouseUp);
+    window.addEventListener("blur", onMouseUp, { once: true });
   });
 
   const commitInputVal = () => {
