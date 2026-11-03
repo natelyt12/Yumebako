@@ -17,11 +17,11 @@
   button,
   .btn {
     background-color: var(--button);
-    border: none;
+    border: 1px solid var(--glass-border-sm);
     box-shadow: none;
     border-radius: 10px;
     color: var(--text-primary);
-    transition: all 0.2s var(--smooth);
+    transition: all 0.2s var(--ease_out);
     padding: 0 14px;
     height: 40px;
     box-sizing: border-box;
@@ -34,7 +34,7 @@
     align-items: center;
     justify-content: center;
     gap: 10px;
-    font-weight: 600;
+    font-weight: 500;
   }
 
   /* Bar buttons (leading icon / body / trailing action) hug the left edge; plain
@@ -70,7 +70,7 @@
   }
 
   .btn_title {
-    font-weight: 700;
+    font-weight: 500;
     line-height: 20px;
     color: var(--text-primary);
   }
@@ -109,11 +109,13 @@
   button:hover,
   .btn:hover {
     background-color: var(--button-hov);
+    border-color: var(--glass-border);
   }
 
   button:active,
   .btn:active {
     background-color: var(--button-act);
+    border-color: var(--glass-border-sm);
   }
 
   button:disabled,
@@ -213,11 +215,6 @@
     border-color: #f0f0f5;
   }
 
-  /* Keyboard accessibility */
-  .btn[data-action="toggle"] input:focus-visible + .ts-track {
-    outline: 2px solid rgba(255, 255, 255, 0.6);
-    outline-offset: 2px;
-  }
 
   /* Danger variant (replaces the legacy `.danger_btn` / `.btn_warning`). */
   .btn[data-variant="danger"] {

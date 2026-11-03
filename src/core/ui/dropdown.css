@@ -47,7 +47,7 @@
     width: 100%;
     /* Same field chrome as `.native_select`. */
     background-color: var(--button);
-    border: none;
+    border: 1px solid var(--glass-border-sm);
     border-radius: 10px;
     box-shadow: none;
     color: var(--text-primary);
@@ -61,11 +61,15 @@
        concern of `.btn` so a two-line trigger keeps its own spacing. */
     padding-left: 14px;
     padding-right: 36px;
-    transition: background-color 0.2s var(--smooth);
+    transition:
+      background-color 0.2s var(--ease_out),
+      border-color 0.2s var(--ease_out);
   }
 
-  .btn[data-action="dropdown"]:hover {
+  .btn[data-action="dropdown"]:hover,
+  .btn[data-action="dropdown"].btn_active {
     background-color: var(--button-hov);
+    border-color: var(--glass-border);
   }
 
   /* The label fills the trigger; the chevron is out of flow so it never shifts it. */
@@ -187,13 +191,13 @@
     font-size: inherit;
     font-family: inherit;
     line-height: 20px;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--text-primary);
     gap: 0;
     padding: 0 14px;
     transition:
-      background-color 0.15s var(--smooth),
-      color 0.15s var(--smooth);
+      background-color 0.15s var(--ease_out),
+      color 0.15s var(--ease_out);
   }
 
   .dropdown .dropdown_item:hover {

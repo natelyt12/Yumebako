@@ -39,7 +39,7 @@
 
   .current_temp {
     font-size: 2.5em;
-    font-weight: 700;
+    font-weight: 600;
     color: var(--text-primary);
     line-height: 1;
     margin-bottom: 4px;
@@ -73,7 +73,7 @@
   .condition_text {
     font-size: 0.9em;
     color: rgba(255, 255, 255, 0.9);
-    font-weight: 600;
+    font-weight: 500;
   }
 
   .weather_details_grid {
@@ -102,7 +102,7 @@
 
   .stat_value {
     color: rgba(255, 255, 255, 0.9);
-    font-weight: 700;
+    font-weight: 600;
   }
 
   .weather_summary {

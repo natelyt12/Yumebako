@@ -11,7 +11,7 @@
     margin: 0;
     padding: 0;
     overflow: hidden;
-    font-weight: 600;
+    font-weight: 500;
     font-style: normal;
   }
 
@@ -21,6 +21,12 @@
   textarea {
     font-family: inherit;
     font-weight: inherit;
+    outline: none;
+  }
+
+  :focus,
+  :focus-visible {
+    outline: none;
   }
 
   p {

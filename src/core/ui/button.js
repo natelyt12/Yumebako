@@ -17,8 +17,27 @@ import { initCustomSelects, syncDropdownSelection, initSubToggle } from "/src/co
  *
  * @param {HTMLElement|Document} [rootNode=document] - Subtree to scan.
  */
+let isToggleBlurListenerAttached = false;
+function initToggleClickBlur() {
+    if (isToggleBlurListenerAttached) return;
+    isToggleBlurListenerAttached = true;
+    document.addEventListener("click", (e) => {
+        // e.detail > 0 means pointer/mouse click (keyboard Space/Enter has detail === 0)
+        if (e.detail > 0) {
+            const toggle = e.target.closest?.('.btn[data-action="toggle"]') || (e.target.matches?.('input[type="checkbox"]') ? e.target : null);
+            if (toggle) {
+                const input = toggle.matches?.('input[type="checkbox"]') ? toggle : toggle.querySelector('input[type="checkbox"]');
+                if (input && document.activeElement === input) {
+                    input.blur();
+                }
+            }
+        }
+    });
+}
+
 export function initButtons(rootNode = document) {
     initSubToggle();
+    initToggleClickBlur();
     if (!rootNode || typeof rootNode.querySelectorAll !== "function") return;
 
     const buttons = Array.from(rootNode.querySelectorAll(".btn[data-action]"));
