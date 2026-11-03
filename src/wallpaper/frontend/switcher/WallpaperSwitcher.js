@@ -20,7 +20,7 @@ import switcherHtml from "./switcher.html?raw";
 import "./switcher.css";
 import "./customize.css";
 import "./meta.css";
-import "./bar.css";
+import "./bar/bar.css";
 import "./carousel/carousel.css";
 
 /**

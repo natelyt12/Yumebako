@@ -35,7 +35,7 @@
     /* ── Interactive ───────────────────────────── */
     --button: rgba(255, 255, 255, 0.08);
     --button-hov: rgba(255, 255, 255, 0.14);
-    --button-act: rgba(255, 255, 255, 0.04);
+    --button-act: rgba(255, 255, 255, 0.11);
     --input-bg: var(--button);
     --input-bg-hov: var(--button-hov);
     --input-bg-focus: rgba(255, 255, 255, 0.12);
@@ -55,7 +55,7 @@
     --bg-warning: rgba(45, 40, 20, 0.4);
     --color-danger: rgba(255, 85, 85, 0.2);
     --color-danger-border: rgba(255, 85, 85, 0.12);
-    --color-danger-act: rgba(255, 85, 85, 0.1);
+    --color-danger-act: rgba(255, 85, 85, 0.18);
 
     /* ── Divider / Scrollbar ───────────────────── */
     --divider: rgba(255, 255, 255, 0.12);

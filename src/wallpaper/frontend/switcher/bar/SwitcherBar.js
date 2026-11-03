@@ -1,3 +1,4 @@
+import "./bar.css";
 import { renderIcons } from "/src/core/icon.js";
 import { t } from "/src/core/i18n.js";
 import {

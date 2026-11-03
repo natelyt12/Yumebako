@@ -115,7 +115,7 @@
   button:active,
   .btn:active {
     background-color: var(--button-act);
-    border-color: var(--glass-border-sm);
+    border-color: var(--glass-border);
   }
 
   button:disabled,

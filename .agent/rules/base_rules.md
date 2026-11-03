@@ -70,7 +70,7 @@ yumebako/
     │       │   ├── switcher.css # Shell and submenu host layout
     │       │   ├── customize.css # Customize panel layout and tabs
     │       │   ├── meta.css # Morphing wallpaper metadata card
-    │       │   └── bar.css # Top bar, source tabs, counters, and actions
+    │       │   ├── bar/     # Top bar component & bar.css (source tabs, counters, actions)
     │       ├── customize/ # Panel registry, shared layout, and individual panels
     │       │   └── panels/ # arrange/, filters/, particles/, onload/, wavy/
     │       ├── index.js  # Public frontend entry and wallpaper stylesheet

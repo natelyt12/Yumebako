@@ -6,6 +6,7 @@ import {
   createSlider,
   initButtons,
   confirmReset,
+  showConfirm,
 } from "/src/core/ui.js";
 import { t, translateDOM } from "/src/core/i18n.js";
 import { getSettings, saveSettings } from "/src/core/storageHandler.js";
@@ -68,9 +69,6 @@ export class EffectsEditorUI {
       columnsContainer.appendChild(
         this._buildSection("static", "particles.screen_layer"),
       );
-      const emptyDivider = document.createElement("div");
-      emptyDivider.className = "section_divider";
-      columnsContainer.appendChild(emptyDivider);
     }
 
     const btnClearAll = this.clone.querySelector("#btn_clear_all");
@@ -108,7 +106,9 @@ export class EffectsEditorUI {
   // ── UI Building ──────────────────────────────
 
   _buildSection(layer, i18nKey) {
-    const frag = document.createDocumentFragment();
+    const col = document.createElement("div");
+    col.className = "effects_column";
+    this.columns[layer] = col;
 
     const title = document.createElement("p");
     title.className = "effects_column_title";
@@ -185,10 +185,10 @@ export class EffectsEditorUI {
       addArea.style.pointerEvents = "none";
     }
 
-    frag.append(title, masterToggleLabel, addArea, list);
+    col.append(title, masterToggleLabel, addArea, list);
     this._refreshList(layer);
 
-    return frag;
+    return col;
   }
   _buildAddArea(layer, list) {
     const area = document.createElement("div");
@@ -269,37 +269,6 @@ export class EffectsEditorUI {
       return b;
     };
 
-    // Individual effect toggle button
-    const btnToggle = makeBtn(
-      effectData.enabled !== false ? Icons.particleCheck : Icons.particleX,
-      (e) => {
-        const newState = effectData.enabled === false; // toggle state
-        effectData.enabled = newState;
-        this.isDirty = true;
-        setSubmenuDirty(true);
-
-        btnToggle.innerHTML = newState ? Icons.particleCheck : Icons.particleX;
-
-        if (newState) {
-          this.engine.addEffect(
-            effectData.id,
-            layer,
-            effectData.type,
-            effectData.config,
-          );
-          const arr = this.workingState[layer];
-          this.engine.reorderLayers(
-            layer,
-            arr.map((w) => w.id),
-          );
-          card.classList.remove("effect_disabled");
-        } else {
-          this.engine.removeEffect(effectData.id, layer);
-          card.classList.add("effect_disabled");
-        }
-      },
-    );
-
     // Inline Drawer for Sliders
     const drawer = document.createElement("div");
     drawer.className = "effect_card_drawer";
@@ -365,17 +334,19 @@ export class EffectsEditorUI {
     drawerContent.appendChild(drawerActions);
     drawer.appendChild(drawerContent);
 
-    // Gear icon button to toggle drawer expansion
-    const btnSettings = makeBtn(Icons.particleSettings, () => {
-      const isOpen = drawer.classList.toggle("open");
-      if (isOpen) {
-        btnSettings.classList.add("active");
-      } else {
-        btnSettings.classList.remove("active");
-      }
-    });
+    // Action buttons: Delete, then Edit (Pencil), then Checkbox Toggle on the far right
+    const btnDelete = makeBtn(Icons.particleDelete, async () => {
+      const confirmed = await showConfirm(
+        t("particles.delete_confirm_msg") || "Bạn có chắc chắn muốn xóa hiệu ứng này không?",
+        {
+          title: t("particles.delete_confirm_title") || "Xóa hiệu ứng",
+          okText: t("common.delete") || "Xóa",
+          isDanger: true,
+          anchor: btnDelete,
+        },
+      );
+      if (!confirmed) return;
 
-    const btnDelete = makeBtn(Icons.particleDelete, () => {
       const arr = this.workingState[layer];
       const idx = arr.findIndex((e) => e.id === effectData.id);
       if (idx >= 0) arr.splice(idx, 1);
@@ -384,8 +355,62 @@ export class EffectsEditorUI {
       this.isDirty = true;
       setSubmenuDirty(true);
     });
+    btnDelete.className = "effect_btn_delete";
+    btnDelete.title = t("common.delete") || "Xóa";
 
-    controls.append(btnSettings, btnToggle, btnDelete);
+    const btnEdit = makeBtn(Icons.particleEdit, () => {
+      const isOpen = drawer.classList.toggle("open");
+      if (isOpen) {
+        btnEdit.classList.add("active");
+      } else {
+        btnEdit.classList.remove("active");
+      }
+    });
+    btnEdit.className = "effect_btn_edit";
+    btnEdit.title = t("common.edit") || "Chỉnh sửa";
+
+    const toggleLabel = document.createElement("label");
+    toggleLabel.className = "effect_toggle";
+    toggleLabel.title = t("common.toggle") || "Bật/Tắt";
+
+    const toggleInput = document.createElement("input");
+    toggleInput.type = "checkbox";
+    toggleInput.checked = effectData.enabled !== false;
+
+    const track = document.createElement("div");
+    track.className = "ts-track";
+    const thumb = document.createElement("div");
+    thumb.className = "ts-thumb";
+    track.appendChild(thumb);
+    toggleLabel.append(toggleInput, track);
+
+    toggleInput.onchange = (e) => {
+      e.stopPropagation();
+      const newState = toggleInput.checked;
+      effectData.enabled = newState;
+      this.isDirty = true;
+      setSubmenuDirty(true);
+
+      if (newState) {
+        this.engine.addEffect(
+          effectData.id,
+          layer,
+          effectData.type,
+          effectData.config,
+        );
+        const arr = this.workingState[layer];
+        this.engine.reorderLayers(
+          layer,
+          arr.map((w) => w.id),
+        );
+        card.classList.remove("effect_disabled");
+      } else {
+        this.engine.removeEffect(effectData.id, layer);
+        card.classList.add("effect_disabled");
+      }
+    };
+
+    controls.append(btnDelete, btnEdit, toggleLabel);
     header.append(nameEl, controls);
     card.append(header, drawer);
 

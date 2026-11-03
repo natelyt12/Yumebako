@@ -77,8 +77,8 @@
 
   .wallpaper_customize_tab > svg,
   .wallpaper_customize_tab > i[data-icon] {
-    width: 18px;
-    height: 18px;
+    width: 17px;
+    height: 17px;
     flex-shrink: 0;
     opacity: 0.75;
     transition:
@@ -88,20 +88,20 @@
   }
 
   .wallpaper_customize_tab_label {
-    font-size: 0.95em;
+    font-size: 0.96rem;
     font-weight: 500;
     line-height: 1.3;
     letter-spacing: -0.01em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    transition: transform 0.24s var(--expo_out);
+    transition:
+      color 0.2s var(--ease_out),
+      transform 0.24s var(--expo_out);
   }
 
-  /* Instant hover on text/icon (no background), smooth transition on hover out */
   .wallpaper_customize_tab:hover {
     color: var(--text-primary);
-    transition-duration: 0s;
   }
 
   .wallpaper_customize_tab:hover > svg,

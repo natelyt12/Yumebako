@@ -12,30 +12,24 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
-    gap: 12px;
+    gap: 16px;
   }
 
   .effects_column {
     min-width: 0;
-    background: var(--bg-surface);
-    border: 1px solid var(--glass-border-sm);
-    border-radius: 8px;
-    padding: 10px 12px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    min-height: auto;
+    gap: 10px;
   }
 
   .effects_column_title {
     font-size: 0.82em;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0;
+    letter-spacing: 0.04em;
     color: var(--text-muted);
     margin: 0;
-    padding: 0;
-    border-bottom: none;
+    padding: 0 2px;
   }
 
   .effects_list {
@@ -46,9 +40,9 @@
   }
 
   .effects_master_toggle {
-    min-height: 64px;
+    min-height: 56px;
     height: auto;
-    padding: 8px 12px;
+    padding: 10px 14px;
   }
 
   .effects_master_toggle .btn_body {
@@ -66,19 +60,13 @@
     flex-direction: column;
     background: var(--button);
     border: 1px solid var(--glass-border-sm);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    border-radius: 8px;
+    border-radius: 10px;
     overflow: hidden;
-    transition: border-color 0.15s var(--smooth);
-  }
-
-  .effect_card:hover {
-    border-color: var(--glass-border);
-    background-color: var(--button-hov);
   }
 
   .effect_card.effect_disabled .effect_card_name {
     color: var(--text-muted);
+    opacity: 0.6;
   }
 
   .effect_card_header {
@@ -87,7 +75,7 @@
     justify-content: space-between;
     padding: 0 14px;
     min-height: 40px;
-    gap: 6px;
+    gap: 10px;
   }
 
   .effect_card_name {
@@ -96,44 +84,151 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--text-primary);
+    font-size: 0.96rem;
+    font-weight: 500;
   }
 
   .effect_card_controls {
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: 8px;
     flex-shrink: 0;
   }
 
   .effect_card_controls button {
-    width: 24px;
-    height: 24px !important;
+    width: 20px;
+    height: 20px !important;
     min-width: unset;
     min-height: unset !important;
     padding: 0 !important;
-    font-size: 0.75em;
-    border-radius: 4px;
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    display: flex;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    box-shadow: none;
+    cursor: pointer;
+    line-height: 0;
     transition:
-      background 0.15s,
-      color 0.15s,
-      transform 0.15s;
+      opacity 0.18s ease,
+      color 0.18s ease;
   }
 
-  .effect_card_controls button:hover {
-    background: var(--button-hov);
+  .effect_card_controls button svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+    flex-shrink: 0;
+  }
+
+  /* Edit (Pencil) Button */
+  .effect_card_controls .effect_btn_edit {
+    color: var(--text-muted);
+    opacity: 0.75;
+  }
+
+  .effect_card_controls .effect_btn_edit:hover {
+    opacity: 1;
     color: var(--text-primary);
   }
 
-  .effect_card_controls button.active {
-    background: rgba(255, 255, 255, 0.15);
+  .effect_card_controls .effect_btn_edit.active {
+    opacity: 1;
     color: #ffffff;
+  }
+
+  /* Delete Button - màu đỏ sẵn, giữ nguyên mã màu khi hover chỉ tăng opacity lên 1 */
+  .effect_card_controls .effect_btn_delete {
+    color: #f87171;
+    opacity: 0.75;
+  }
+
+  .effect_card_controls .effect_btn_delete:hover {
+    opacity: 1;
+  }
+
+  /* ── Effect Row Checkbox Toggle ────────────────────────────────────────── */
+
+  .effect_toggle {
+    --ts-track-width: 36px;
+    --ts-track-height: 20px;
+    --ts-thumb-size-off: 10px;
+    --ts-thumb-size-on: 14px;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    flex-shrink: 0;
+    margin-left: 2px;
+  }
+
+  .effect_toggle input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+
+  .effect_toggle .ts-track {
+    width: var(--ts-track-width);
+    height: var(--ts-track-height);
+    background-color: var(--ts-track-off-bg);
+    border: 1.5px solid var(--ts-track-off-border);
+    border-radius: 999px;
+    position: relative;
+    box-sizing: border-box;
+    transition:
+      background-color 0.24s cubic-bezier(0.2, 0, 0, 1),
+      border-color 0.24s cubic-bezier(0.2, 0, 0, 1);
+    flex-shrink: 0;
+    pointer-events: none;
+  }
+
+  .effect_toggle .ts-thumb {
+    position: absolute;
+    top: 50%;
+    left: 3px;
+    width: var(--ts-thumb-size-off);
+    height: var(--ts-thumb-size-off);
+    background-color: var(--ts-thumb-off-color);
+    border-radius: 50%;
+    transform: translate(0, -50%);
+    transition:
+      transform 0.28s cubic-bezier(0.2, 0, 0, 1),
+      width 0.24s cubic-bezier(0.2, 0, 0, 1),
+      height 0.24s cubic-bezier(0.2, 0, 0, 1),
+      background-color 0.24s cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .effect_toggle:hover .ts-track {
+    border-color: rgba(255, 255, 255, 0.4);
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .effect_toggle:hover .ts-thumb {
+    background-color: rgba(255, 255, 255, 0.9);
+  }
+
+  .effect_toggle input:checked + .ts-track {
+    background-color: var(--ts-track-on-bg);
+    border-color: var(--ts-track-on-border);
+  }
+
+  .effect_toggle input:checked + .ts-track .ts-thumb {
+    width: var(--ts-thumb-size-on);
+    height: var(--ts-thumb-size-on);
+    background-color: var(--ts-thumb-on-color);
+    transform: translate(
+      calc(var(--ts-track-width) - var(--ts-thumb-size-on) - 6px),
+      -50%
+    );
+  }
+
+  .effect_toggle:hover input:checked + .ts-track {
+    background-color: #f0f0f5;
+    border-color: #f0f0f5;
   }
 
   .effect_card_drawer {
@@ -157,7 +252,7 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    padding: 0 12px;
+    padding: 0 14px;
     opacity: 0;
     transform: translateY(-6px);
     transition:
@@ -169,18 +264,18 @@
   .effect_card_drawer.open .effect_card_drawer_content {
     opacity: 1;
     transform: translateY(0);
-    padding: 10px 12px 12px 12px;
+    padding: 12px 14px 14px 14px;
   }
 
   .effects_placeholder {
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 100%;
-    min-height: 100px;
-    font-size: 0.82em;
+    height: 40px;
+    min-height: 40px;
+    font-size: 0.9em;
     color: var(--text-muted);
-    opacity: 0.5;
+    opacity: 0.85;
     font-style: italic;
     text-align: center;
     pointer-events: none;

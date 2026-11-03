@@ -36,6 +36,7 @@ import filmStripIcon from "@phosphor-icons/core/assets/regular/film-strip.svg?ra
 import starIcon from "@phosphor-icons/core/assets/regular/star.svg?raw";
 import starFillIcon from "@phosphor-icons/core/assets/fill/star-fill.svg?raw";
 import cameraIcon from "@phosphor-icons/core/assets/regular/camera.svg?raw";
+import pencilSimpleIcon from "@phosphor-icons/core/assets/regular/pencil-simple.svg?raw";
 
 function withSize(svg, size = 24, style = "") {
   return svg.replace(
@@ -80,7 +81,8 @@ export const Icons = {
   particleUp: withSize(arrowUpIcon, 14),
   particleDown: withSize(arrowDownIcon, 14),
   particleSettings: withSize(gearIcon, 14),
-  particleDelete: withSize(trashIcon, 14),
+  particleEdit: withSize(pencilSimpleIcon, 16),
+  particleDelete: withSize(trashIcon, 16),
   weather: withSize(cloudIcon, 16),
   changeWallpaper: withSize(arrowClockwiseIcon, 20),
   arrowClockwise: withSize(arrowClockwiseIcon, 20),
