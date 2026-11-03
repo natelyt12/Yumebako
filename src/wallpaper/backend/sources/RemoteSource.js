@@ -1,0 +1,452 @@
+import { BaseSource } from "./BaseSource.js";
+import { SOURCE_ACTIONS } from "./sourceActions.js";
+import { getFromStore, saveToStore } from "/src/core/db.js";
+import {
+  getSettings,
+  getDefaultWallpaperEffects,
+} from "/src/core/storageHandler.js";
+import { wallpaperRenderer } from "/src/wallpaper/backend/rendering/renderer.js";
+import { generateImageThumbnail } from "/src/wallpaper/backend/data/thumbnailGenerator.js";
+import {
+  NetworkError,
+  isNetworkError,
+} from "/src/wallpaper/backend/data/errors.js";
+import { t } from "/src/core/i18n.js";
+
+/**
+ * Resolve once the browser has the image decoded (and ready to paint), or
+ * `false` when it never arrived — offline, DNS, a 404, a dead blob URL.
+ *
+ * `decode()` rejects on failure; a `background-image` (which is how the cards
+ * paint) fires no event at all, so this is the only way to tell "loading" from
+ * "broken" before handing the item to the carousel.
+ *
+ * @param {string} url
+ * @returns {Promise<boolean>}
+ */
+function preloadImage(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = url;
+    if (typeof img.decode === "function") {
+      img
+        .decode()
+        .then(() => resolve(true))
+        .catch(() => resolve(false));
+    } else {
+      img.onload = () => resolve(true);
+      img.onerror = () => resolve(false);
+    }
+  });
+}
+
+/**
+ * RemoteSource.js
+ * ---------------------------------------------------------------------------
+ * Lớp cơ sở cho các nguồn ảnh trực tuyến (Wallhaven, Picre, Unsplash...).
+ *
+ * Triển khai Quy trình 1 pha chuẩn hóa (Single-Phase Pipeline):
+ *   1. Lấy metadata ảnh từ API nguồn (fetchItem).
+ *   2. Tải ảnh gốc 1 lần duy nhất và lưu Blob vào mediaData (`media:orig:${id}`).
+ *   3. Tự sinh thumbnail chuẩn 16:9 chất lượng cao và lưu vào mediaData (`media:thumb:${id}`).
+ *   4. Bàn giao thẻ hoàn chỉnh với local blob URL cho DataControl và Carousel.
+ *   5. Khi chọn thẻ, ảnh gốc đã có sẵn trong DB -> Đổi nền Desktop ngay lập tức (0ms trễ mạng).
+ */
+export class RemoteSource extends BaseSource {
+  static providerId = "";
+  static storageKey = "";
+  static maxCachedBlobs = 6;
+  /** Remote images can be fetched again, so the feed window is bounded. */
+  static maxCards = 50;
+
+  constructor() {
+    super();
+    /** @type {Map<string, Blob>} RAM cache cho ảnh gốc để apply/download tức thì */
+    this.blobCache = new Map();
+    /** @type {Map<string, string>} Item id -> Object URL của thumbnail sinh cục bộ */
+    this.thumbCache = new Map();
+  }
+
+  get providerId() {
+    return this.constructor.providerId || this.id;
+  }
+
+  get actions() {
+    return [
+      SOURCE_ACTIONS.download,
+      SOURCE_ACTIONS.source,
+      SOURCE_ACTIONS.removeFromCarousel,
+      SOURCE_ACTIONS.add,
+    ];
+  }
+
+  get canGrow() {
+    return true;
+  }
+
+  get moreLabel() {
+    return t("wallpaper_switcher.get_new_image", "Lấy ảnh mới");
+  }
+
+  // ─── Sản xuất dữ liệu thẻ (Single-Phase Pipeline) ─────────────────────────
+
+  /**
+   * Khởi tạo danh sách thẻ: ưu tiên thẻ đang áp dụng (seed) hoặc nạp 1 thẻ mới đầu tiên.
+   */
+  async fetchItems() {
+    this._releaseAllThumbs();
+    this.blobCache.clear();
+
+    const item = (await this.fetchSeedItem()) || (await this.fetchNext());
+    return item ? [item] : [];
+  }
+
+  /**
+   * Nạp thêm 1 thẻ mới khi người dùng đến ô "+" trên Carousel.
+   */
+  async fetchMore() {
+    if (this.isLoading) return null;
+    this.isLoading = true;
+    try {
+      const item = await this.fetchNext();
+      return item ? [item] : [];
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  /**
+   * Khôi phục ảnh đã áp dụng gần nhất nếu còn lưu trong DB.
+   */
+  async fetchSeedItem() {
+    const key = this.constructor.storageKey;
+    if (!key) return null;
+
+    const applied = (await getFromStore(key))?.applied;
+    if (!applied?.image) return null;
+
+    const id = String(applied.id ?? applied.image);
+    let blob =
+      applied.blob instanceof Blob
+        ? applied.blob
+        : await this.getBlob({ id, url: applied.image });
+    if (blob instanceof Blob) {
+      this.blobCache.set(id, blob);
+    }
+
+    const item = this.toCarouselItem(applied, {
+      id,
+      url: applied.image,
+      sourceUrl: applied.source || "",
+      title: this.getSeedTitle(applied),
+      category: applied.category || "",
+      thumbnailUrl: applied.image,
+      mediaType: "image",
+      width: applied.width || 0,
+      height: applied.height || 0,
+      size: applied.size || blob?.size || 0,
+      addedAt: applied.last_updated || Date.now(),
+    });
+
+    await this.prepareThumb(item);
+    return item;
+  }
+
+  getSeedTitle(applied) {
+    return applied.category || "";
+  }
+
+  /**
+   * Lấy thẻ kế tiếp và chạy qua Single-Phase Pipeline.
+   * @returns {Promise<Object|null>}
+   */
+  async fetchNext() {
+    const item = await this.fetchItem();
+    if (!item) return null;
+
+    await this.processSinglePhasePipeline(item);
+    return item;
+  }
+
+  /**
+   * @abstract
+   * Phương thức con cần override để gọi API tương ứng.
+   * @returns {Promise<Object|null>}
+   */
+  async fetchItem() {
+    return null;
+  }
+
+  /**
+   * Thực thi Single-Phase Pipeline:
+   * 1. Kiểm tra / Tải ảnh gốc -> lưu vào mediaData (`media:orig:${id}`)
+   * 2. Tự tạo thumbnail 16:9 -> lưu vào mediaData (`media:thumb:${id}`)
+   * 3. Gán blob URL vào item.thumbnailUrl
+   *
+   * Ném lỗi khi thẻ không còn ảnh nào vẽ được (mất mạng, ảnh gốc 404): thà báo
+   * cho người dùng biết còn hơn trả về một thẻ chỉ hiện ra như khung rỗng.
+   *
+   * @throws {import("../data/errors.js").NetworkError|Error}
+   */
+  async processSinglePhasePipeline(item) {
+    if (!item?.id) return;
+
+    /** Ảnh của thẻ đã nằm trên máy (blob trong RAM/DB) hay chỉ có URL mạng. */
+    let hasLocalMedia = false;
+    /** Lỗi của bước tải ảnh gốc, để phân biệt mất mạng với ảnh hỏng/404. */
+    let pipelineError = null;
+
+    try {
+      // 1. Lấy hoặc tải ảnh gốc
+      let origBlob =
+        this.blobCache.get(item.id) ||
+        (await getFromStore(`media:orig:${item.id}`, "mediaData"));
+
+      if (!(origBlob instanceof Blob) && item.url) {
+        const response = await fetch(item.url, { mode: "cors" });
+        if (!response.ok)
+          throw new Error(
+            `HTTP ${response.status} khi tải ảnh gốc [${item.url}]`,
+          );
+        origBlob = await response.blob();
+        await saveToStore(`media:orig:${item.id}`, origBlob, "mediaData");
+      }
+
+      if (origBlob instanceof Blob) {
+        this._cacheBlob(item.id, origBlob);
+        if (!item.size) item.size = origBlob.size;
+
+        // 2. Tạo hoặc lấy thumbnail 16:9 chất lượng cao
+        let thumbBlob = await getFromStore(
+          `media:thumb:${item.id}`,
+          "mediaData",
+        );
+        if (!(thumbBlob instanceof Blob)) {
+          thumbBlob = await generateImageThumbnail(origBlob).catch(() => null);
+          if (thumbBlob instanceof Blob) {
+            await saveToStore(`media:thumb:${item.id}`, thumbBlob, "mediaData");
+          }
+        }
+
+        // 3. Tạo Object URL cho thumbnail
+        const displayBlob = thumbBlob instanceof Blob ? thumbBlob : origBlob;
+        const thumbUrl = this._createObjectUrl(displayBlob);
+        if (thumbUrl) {
+          hasLocalMedia = true;
+          item.thumbnailUrl = thumbUrl;
+          this.thumbCache.set(item.id, thumbUrl);
+        }
+      }
+    } catch (err) {
+      pipelineError = err;
+      console.warn(
+        `[RemoteSource] Single-Phase Pipeline warning for [${item.id}]:`,
+        err,
+      );
+      // Giữ nguyên thumbnailUrl dự phòng của item nếu có lỗi tải mạng
+    }
+
+    if (item.thumbnailUrl) {
+      const reachable = await preloadImage(item.thumbnailUrl);
+
+      // Không có ảnh trên máy, URL dự phòng của nguồn cũng không vẽ được: thẻ
+      // này chỉ có thể hiện ra như một khung rỗng. Ném lỗi để nơi gọi báo cho
+      // người dùng, còn hơn thêm một khung trắng vào dải.
+      if (!reachable && !hasLocalMedia) {
+        if (pipelineError && !isNetworkError(pipelineError))
+          throw pipelineError;
+        throw new NetworkError(pipelineError);
+      }
+    }
+  }
+
+  // ─── Thumbnail & Cache Management ─────────────────────────────────────────
+
+  /**
+   * Đảm bảo thẻ có thumbnail sẵn sàng vẽ lên Carousel (dùng khi mở lại app hoặc sau reload).
+   */
+  async prepareThumb(item) {
+    if (!item?.id) return null;
+
+    // Nếu thumbnailUrl là blob URL cũ (từ session trước hoặc DB), xóa bỏ để không render URL chết
+    if (
+      typeof item.thumbnailUrl === "string" &&
+      item.thumbnailUrl.startsWith("blob:") &&
+      !this.thumbCache.has(item.id)
+    ) {
+      item.thumbnailUrl = null;
+    }
+
+    // 1. Đã có URL còn sống trong RAM
+    if (this.thumbCache.has(item.id)) {
+      item.thumbnailUrl = this.thumbCache.get(item.id);
+      return item.thumbnailUrl;
+    }
+
+    // 2. Kiểm tra thumbnail blob trong IndexedDB
+    const thumbBlob = await getFromStore(`media:thumb:${item.id}`, "mediaData");
+    if (thumbBlob instanceof Blob) {
+      const url = this._createObjectUrl(thumbBlob);
+      item.thumbnailUrl = url;
+      this.thumbCache.set(item.id, url);
+      return url;
+    }
+
+    // 3. Nếu chưa có thumb nhưng có ảnh gốc trong DB -> tự sinh lại thumb
+    const origBlob = await getFromStore(`media:orig:${item.id}`, "mediaData");
+    if (origBlob instanceof Blob) {
+      const newThumbBlob = await generateImageThumbnail(origBlob).catch(
+        () => null,
+      );
+      if (newThumbBlob instanceof Blob) {
+        await saveToStore(`media:thumb:${item.id}`, newThumbBlob, "mediaData");
+        const url = this._createObjectUrl(newThumbBlob);
+        item.thumbnailUrl = url;
+        this.thumbCache.set(item.id, url);
+        return url;
+      }
+    }
+
+    // 4. Dự phòng: dùng URL trực tuyến (nếu không phải chuỗi blob chết)
+    if (item.url && !item.url.startsWith("blob:")) {
+      item.thumbnailUrl = item.url;
+      return item.url;
+    }
+
+    return null;
+  }
+
+  /**
+   * Lấy Blob ảnh gốc (cho Áp dụng nền, Tải về, Thêm vào BST).
+   * Thứ tự: RAM -> IndexedDB -> Tải mạng.
+   */
+  async getBlob(item) {
+    if (!item?.id) return null;
+    if (this.blobCache.has(item.id)) return this.blobCache.get(item.id);
+
+    const stored = await getFromStore(`media:orig:${item.id}`, "mediaData");
+    if (stored instanceof Blob) return this._cacheBlob(item.id, stored);
+
+    if (!item.url) return null;
+
+    const response = await fetch(item.url, { mode: "cors" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const blob = await response.blob();
+    await saveToStore(`media:orig:${item.id}`, blob, "mediaData");
+    return this._cacheBlob(item.id, blob);
+  }
+
+  /**
+   * Giải phóng tài nguyên bộ nhớ (Object URL và cache) của thẻ khi bị xóa.
+   */
+  async deleteItem(item) {
+    if (!item?.id) return;
+    this.releaseItem(item.id);
+  }
+
+  releaseItem(id) {
+    this.blobCache.delete(id);
+    this._releaseThumb(id);
+  }
+
+  _releaseThumb(id) {
+    const url = this.thumbCache.get(id);
+    if (!url) return;
+    URL.revokeObjectURL(url);
+    this._objectUrls.delete(url);
+    this.thumbCache.delete(id);
+  }
+
+  _releaseAllThumbs() {
+    this.thumbCache.forEach((url) => {
+      URL.revokeObjectURL(url);
+      this._objectUrls.delete(url);
+    });
+    this.thumbCache.clear();
+  }
+
+  _cacheBlob(id, blob) {
+    this.blobCache.set(id, blob);
+    while (this.blobCache.size > this.constructor.maxCachedBlobs) {
+      this.blobCache.delete(this.blobCache.keys().next().value);
+    }
+    return blob;
+  }
+
+  // ─── Áp dụng hình nền ───────────────────────────────────────────────────
+
+  isActive(item) {
+    const config = getSettings().wallpaperConfig || {};
+    return (
+      config.source === this.providerId && config.activeWallpaperId === item.id
+    );
+  }
+
+  async apply(item, { firstRun = false } = {}) {
+    // Nhờ Single-Phase Pipeline, ảnh gốc đã có sẵn trong DB/RAM -> getBlob giải quyết tức thì!
+    const blob = await this.getBlob(item);
+    if (!blob) {
+      throw new Error(
+        t("wallpaper_switcher.error.no_url", "Không tìm thấy dữ liệu ảnh."),
+      );
+    }
+
+    const payload = this.buildPayload(item, blob);
+    const applied = await wallpaperRenderer.apply(payload, { firstRun });
+    if (applied === false) return false;
+
+    try {
+      await this.persistApplied(payload);
+    } catch (error) {
+      console.error(`[${this.id}] Failed to persist current wallpaper:`, error);
+    }
+    return true;
+  }
+
+  buildPayload(item, blob) {
+    return {
+      id: item.id,
+      blob,
+      type: item.mediaType === "video" ? "video" : "image",
+      image: item.url,
+      source: item.sourceUrl,
+      width: item.width,
+      height: item.height,
+      size: blob.size,
+      category: item.category,
+      effects: item.effects || getDefaultWallpaperEffects(),
+      metadata: {
+        provider: this.providerId,
+        providerName: this.name,
+        source: item.sourceUrl,
+        url: item.url,
+      },
+    };
+  }
+
+  async persistApplied(payload) {
+    const key = this.constructor.storageKey;
+    if (!key) return;
+
+    const storeData = (await getFromStore(key)) || { queue: [], applied: null };
+    storeData.applied = {
+      id: payload.id,
+      image: payload.image,
+      blob: payload.blob,
+      source: payload.source,
+      width: payload.width,
+      height: payload.height,
+      size: payload.size,
+      category: payload.category,
+      last_updated: Date.now(),
+      queue_left: Array.isArray(storeData.queue) ? storeData.queue.length : 0,
+      queue_total: storeData.queue_total,
+    };
+    await saveToStore(key, storeData);
+  }
+
+  async persistCurrent(payload) {
+    return this.persistApplied(payload);
+  }
+}

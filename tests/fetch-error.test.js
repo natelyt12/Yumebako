@@ -5,7 +5,7 @@ import {
   NetworkError,
   describeFetchError,
   isNetworkError,
-} from "../src/wallpaper/core/errors.js";
+} from "../src/wallpaper/backend/data/errors.js";
 
 /** `t` giả: chỉ cần đủ để khẳng định câu nào được chọn. */
 const translate = (key, fallback) => (key === "sp.api.network_error" ? fallback : key);

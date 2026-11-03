@@ -162,7 +162,7 @@
     padding: 4px 2px;
     color: var(--text-muted);
     font-size: 0.78rem;
-    font-weight: 800;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     user-select: none;
@@ -300,18 +300,18 @@
   }
 
   .app_name {
-    font-weight: 800;
+    font-weight: 600;
   }
 
   .app_name span {
-    font-weight: 700;
+    font-weight: 600;
     opacity: 0.7;
     margin-left: 4px;
     text-transform: none;
   }
 
   .app_creator span:last-child {
-    font-weight: 700;
+    font-weight: 600;
   }
 
   .app_creator span:first-child {
@@ -334,17 +334,5 @@
 
   .app_creator {
     margin-top: 8px;
-  }
-
-  #wallpaper_thumbnail_container {
-    width: 100%;
-    aspect-ratio: 16/9;
-    border-radius: 2px;
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid var(--glass-border-sm);
-    background: rgba(0, 0, 0, 0.2);
-    position: relative;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   }
 }

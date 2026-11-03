@@ -1,0 +1,212 @@
+@layer features {
+  /* ── Wallpaper Switcher Styles ─────────────────────────────────────────────
+   Chỉ còn phần khung của switcher: wrapper toàn màn hình, tấm nền gradient và
+   thanh điều khiển dưới cùng.
+
+   Toàn bộ phần carousel (sân khấu, thẻ, hiệu ứng) đã chuyển sang
+   ./carousel/carousel.css — file đó scope dưới `.wallpaper_switcher` nên hai
+   file chia nhau đúng hai tầng: khung ở đây, nội dung ở kia. */
+
+  /* ── Switcher Fullscreen Wrapper ───────────────────────── */
+
+  .wallpaper_switcher {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 28;
+    /* Bên dưới setting panel (z-index 30) */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    pointer-events: none;
+    overflow: hidden;
+    background: transparent;
+    visibility: hidden;
+    transition: visibility 0s 0.45s;
+  }
+
+  .wallpaper_switcher.active {
+    pointer-events: auto;
+    visibility: visible;
+    transition: none;
+  }
+
+  .wallpaper_switcher.preload,
+  .wallpaper_switcher.preload .wallpaper_switcher_inner {
+    transition: none !important;
+  }
+
+  .wallpaper_switcher_inner {
+    position: relative;
+    width: 100%;
+    /* Cao theo nội dung: thanh tab trên + sân stage carousel 420px + thanh dưới. */
+    height: var(--switcher-inner-height, 546px);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    overflow: visible;
+    box-sizing: border-box;
+    padding: 12px 0 20px 0;
+    /* Customize panel: page-like content width and the fixed sidebar column.
+       Edit these two values to resize the panel / the sidebar (the section
+       content column absorbs the remaining width). */
+    --customize-max-width: 1300px;
+    --customize-sidebar-width: 300px;
+    /* Không fade khi mở/đóng: bảng trượt lên là đủ, độ mờ đã do từng thẻ trong
+       carousel đảm nhiệm (xem `geometry.js`). */
+    transform: translateY(calc(100% + 50px));
+    transition:
+      transform 0.45s var(--cubic_in),
+      max-height 0.8s var(--expo_out),
+      height 0.8s var(--expo_out),
+      padding 0.8s var(--expo_out);
+  }
+
+  /* Decoupled Layering (hướng dẫn xử lý nested backdrop-filter):
+     Chuyển nền và filter sang ::before để không tạo Backdrop Root trên .wallpaper_switcher_inner,
+     giúp các phần tử con nổi bên trong (tabs nguồn khi hover, sidebar settings)
+     có thể làm mờ xuyên thấu toàn bộ các phần tử / văn bản của cha nằm phía sau. */
+  .wallpaper_switcher_inner::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-color: var(--bg-panel, rgba(8, 8, 14, 0.45));
+    -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+    backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow:
+      0 -8px 32px rgba(0, 0, 0, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  .wallpaper_switcher.active .wallpaper_switcher_inner {
+    transform: translateY(0);
+    opacity: 1;
+    transition:
+      transform 0.7s var(--expo_out),
+      max-height 0.8s var(--expo_out),
+      height 0.8s var(--expo_out),
+      padding 0.8s var(--expo_out);
+  }
+
+  /* Khung cha morph lên toàn màn hình khi submenu mở */
+  .wallpaper_switcher_inner.submenu_active {
+    height: var(--switcher-submenu-height, 100vh);
+    max-height: var(--switcher-submenu-height, 100vh);
+    overflow: hidden;
+    /* The sheet's glass lives on ::before, whose shadow gets clipped by the
+       `overflow: hidden` used to mask the sliding panel. Repaint the same
+       ambient shadow on the host itself so panels that do not fill the screen
+       (Customize) still read as a floating card. */
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45);
+  }
+
+  /* 1. Main View: giữ layout; hiệu ứng fade + lùi (recede) do component submenu
+     dùng chung đảm nhiệm (`core/ui/submenu.css` → `.submenu_main_view`), nên
+     view này tự chạy đúng theo `direction` mà không cần translate cứng.
+
+     `height: 100%` là bắt buộc: `translateY(-50%)` tính theo chiều cao của
+     chính nó. Nếu để auto (chỉ cao bằng nội dung ~510px) thì khi khung cha
+     morph lên 100vh, view này chỉ lùi ~255px trong khi panel con trượt 50%
+     của 100vh — hai bên lệch nhau. Cho nó cao bằng host thì mỗi frame cả hai
+     đi đúng cùng một quãng, đối xứng qua tâm. */
+  .wallpaper_switcher_main_view {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  /* 2. Submenu View: khung/kích thước/transition do `.submenu_view` dùng chung
+     quy định (`position:absolute; inset` + 4 hướng trượt). Ở đây chỉ giữ phần
+     nội dung đặc thù của bảng "Quản lý hình nền". */
+
+  .wallpaper_manage_submenu_header,
+  .wallpaper_customize_submenu_header {
+    width: 100%;
+    max-width: 1800px;
+    margin: 0 auto;
+    padding: 10px max(24px, 3.5vw);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+  }
+
+  /* The Customize panel uses a page-like width, so its header follows it to
+     keep the title/close button aligned with the content. */
+  .wallpaper_customize_submenu_header {
+    max-width: var(--customize-max-width);
+  }
+
+  .wallpaper_customize_submenu_tools {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  /* Keyboard affordance for the hold-to-preview shortcut. */
+  .wallpaper_customize_preview_hint {
+    font-size: 0.8em;
+    font-weight: 500;
+    color: var(--text-muted);
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  /* Hold V: hide the whole sheet (glass + content) so only the wallpaper
+     remains. Instant, no fade either way. */
+  .wallpaper_switcher_inner.wallpaper_preview_active {
+    box-shadow: none !important;
+  }
+
+  .wallpaper_switcher_inner.wallpaper_preview_active::before {
+    opacity: 0 !important;
+  }
+
+  /* The sheet's content goes too, leaving only the wallpaper. Opacity (not
+     visibility/pointer-events) so the controls underneath keep receiving
+     pointer input while previewing. */
+  .wallpaper_switcher_inner.wallpaper_preview_active
+    .wallpaper_customize_submenu_header,
+  .wallpaper_switcher_inner.wallpaper_preview_active
+    .wallpaper_customize_submenu_content {
+    opacity: 0 !important;
+  }
+
+  .wallpaper_switcher_inner.wallpaper_preview_active,
+  .wallpaper_switcher_inner.wallpaper_preview_active * {
+    outline: none !important;
+  }
+
+  .wallpaper_manage_submenu_title,
+  .wallpaper_customize_submenu_title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .wallpaper_manage_submenu_content {
+    flex: 1;
+    /* Turns the content slot into the scroll container, so the header above it
+       stays pinned while the card grid scrolls underneath. */
+    min-height: 0;
+    overflow-y: auto;
+    width: 100%;
+    max-width: 1800px;
+    margin: 0 auto;
+    padding: 24px max(24px, 3.5vw);
+    box-sizing: border-box;
+  }
+
+}

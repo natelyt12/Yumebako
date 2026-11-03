@@ -120,7 +120,7 @@ $$\text{VRAM}_{\text{total}} = N_{\text{layer}} \times (744 \times 420 \times 4 
 
 ## 6. Checklist trước khi sửa đổi Code Carousel
 
-Khi được yêu cầu can thiệp vào `src/wallpaper/ui/carousel/` (`CarouselEngine.js`, `geometry.js`, `physics/`):
+Khi được yêu cầu can thiệp vào `src/wallpaper/frontend/switcher/carousel/` (`CarouselEngine.js`, `geometry.js`, `physics/`):
 - [ ] Không thay thế logic tích phân lò xo bằng CSS transition hay hàm tween thời gian cố định.
 - [ ] Giữ nguyên đà kéo (`drag flick velocity`) khi người dùng buông tay để truyền vào vận tốc đầu vào của lò xo.
 - [ ] Đảm bảo cơ chế deduplication: mỗi wallpaper ID chỉ có duy nhất 1 DOM node đại diện.

@@ -36,6 +36,7 @@ yumebako/
 ├── public/               # Static assets & localization files (locales/en.json, locales/vi.json)
 ├── scripts/              # Build & localization sync scripts (sort_locales, sync_locales)
 ├── tests/                # Test suites (unit tests, carousel performance & jitter tests)
+├── temp/                 # Temporary migration notes and implementation plans
 ├── index.html            # Extension root HTML document
 ├── manifest.json         # Chrome extension Manifest V3 definition
 ├── vite.config.js        # Vite + CRXJS plugin configuration
@@ -51,17 +52,29 @@ yumebako/
     │   ├── launcher.js   # Coordinates startup and service lifecycle
     │   ├── font.js, icon.js, time.js # System helpers (dynamic fonts, Phosphor icons, clock timing)
     │   ├── ui.js & ui/   # Shared UI primitive components (button, dialog, dropdown, notification, slider, submenu)
-    │   └── utils/        # Generic utilities (e.g. thumbnailGenerator)
-    ├── settings/         # Settings modal, tab navigation, and settings panels
-    │   ├── settingHandler.js # Manages settings modal state, tabs, and panel rendering
-    │   └── system/       # System & debug utilities (IDB tracker, debug logs, app reset/export)
+    │   └── utils/        # Generic utilities shared across subsystems
+    ├── settings/         # App-wide settings: appearance, widgets, time/weather, info/debug
+    │   ├── settingHandler.js # Settings modal lifecycle and non-wallpaper settings panels
+    │   ├── settings.html # Settings navigation and app-wide settings tabs
+    │   └── system/       # System utilities, IDB diagnostics, backup/export
     ├── styles/           # Base design tokens, typography, CSS layers (@layer), utilities
-    ├── wallpaper/        # Core wallpaper engine & visual effects
-    │   ├── core/         # Engine core (WallpaperSwitcher, renderer, DataControl, mediaGC, filters)
-    │   ├── motion/       # Dynamic visual shaders/animations (BaseMotion, MotionEngine, noise, wavy)
-    │   ├── particles/    # Particle systems (rain, snow, fireflies, dust, static cinematic/vignette)
-    │   ├── sources/      # Wallpaper providers (Wallhaven, Unsplash, Bing, Picre, Collection)
-    │   └── ui/           # Wallpaper UI (SwitcherBar, CarouselEngine accordion strip, Source Settings sidebar)
+    ├── wallpaper/        # Autonomous wallpaper subsystem with separated processing/UI layers
+    │   ├── index.js      # Public facade for the wallpaper subsystem
+    │   ├── backend/      # Data, sources, rendering pipeline, and effect engines
+    │   │   ├── data/     # DataControl, network errors, and media garbage collection
+    │   │   ├── effects/  # motion/, onload/, particles/ engines and registries
+    │   │   ├── rendering/ # Renderer, filters, and position application
+    │   │   └── sources/  # Wallpaper providers and their API adapters
+    │   └── frontend/     # Switcher UI and all wallpaper customization panels
+    │       ├── switcher/ # Switcher coordinator, carousel, bar, manage, and sidebar
+    │       │   ├── switcher.css # Shell and submenu host layout
+    │       │   ├── customize.css # Customize panel layout and tabs
+    │       │   ├── meta.css # Morphing wallpaper metadata card
+    │       │   └── bar.css # Top bar, source tabs, counters, and actions
+    │       ├── customize/ # Panel registry, shared layout, and individual panels
+    │       │   └── panels/ # arrange/, filters/, particles/, onload/, wavy/
+    │       ├── index.js  # Public frontend entry and wallpaper stylesheet
+    │       └── wallpaper.css # Desktop wallpaper layer presentation
     └── widgets/          # Desktop widgets on the startpage
         ├── handler.js    # Widget lifecycle and positioning manager
         ├── editmode.js   # Widget edit/drag-and-drop layout manager
@@ -72,7 +85,15 @@ yumebako/
 ### Directory Responsibilities at a Glance:
 - **`src/core/`**: Foundational, headless services. Do not put domain-specific UI (like widgets or wallpaper selectors) here. `storageHandler.js` is the central state authority.
 - **`src/core/ui/`**: Reusable primitive components (buttons, dialogs, sliders). Follow conventions in `ui_rules.md`.
-- **`src/wallpaper/`**: Autonomous subsystem handling background canvas rendering, visual effects (motion/particles), remote source adapters, and carousel switcher. Detailed in `wallpaper_architecture.md`.
+- **`src/wallpaper/backend/`**: Wallpaper data, providers, renderer, and effect engines. Keep implementation behavior here; do not put editor markup/styles here.
+- **`src/wallpaper/frontend/`**: Wallpaper Switcher and customization UI. Each Customize panel owns an `index.js`, `template.html`, and `style.css`; shared layout belongs in `frontend/customize/shared.css`.
+- **`src/wallpaper/`**: Public facade joining the backend and frontend. Shared infrastructure such as `src/core/storageHandler.js` and `src/core/db.js` stays in `src/core/`.
 - **`src/widgets/`**: Startpage widgets. Each widget is self-contained with its own JS, HTML template, CSS, and settings markup.
-- **`src/settings/`**: Manages settings modal interactions, tab navigation, and system diagnostics/maintenance tools.
+- **`src/settings/`**: Manages app-wide settings modal interactions, tab navigation, and system diagnostics/maintenance. Wallpaper editor panels and their templates/styles belong under `src/wallpaper/`; do not import wallpaper UI modules from Settings.
 - **`public/locales/`**: Must remain strictly synchronized between `en.json` and `vi.json`.
+
+### Wallpaper Customize Panel Convention
+- Open wallpaper customization from the Wallpaper Switcher, not the Settings modal.
+- Keep each submenu's controller, HTML template, and CSS under `wallpaper/frontend/customize/panels/<panel>/`. Shared presentation belongs in `frontend/customize/shared.css` only when multiple panels genuinely share it.
+- Keep data, source, rendering, and effect behavior under `wallpaper/backend/`; panel components call those APIs without relocating or duplicating engine logic.
+- Settings may retain app-wide wallpaper backup/export and source attribution, but it must not own wallpaper editor markup, initialization hooks, or editor styles.

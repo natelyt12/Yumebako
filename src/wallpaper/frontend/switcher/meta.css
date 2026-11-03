@@ -1,0 +1,273 @@
+@layer features {
+  /* ── Meta Info Morphing Card (Seamless Expressive Container) ──────── */
+
+  .wallpaper_switcher_meta_wrapper {
+    --meta-chip-h: 28px;
+    /* Minimum width of the expanded panel. The collapsed chip always hugs its
+       summary text; a summary wider than this floor simply keeps the panel at
+       that same width, and the detail content follows it. */
+    --meta-expanded-w: 320px;
+    /* Single source of truth for the summary weight: the invisible sizer (which
+       reserves the collapsed width) and the visible header must render the text
+       at the same weight, otherwise the sizer measures narrower than the header
+       and the text overflows past the chip's right padding. Meta info stays on
+       the Base tier (500) per the font-weight hierarchy. */
+    --meta-summary-fw: 500;
+    --meta-radius: calc(
+      var(--meta-chip-h) / 2
+    ); /* 14px: Bán kính cung tròn bán nguyệt tuyệt đối */
+    --meta-radius-inner: calc(
+      var(--meta-radius) - 1px
+    ); /* 13px: Bán kính đồng tâm với viền 1px */
+
+    position: relative;
+    z-index: 40;
+    display: inline-flex;
+    align-items: center;
+    height: var(--meta-chip-h);
+    vertical-align: middle;
+    flex-shrink: 0;
+    margin-right: 4px;
+  }
+
+  .wallpaper_switcher_meta_wrapper:hover {
+    z-index: 50;
+  }
+
+  .wallpaper_switcher_meta_wrapper.is-empty {
+    display: none;
+  }
+
+  /* In-flow sizer giữ chỗ đúng kích thước của chip thu gọn */
+  .wallpaper_switcher_meta_sizer {
+    visibility: hidden;
+    pointer-events: none;
+    display: inline-flex;
+    align-items: center;
+    height: var(--meta-chip-h);
+    padding: 0 12px;
+    /* Mirror the card's 1px frame so the reserved width matches the header's
+       usable width exactly (card = sizer width, minus its own border). */
+    border: 1px solid transparent;
+    box-sizing: border-box;
+    font-size: 11px;
+    font-weight: var(--meta-summary-fw);
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  .wallpaper_switcher_meta_sizer .meta_summary_content {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Khung Morph nổi (Container biến hình) */
+  .wallpaper_switcher_meta_card {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 40;
+    /* Collapsed: hugs the summary (the in-flow sizer defines the wrapper width). */
+    width: 100%;
+    height: var(--meta-chip-h);
+    border-radius: var(--meta-radius);
+    background: var(--button);
+    border: 1px solid var(--glass-border-sm);
+    box-sizing: border-box;
+    overflow: hidden;
+    box-shadow: none;
+    transition:
+      width 0.5s var(--expo_out),
+      height 0.5s var(--expo_out),
+      background-color 0.5s var(--expo_out),
+      border-color 0.5s var(--expo_out),
+      box-shadow 0.5s var(--expo_out);
+  }
+
+  /* Header chứa thông tin tóm tắt (cố định căn trái, fade out êm ái khi hover, không bay ra giữa) */
+  .wallpaper_switcher_meta_header {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(var(--meta-chip-h) - 2px);
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0 12px;
+    font-size: 11px;
+    font-weight: var(--meta-summary-fw);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    user-select: none;
+    border-radius: var(--meta-radius-inner);
+    opacity: 1;
+    transition: opacity 0.5s var(--expo_out);
+  }
+
+  .wallpaper_switcher_meta_header .meta_summary_content {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .wallpaper_switcher_meta_card .meta_badge,
+  .wallpaper_switcher_meta_sizer .meta_badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 5px;
+    font-size: 9.5px;
+    font-weight: 600;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--text-primary);
+    letter-spacing: 0.3px;
+    vertical-align: middle;
+  }
+
+  .wallpaper_switcher_meta_header .card-meta-sep,
+  .wallpaper_switcher_meta_header .wallpaper_meta_sep,
+  .wallpaper_switcher_meta_sizer .card-meta-sep,
+  .wallpaper_switcher_meta_sizer .wallpaper_meta_sep {
+    color: rgba(255, 255, 255, 0.35);
+    user-select: none;
+  }
+
+  /* Phần thân chi tiết: Neo theo góc đối diện (left: 0, bottom: 0) */
+  .wallpaper_switcher_meta_body {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    /* Always laid out at the width the panel will have once expanded (never
+       narrower than the floor), so the measured `--meta-expanded-h` matches the
+       final layout even while the chip is still hugging a short summary. */
+    width: max(calc(var(--meta-expanded-w) - 2px), 100%);
+    box-sizing: border-box;
+    padding: 8px 14px;
+    opacity: 0;
+    pointer-events: none;
+    border-radius: var(--meta-radius-inner);
+    transition: opacity 0.5s var(--expo_out);
+  }
+
+  /* ── Trạng thái Morph mở rộng khi Hover ──────── */
+
+  .wallpaper_switcher_meta_wrapper:hover .wallpaper_switcher_meta_card {
+    /* Width itself carries the floor (instead of a min-width clamp): on
+       collapse there is no instant clamp that would snap the card to the
+       minimum before it grows back to hug a longer summary. */
+    width: max(var(--meta-expanded-w), 100%);
+    height: var(--meta-expanded-h, auto);
+    border-radius: var(--meta-radius);
+    background-color: var(--bg-panel, rgba(14, 14, 22, 0.8));
+    -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+    backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+    border-color: rgba(255, 255, 255, 0.16);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  }
+
+  /* Khi hover: nội dung tóm tắt ẩn đi tại chỗ, không bay/nhảy vị trí */
+  .wallpaper_switcher_meta_wrapper:hover .wallpaper_switcher_meta_header {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .wallpaper_switcher_meta_wrapper:hover
+    .wallpaper_switcher_meta_body:not(:empty) {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .wallpaper_switcher_meta_body .meta_details_list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .wallpaper_switcher_meta_body .meta_stat_item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .wallpaper_switcher_meta_body .meta_stat_item + .meta_stat_item {
+    margin-left: 10px;
+  }
+
+  .wallpaper_switcher_meta_body .meta_stat_item svg {
+    width: 14px;
+    height: 14px;
+    opacity: 0.85;
+    vertical-align: middle;
+  }
+
+  .wallpaper_switcher_meta_body .meta_detail_row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    font-size: 11.5px;
+    line-height: 1.45;
+    padding: 2px 0;
+  }
+
+  .wallpaper_switcher_meta_body .meta_detail_row:not(:last-child) {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 5px;
+  }
+
+  .wallpaper_switcher_meta_body .meta_label {
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: 11px;
+    flex-shrink: 0;
+    min-width: 75px;
+    text-align: left;
+  }
+
+  .wallpaper_switcher_meta_body .meta_value {
+    color: var(--text-primary);
+    font-weight: 500;
+    text-align: right;
+    word-break: break-word;
+  }
+
+  .wallpaper_switcher_meta_body .meta_value a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-color: rgba(255, 255, 255, 0.4);
+    transition:
+      color 0.15s var(--smooth),
+      text-decoration-color 0.15s var(--smooth);
+  }
+
+  .wallpaper_switcher_meta_body .meta_value a:hover {
+    color: rgba(255, 255, 255, 0.5);
+    text-decoration-color: rgba(255, 255, 255, 0.5);
+  }
+
+  /* Values that end with a chip (e.g. the Resolution row) lay the text and the
+     badge out on one flex line, so the badge gets a real gap and is vertically
+     centred with the text instead of sitting on the baseline. */
+  .wallpaper_switcher_meta_body .meta_value:has(.meta_badge) {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .wallpaper_switcher_meta_body .meta_detail_row.is-stacked {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+  }
+
+  .wallpaper_switcher_meta_body .meta_detail_row.is-stacked .meta_value {
+    text-align: left;
+    font-size: 11px;
+    opacity: 0.88;
+    line-height: 1.4;
+  }
+
+}

@@ -1,0 +1,44 @@
+@layer features {
+  .wallpaper_filter_group_title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    user-select: none;
+  }
+
+  .wallpaper_filter_group_title::after {
+    content: "";
+    height: 1px;
+    flex: 1;
+    background: linear-gradient(to right, var(--divider), transparent);
+    opacity: 0.45;
+  }
+
+  /* ── Shared slider layout ─────────────────────────────────────────────────
+     Two columns, so a panel can pair related controls (X | Y, zoom | blur …)
+     instead of stacking every slider vertically. */
+  .wallpaper_slider_grid {
+    display: grid;
+    /* Two columns whenever the panel is wide enough, one column in the narrow
+       Settings submenu the same panels still fall back to. */
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    align-items: start;
+    gap: 16px 20px;
+    min-width: 0;
+  }
+
+  /* A grid cell that stacks several slider groups in one column. */
+  .wallpaper_slider_col {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+  }
+}

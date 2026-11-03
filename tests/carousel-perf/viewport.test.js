@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
 
-import { createGeometry } from "../../src/wallpaper/ui/carousel/geometry.js";
+import { createGeometry } from "../../src/wallpaper/frontend/switcher/carousel/geometry.js";
 
 const WIDTH = 3840;
 

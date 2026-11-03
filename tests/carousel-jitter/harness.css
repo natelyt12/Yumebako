@@ -24,7 +24,7 @@ body {
 .harness__bar h1 {
   margin: 0 0 6px;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .harness__hint,
@@ -74,7 +74,7 @@ body {
   background: rgba(255, 255, 255, 0.08);
   color: inherit;
   font: inherit;
-  font-weight: 600;
+  font-weight: 500;
   cursor: default;
 }
 

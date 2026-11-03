@@ -48,7 +48,7 @@ function mountEngine() {
 async function withEngine(run) {
   const { dom, document } = mountEngine();
   const { CarouselEngine } = await import(
-    "../src/wallpaper/ui/carousel/CarouselEngine.js"
+    "../src/wallpaper/frontend/switcher/carousel/CarouselEngine.js"
   );
 
   const container = document.getElementById("stage");

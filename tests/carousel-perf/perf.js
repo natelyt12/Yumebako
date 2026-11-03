@@ -14,12 +14,12 @@
  * Để có số VRAM thật, mở Task Manager của Chrome/Edge (Shift+Esc) → cột GPU memory.
  */
 import "../../src/styles/variables.css";
-import "../../src/wallpaper/ui/carousel/carousel.css";
+import "../../src/wallpaper/frontend/switcher/carousel/carousel.css";
 import "./perf.css";
 
 import {
   CarouselEngine,
-} from "../../src/wallpaper/ui/carousel/CarouselEngine.js";
+} from "../../src/wallpaper/frontend/switcher/carousel/CarouselEngine.js";
 
 const BASE_WIDTH = 744;
 const CONTAINER_HEIGHT = 420;

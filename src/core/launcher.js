@@ -1,18 +1,17 @@
 import { initI18n } from "./i18n.js";
 import { getSettings } from "./storageHandler.js";
 import {
-  initializeWavySettings,
-  initializeParticles,
   applyWallpaperFilters,
   applyWallpaperPosition,
+  wallpaperSwitcher,
+  dataControl,
+  scheduleMediaGC,
+  wallpaperRenderer,
 } from "../wallpaper/index.js";
 import { initWidget } from "../widgets/handler.js";
 import { initAppUtils } from "../settings/system/apputils.js";
 import { renderIcons } from "./icon.js";
 import { initButtons } from "./ui/button.js";
-import { wallpaperSwitcher } from "../wallpaper/core/WallpaperSwitcher.js";
-import { dataControl } from "../wallpaper/core/DataControl.js";
-import { scheduleMediaGC } from "../wallpaper/core/mediaGC.js";
 
 let settingsLoaded = false;
 
@@ -56,8 +55,7 @@ export async function start() {
   initAppUtils();
   applyWallpaperFilters();
   applyWallpaperPosition();
-  initializeWavySettings();
-  initializeParticles();
+  wallpaperRenderer.bindDataControl();
   initButtons();
   renderIcons();
 

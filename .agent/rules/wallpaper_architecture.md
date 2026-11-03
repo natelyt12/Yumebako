@@ -44,7 +44,7 @@ This document defines the standard four-layer architecture for Yumebako's Wallpa
 
 ## 2. Layer Responsibilities and Boundaries
 
-### Layer 1: UI (`src/wallpaper/ui/`, `src/wallpaper/core/WallpaperSwitcher.js`)
+### Layer 1: UI (`src/wallpaper/frontend/switcher/`)
 
 - **Role:** Present the interface, dynamic-width accordion carousel motion (`CarouselEngine`), bottom control bar (`SwitcherBar`), and open/close coordinator (`WallpaperSwitcher`).
 - **Rules:**
@@ -54,7 +54,7 @@ This document defines the standard four-layer architecture for Yumebako's Wallpa
   - **Two-step card deletion:** When deleting a card from `SwitcherBar`, first call `await carousel.deleteActiveCard()` to finish its drop animation and remove it from the DOM. Then call `await dataControl.deleteCard(targetIndex)` and finalize with `setHardIndex`.
   - When scrolling settles, `CarouselEngine` emits `onHardSelect`. Programmatic full-list renders must use `setItems(..., { silent: true })` so they do not masquerade as user selections. `WallpaperSwitcher` must check that source switching and deletion are inactive before calling `dataControl.setHardIndex(index)`.
 
-### Layer 2: Data Control (`src/wallpaper/core/DataControl.js`)
+### Layer 2: Data Control (`src/wallpaper/backend/data/DataControl.js`)
 
 - **Role:** The centralized data coordinator and single source of truth.
 - **Rules:**
@@ -68,7 +68,7 @@ This document defines the standard four-layer architecture for Yumebako's Wallpa
     - On source switch or startup (`switchSource`), first look for a card matching `wallpaperConfig.activeWallpaperId` (or `activeCollectionItemId`) when the source matches the one active on the desktop. Otherwise, use `settings.wallpaperSwitcher.sourceIndices[sourceId]`, falling back to `0`.
     - When scrolling settles (`setHardIndex`), update `wallpaperSwitcher.sourceIndices[activeSourceId]` and `wallpaperConfig` through `saveSettings()`.
     - When deleting a card (`deleteCard`), remove its source data and persist the updated card list (orphaned media blobs are purged centrally by Media GC). If the list becomes empty, also delete `storeData.applied` to prevent a stale card from reappearing during reseeding. Recalculate the neighboring index (prefer the card to the left, `targetIndex - 1`) and update `sourceIndices`.
-  - **Media Garbage Collection (`src/wallpaper/core/mediaGC.js`):** Runs automatically in the background on browser idle after page load. Collects all referenced IDs across settings and `appData` stores, purges orphaned blobs from `mediaData`, and logs a diagnostic summary to console.
+  - **Media Garbage Collection (`src/wallpaper/backend/data/mediaGC.js`):** Runs automatically in the background on browser idle after page load. Collects all referenced IDs across settings and `appData` stores, purges orphaned blobs from `mediaData`, and logs a diagnostic summary to console.
   - **History limit (`source.maxCards`):** Remote sources cap their history window (`RemoteSource.maxCards = 50`); the Collection is unbounded. When reaching `maxCards`, `DataControl.requestMore()` automatically rotates items using FIFO: the oldest card (preserving the one currently applied to the desktop) is pruned silently if out of view, or with an animated drop if currently active in the carousel. Users can trigger `clearSourceHistory(sourceId)` from source settings sidebar, which preserves only the wallpaper currently applied to the desktop and purges other rolled items and their media cache.
   - **Standard Pub/Sub events:**
     - `source:change`: Emitted when switching source tabs begins.
@@ -81,7 +81,7 @@ This document defines the standard four-layer architecture for Yumebako's Wallpa
     - `state:change`: Emits a `getState()` snapshot whenever the busy/index state changes.
     - `error`: Emitted when seeding, `fetchMore`, `deleteCard`, or `clearSourceHistory` fails.
 
-### Layer 3: Source Adapters (`src/wallpaper/sources/`)
+### Layer 3: Source Adapters (`src/wallpaper/backend/sources/`)
 
 - **Role:** Provide wallpaper data from the local collection (`CollectionSource`) or online APIs (`RemoteSource` -> `PicreSource`, `WallhavenSource`, `UnsplashSource`), along with display metadata (`cardMeta.js`) and action definitions (`sourceActions.js`).
 - **Single-phase pipeline (`RemoteSource.js`):**
@@ -90,14 +90,14 @@ This document defines the standard four-layer architecture for Yumebako's Wallpa
   - When applying a wallpaper (`source.apply(card, { firstRun })`), retrieve the Blob immediately from memory (`blobCache`) or `mediaData` (with no network delay), package the payload, pass it to `wallpaperRenderer.apply()`, and update `persistApplied()`.
   - Layer 3 is fully headless: it returns plain `CardItem` objects and manages that source's `URL.createObjectURL` / `URL.revokeObjectURL` lifecycle. It must not manipulate the Carousel or SwitcherBar DOM.
 
-### Layer 4: Desktop Renderer and Visual Pipeline (`src/wallpaper/core/renderer.js` and effect modules)
+### Layer 4: Desktop Renderer and Visual Pipeline (`src/wallpaper/backend/rendering/` and `backend/effects/`)
 
 - **Role:** Render the wallpaper and visual effect layers on the desktop.
 - **Module boundaries:**
-  - **`core/renderer.js` (`wallpaperRenderer`):** Listens to `dataControl.on("card:hard", ...)` and calls `source.apply(card, { firstRun })`. Manages smooth transitions through the `.overlay` layer (`_fadeToOverlay`), assigns `blob:` URLs to `.image` / `.video`, revokes old Object URLs, and triggers `applyOnloadAnimation()` on the first run (`firstRun`). It must not store settings state or control Layer 1 or Layer 2.
-  - **`core/filter.js` (`applyWallpaperFilters`):** Independently manages CSS filters (`brightness`, `contrast`, `saturate`) on `.image, .video` and the `.bloom_container` glow intensity (`bloom`).
-  - **`bgEditor.js` (`applyWallpaperPosition`):** Manages position coordinates (`x`, `y`), `zoom`, and `mode` (`cover` / `contain`).
-  - **`motion/`, `particles/`, `onload/`:** Independent effect engines (Wavy/Parallax, dynamic/static particles, and page-load animations) exported centrally through `src/wallpaper/index.js`.
+  - **`backend/rendering/renderer.js` (`wallpaperRenderer`):** Listens to `dataControl.on("card:hard", ...)` and calls `source.apply(card, { firstRun })`. Manages smooth transitions through the `.overlay` layer (`_fadeToOverlay`), assigns `blob:` URLs to `.image` / `.video`, revokes old Object URLs, and triggers `applyOnloadAnimation()` on the first run (`firstRun`). It must not store settings state or control Layer 1 or Layer 2.
+  - **`backend/rendering/filter.js` (`applyWallpaperFilters`):** Independently manages CSS filters (`brightness`, `contrast`, `saturate`) on `.image, .video` and the `.bloom_container` glow intensity (`bloom`).
+  - **`backend/rendering/position.js` (`applyWallpaperPosition`):** Manages position coordinates (`x`, `y`), `zoom`, and `mode` (`cover` / `contain`). The Arrange panel UI lives under `frontend/customize/panels/arrange/`.
+  - **`backend/effects/motion/`, `particles/`, `onload/`:** Independent effect engines (Wavy/Parallax, dynamic/static particles, and page-load animations). Their editor panels live under `frontend/customize/panels/`.
 
 ---
 
@@ -108,4 +108,4 @@ This document defines the standard four-layer architecture for Yumebako's Wallpa
 3. **STRICTLY FORBIDDEN:** Storing `blob:...` URLs directly in IndexedDB (`carousel:${sourceId}`), because Object URLs become invalid after a page reload.
 4. **STRICTLY FORBIDDEN:** Calling `saveToStore('carousel:...')` outside `DataControl`.
 5. **STRICTLY FORBIDDEN:** Having Layer 1 (`CarouselEngine`, `SwitcherBar`) fetch images or delete IndexedDB records directly instead of going through `DataControl`.
-6. When adding a wallpaper source, extend `BaseSource` (or `RemoteSource`), register it in `src/wallpaper/sources/registry.js`, define its badge/metadata (if any) in `src/wallpaper/sources/cardMeta.js`, and declare its `defaultSettings` in `src/core/storageHandler.js`.
+6. When adding a wallpaper source, extend `BaseSource` (or `RemoteSource`), register it in `src/wallpaper/backend/sources/registry.js`, define its badge/metadata (if any) in `src/wallpaper/backend/sources/cardMeta.js`, and declare its `defaultSettings` in `src/core/storageHandler.js`.

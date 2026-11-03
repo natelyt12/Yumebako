@@ -1,4 +1,4 @@
-import { recoverCollectionBlobs } from "/src/wallpaper/sources/api/collectionDb.js";
+import { recoverCollectionBlobs } from "/src/wallpaper/backend/sources/api/collectionDb.js";
 import { getAllFromStore, saveToStore, clearStore } from "/src/core/db.js";
 import { initDate, initClock } from "/src/core/time.js";
 
@@ -202,7 +202,7 @@ const defaultSettings = {
   },
   // Standalone Wallpaper Switcher (Alt + W) browsing state.
   // The tab actually opened is the one owning the current desktop wallpaper.
-  // See src/wallpaper/sources/registry.js for tab resolution logic.
+  // See src/wallpaper/backend/sources/registry.js for tab resolution logic.
   wallpaperSwitcher: {
     activeSource: "bing",
     sourceIndices: {},
@@ -217,7 +217,7 @@ const defaultSettings = {
       advanced: false,
       parallaxInertia: 0.03,
       parallaxAmplitude: -30,
-      // Each generator declares its own defaults in its class (src/wallpaper/motion).
+      // Each generator declares its own defaults in its class (src/wallpaper/backend/effects/motion).
       // Only the container bag lives here — same pattern as `particles`.
       motions: {},
     },
@@ -236,7 +236,7 @@ const defaultSettings = {
     blur: 10,
     speed: 3,
     overlay_speed: 1,
-    // Easing id resolved to a CSS var(--token) at play time. See src/wallpaper/onload/easing.js.
+    // Easing id resolved to a CSS var(--token) at play time. See src/wallpaper/backend/effects/onload/easing.js.
     bg_easing: "expo_out",
     advanced: false,
   },

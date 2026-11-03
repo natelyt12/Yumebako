@@ -1,0 +1,16 @@
+@layer features {
+  .wallpaper_onload_panel,
+  .wallpaper_onload_advanced {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .wallpaper_onload_group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+  }
+}

@@ -39,7 +39,7 @@ export function parseTranslateX(transform) {
 }
 
 /**
- * @param {import("../../src/wallpaper/ui/carousel/CarouselEngine.js").CarouselEngine} engine
+ * @param {import("../../src/wallpaper/frontend/switcher/carousel/CarouselEngine.js").CarouselEngine} engine
  * @param {Object} [options]
  * @param {string} [options.opacitySelector]
  * @param {() => number} [options.now]

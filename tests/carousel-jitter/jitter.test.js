@@ -27,7 +27,7 @@ import { JSDOM } from "jsdom";
 
 import { createProbe, formatReport } from "./probe.js";
 import { createVirtualClock } from "./virtualClock.js";
-import { MAX_FLICK_OVERSHOOT } from "../../src/wallpaper/ui/carousel/CarouselEngine.js";
+import { MAX_FLICK_OVERSHOOT } from "../../src/wallpaper/frontend/switcher/carousel/CarouselEngine.js";
 import {
   SCENARIO_DEFAULTS,
   createCarouselScenario,

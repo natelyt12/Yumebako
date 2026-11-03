@@ -13,7 +13,7 @@
 import {
   CarouselEngine,
   WHEEL_THRESHOLD,
-} from "../../src/wallpaper/ui/carousel/CarouselEngine.js";
+} from "../../src/wallpaper/frontend/switcher/carousel/CarouselEngine.js";
 
 export const SCENARIO_DEFAULTS = Object.freeze({
   count: 12,
@@ -175,7 +175,7 @@ export async function dragAndRelease({
  * jitter nhất.
  *
  * @param {Object} options
- * @param {import("../../src/wallpaper/ui/carousel/CarouselEngine.js").CarouselEngine} options.engine
+ * @param {import("../../src/wallpaper/frontend/switcher/carousel/CarouselEngine.js").CarouselEngine} options.engine
  * @param {HTMLElement} options.container
  * @param {() => (void | Promise<void>)} options.advanceFrame - Tiến một frame.
  * @param {number} [options.notchEveryFrames]

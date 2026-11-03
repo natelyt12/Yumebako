@@ -16,7 +16,7 @@
  */
 
 import "../../src/styles/variables.css";
-import "../../src/wallpaper/ui/carousel/carousel.css";
+import "../../src/wallpaper/frontend/switcher/carousel/carousel.css";
 import "./harness.css";
 
 import { createCarouselScenario, sweepToLastCard } from "./scenario.js";

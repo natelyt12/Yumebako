@@ -1,0 +1,232 @@
+@layer features {
+  .wallpaper_customize_submenu_content {
+    flex: 1;
+    width: 100%;
+    max-width: var(--customize-max-width);
+    margin: 0 auto;
+    min-height: 0;
+    box-sizing: border-box;
+    padding: 24px max(24px, 3.5vw);
+    display: grid;
+    /* Preview + section list on the left (fixed width), section content on the
+       right (absorbs the rest). */
+    grid-template-columns: var(--customize-sidebar-width) minmax(0, 1fr);
+    gap: 16px;
+    overflow: hidden;
+  }
+
+  .wallpaper_customize_sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* Reuses `.manage_detail_figure` for the exact look of the Manage grid's
+     detail preview; the block only stacks the "currently editing" label above
+     it and pins both against flex shrinking. */
+  .wallpaper_customize_preview_block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .wallpaper_customize_preview_label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    user-select: none;
+    padding-left: 2px;
+  }
+
+  .wallpaper_customize_tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-height: 0;
+  }
+
+  /* Vertical tab item: clean flat glass without border/box-shadow */
+  .wallpaper_customize_tab {
+    position: relative;
+    width: 100%;
+    height: 42px;
+    margin: 0;
+    padding: 0 14px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    box-shadow: none;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    text-align: left;
+    color: var(--text-secondary);
+    cursor: pointer;
+    user-select: none;
+    transition:
+      background-color 0.2s var(--ease_out),
+      border-color 0.2s var(--ease_out),
+      color 0.2s var(--ease_out);
+  }
+
+  .wallpaper_customize_tab > svg,
+  .wallpaper_customize_tab > i[data-icon] {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    opacity: 0.75;
+    transition:
+      transform 0.24s var(--expo_out),
+      color 0.2s var(--ease_out),
+      opacity 0.2s var(--ease_out);
+  }
+
+  .wallpaper_customize_tab_label {
+    font-size: 0.95em;
+    font-weight: 500;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: transform 0.24s var(--expo_out);
+  }
+
+  /* Instant hover on text/icon (no background), smooth transition on hover out */
+  .wallpaper_customize_tab:hover {
+    color: var(--text-primary);
+    transition-duration: 0s;
+  }
+
+  .wallpaper_customize_tab:hover > svg,
+  .wallpaper_customize_tab:hover > i[data-icon] {
+    opacity: 1;
+    color: var(--text-primary);
+  }
+
+  .wallpaper_customize_tab.is-active {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    border-color: var(--glass-border-sm);
+    box-shadow: none;
+  }
+
+  .wallpaper_customize_tab.is-active:hover {
+    border-color: var(--glass-border);
+  }
+
+  .wallpaper_customize_tab.is-active > svg,
+  .wallpaper_customize_tab.is-active > i[data-icon] {
+    opacity: 1;
+    transform: translateX(4px);
+    color: var(--text-primary);
+  }
+
+  .wallpaper_customize_tab.is-active .wallpaper_customize_tab_label {
+    transform: translateX(4px);
+  }
+
+  /* Left accent capsule on active tab: morphs from height 0 */
+  .wallpaper_customize_tab::before {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 0;
+    border-radius: 4px;
+    background: var(--text-primary, #ffffff);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      height 0.28s var(--expo_out),
+      opacity 0.2s var(--smooth);
+  }
+
+  .wallpaper_customize_tab.is-active::before {
+    height: 16px;
+    opacity: 1;
+  }
+
+  /* Placeholder for sections still in development */
+  .wallpaper_customize_placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 260px;
+    gap: 12px;
+    color: var(--text-muted);
+    text-align: center;
+    user-select: none;
+  }
+
+  .customize_placeholder_icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--glass-border-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+  }
+
+  .customize_placeholder_icon svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .customize_placeholder_title {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .customize_placeholder_desc {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+  }
+
+  .wallpaper_customize_panel {
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    /* The switcher shell does not set a text colour; without this the panel's
+       controls (slider labels, inputs) inherit the page default black. */
+    color: var(--text-primary);
+    /* Divider between the sidebar and the section content, mirroring the
+       Manage grid's detail pane. */
+    border-left: 1px solid var(--glass-border-sm);
+    padding-left: 24px;
+    transition: border-color 0.22s var(--smooth);
+  }
+
+  @media (max-width: 900px) {
+    .wallpaper_customize_submenu_content {
+      grid-template-columns: minmax(0, 1fr);
+      overflow-y: auto;
+    }
+
+    .wallpaper_customize_sidebar,
+    .wallpaper_customize_panel {
+      overflow: visible;
+    }
+
+    /* Stacked layout: the vertical divider no longer separates two columns. */
+    .wallpaper_customize_panel {
+      border-left: none;
+      padding-left: 0;
+    }
+  }
+
+}
