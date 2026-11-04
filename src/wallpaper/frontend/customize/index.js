@@ -1,17 +1,12 @@
 import "./shared.css";
-import { createArrangePanel } from "./panels/arrange/index.js";
 import { createFiltersPanel } from "./panels/filters/index.js";
 import { createParticlesPanel } from "./panels/particles/index.js";
 import { createOnloadPanel } from "./panels/onload/index.js";
 import { createWavyPanel } from "./panels/wavy/index.js";
 
+export { openPositionEditorPopup } from "./panels/arrange/index.js";
+
 export const CUSTOMIZE_TABS = [
-  {
-    id: "arrange",
-    icon: "arrangeWallpaper",
-    labelKey: "sp.wallpaper_customization.arrange_wallpaper",
-    label: "Điều chỉnh vị trí",
-  },
   {
     id: "filters",
     icon: "filterSettings",
@@ -39,7 +34,6 @@ export const CUSTOMIZE_TABS = [
 ];
 
 const PANEL_FACTORIES = {
-  arrange: createArrangePanel,
   filters: createFiltersPanel,
   particles: createParticlesPanel,
   onload: createOnloadPanel,
