@@ -29,7 +29,7 @@ import { DEFAULT_BG_EASING } from "./easing.js";
  * so only the wallpaper transform exposes parameters.
  */
 const SHARED_DEFAULTS = {
-    bg_easing: DEFAULT_BG_EASING,
+  bg_easing: DEFAULT_BG_EASING,
 };
 
 /**
@@ -45,78 +45,149 @@ const SHARED_DEFAULTS = {
  *    from the saved settings instead of `DEFAULTS`.
  */
 export class BasePreset {
-    /** Registry id, e.g. "zoom_in_light". */
-    static ID = "";
+  /** Registry id, e.g. "zoom_in_light". */
+  static ID = "";
 
-    /** i18n key for the dropdown label. */
-    static LABEL_KEY = "";
+  /** i18n key for the dropdown label. */
+  static LABEL_KEY = "";
 
-    /** When true, saved values win over DEFAULTS (used by `custom`). */
-    static USES_STORED_PARAMS = false;
+  /** When true, saved values win over DEFAULTS (used by `custom`). */
+  static USES_STORED_PARAMS = false;
 
-    /** @type {Record<string, number|string|boolean>} Full settings bundle. */
-    static DEFAULTS = { ...SHARED_DEFAULTS };
+  /** @type {Record<string, number|string|boolean>} Full settings bundle. */
+  static DEFAULTS = { ...SHARED_DEFAULTS };
 
-    /**
-     * Slider spec consumed by the generic editor. `group` routes the control to
-     * the right container (`bg` for the wallpaper transform, `overlay` for the
-     * fade) and `defaultValue` is the slider's reset target.
-     *
-     * @returns {Array<Object>}
-     */
-    static getSettingsSpec() {
-        return [
-            { key: "zoom", group: "bg", label: t("onload_anim.zoom_label"), dataI18n: "onload_anim.zoom_label", min: 1, max: 3, step: 0.1, unit: "x", defaultValue: 1 },
-            { key: "blur", group: "bg", label: t("onload_anim.blur_label"), dataI18n: "onload_anim.blur_label", min: 0, max: 30, step: 1, unit: "px", defaultValue: 0 },
-            { key: "rotate", group: "bg", label: t("onload_anim.rotate_label"), dataI18n: "onload_anim.rotate_label", min: -45, max: 45, step: 1, unit: "deg", defaultValue: 0 },
-            { key: "speed", group: "bg", label: t("onload_anim.speed_label"), dataI18n: "onload_anim.speed_label", min: 0.5, max: 5, step: 0.5, unit: "s", defaultValue: 1 },
-            { key: "overlay_speed", group: "overlay", label: t("onload_anim.overlay_speed_label"), dataI18n: "onload_anim.overlay_speed_label", min: 0, max: 5, step: 0.1, unit: "s", defaultValue: 0.4 },
-        ];
-    }
+  /**
+   * Slider spec consumed by the generic editor. `group` routes the control to
+   * the right container (`bg` for the wallpaper transform, `overlay` for the
+   * fade) and `defaultValue` is the slider's reset target.
+   *
+   * @returns {Array<Object>}
+   */
+  static getSettingsSpec() {
+    return [
+      {
+        key: "zoom",
+        group: "bg",
+        label: t("onload_anim.zoom_label"),
+        dataI18n: "onload_anim.zoom_label",
+        min: 1,
+        max: 3,
+        step: 0.1,
+        unit: "x",
+        defaultValue: 1,
+      },
+      {
+        key: "blur",
+        group: "bg",
+        label: t("onload_anim.blur_label"),
+        dataI18n: "onload_anim.blur_label",
+        min: 0,
+        max: 30,
+        step: 1,
+        unit: "px",
+        defaultValue: 0,
+      },
+      {
+        key: "rotate",
+        group: "bg",
+        label: t("onload_anim.rotate_label"),
+        dataI18n: "onload_anim.rotate_label",
+        min: -45,
+        max: 45,
+        step: 1,
+        unit: "deg",
+        defaultValue: 0,
+      },
+      {
+        key: "speed",
+        group: "bg",
+        label: t("onload_anim.speed_label"),
+        dataI18n: "onload_anim.speed_label",
+        min: 0.5,
+        max: 5,
+        step: 0.5,
+        unit: "s",
+        defaultValue: 1,
+      },
+      {
+        key: "overlay_speed",
+        group: "overlay",
+        label: t("onload_anim.overlay_speed_label"),
+        dataI18n: "onload_anim.overlay_speed_label",
+        min: 0,
+        max: 5,
+        step: 0.1,
+        unit: "s",
+        defaultValue: 0.4,
+      },
+    ];
+  }
 
-    /** Fresh copy of the preset's parameter bundle. */
-    static getDefaults() {
-        return { ...this.DEFAULTS };
-    }
+  /** Fresh copy of the preset's parameter bundle. */
+  static getDefaults() {
+    return { ...this.DEFAULTS };
+  }
 }
 
 // ===========================================================================
 // PRESETS
 // ===========================================================================
 
-/** No-transform preset: the wallpaper simply fades in behind the overlay. */
-export class DefaultPreset extends BasePreset {
-    static ID = "default";
-    static LABEL_KEY = "onload_anim.default_preset";
-    static DEFAULTS = { ...SHARED_DEFAULTS, zoom: 1, rotate: 0, blur: 0, speed: 1, overlay_speed: 0.4 };
-}
-
 /** Default preset: a gentle zoom-in with a light blur fade. */
 export class ZoomInLightPreset extends BasePreset {
-    static ID = "zoom_in_light";
-    static LABEL_KEY = "onload_anim.zoom_in_light_preset";
-    static DEFAULTS = { ...SHARED_DEFAULTS, zoom: 1.2, rotate: 0, blur: 10, speed: 3, overlay_speed: 1 };
+  static ID = "zoom_in_light";
+  static LABEL_KEY = "onload_anim.zoom_in_light_preset";
+  static DEFAULTS = {
+    ...SHARED_DEFAULTS,
+    zoom: 1.2,
+    rotate: 0,
+    blur: 10,
+    speed: 3,
+    overlay_speed: 1,
+  };
 }
 
 /** Cinematic preset: a strong zoom + slight rotation and a heavy blur reveal. */
 export class ZoomInHeavyPreset extends BasePreset {
-    static ID = "zoom_in_heavy";
-    static LABEL_KEY = "onload_anim.zoom_in_heavy_preset";
-    static DEFAULTS = { ...SHARED_DEFAULTS, zoom: 2.4, rotate: 20, blur: 16, speed: 2.5, overlay_speed: 1 };
+  static ID = "zoom_in_heavy";
+  static LABEL_KEY = "onload_anim.zoom_in_heavy_preset";
+  static DEFAULTS = {
+    ...SHARED_DEFAULTS,
+    zoom: 2.4,
+    rotate: 20,
+    blur: 16,
+    speed: 2.5,
+    overlay_speed: 1,
+  };
 }
 
 /** Sleepy preset: slow, heavily blurred entry with a long overlay fade. */
 export class SleepyPreset extends BasePreset {
-    static ID = "sleepy";
-    static LABEL_KEY = "onload_anim.wake_up_preset";
-    static DEFAULTS = { ...SHARED_DEFAULTS, zoom: 1.3, rotate: 0, blur: 30, speed: 5, overlay_speed: 2.5 };
+  static ID = "sleepy";
+  static LABEL_KEY = "onload_anim.wake_up_preset";
+  static DEFAULTS = {
+    ...SHARED_DEFAULTS,
+    zoom: 1.3,
+    rotate: 0,
+    blur: 30,
+    speed: 5,
+    overlay_speed: 2.5,
+  };
 }
 
 /** Chill preset: an off-axis zoom-in that settles with a light blur fade. */
 export class NaturePreset extends BasePreset {
-    static ID = "nature";
-    static LABEL_KEY = "onload_anim.nature_preset";
-    static DEFAULTS = { ...SHARED_DEFAULTS, zoom: 2, rotate: -10, blur: 15, speed: 5, overlay_speed: 1 };
+  static ID = "nature";
+  static LABEL_KEY = "onload_anim.nature_preset";
+  static DEFAULTS = {
+    ...SHARED_DEFAULTS,
+    zoom: 2,
+    rotate: -10,
+    blur: 15,
+    speed: 5,
+    overlay_speed: 1,
+  };
 }
 
 /**
@@ -128,10 +199,17 @@ export class NaturePreset extends BasePreset {
  * the safety net for a fresh install where no custom values exist yet.
  */
 export class CustomPreset extends BasePreset {
-    static ID = "custom";
-    static LABEL_KEY = "onload_anim.custom_preset";
-    static USES_STORED_PARAMS = true;
-    static DEFAULTS = { ...SHARED_DEFAULTS, zoom: 1.2, rotate: 0, blur: 10, speed: 3, overlay_speed: 1 };
+  static ID = "custom";
+  static LABEL_KEY = "onload_anim.custom_preset";
+  static USES_STORED_PARAMS = true;
+  static DEFAULTS = {
+    ...SHARED_DEFAULTS,
+    zoom: 1.2,
+    rotate: 0,
+    blur: 10,
+    speed: 3,
+    overlay_speed: 1,
+  };
 }
 
 // ===========================================================================
@@ -140,12 +218,11 @@ export class CustomPreset extends BasePreset {
 
 /** Maps a preset id to its implementation. */
 export const PRESET_REGISTRY = {
-    [DefaultPreset.ID]: DefaultPreset,
-    [ZoomInLightPreset.ID]: ZoomInLightPreset,
-    [ZoomInHeavyPreset.ID]: ZoomInHeavyPreset,
-    [SleepyPreset.ID]: SleepyPreset,
-    [NaturePreset.ID]: NaturePreset,
-    [CustomPreset.ID]: CustomPreset,
+  [ZoomInLightPreset.ID]: ZoomInLightPreset,
+  [ZoomInHeavyPreset.ID]: ZoomInHeavyPreset,
+  [SleepyPreset.ID]: SleepyPreset,
+  [NaturePreset.ID]: NaturePreset,
+  [CustomPreset.ID]: CustomPreset,
 };
 
 /**
@@ -153,11 +230,10 @@ export const PRESET_REGISTRY = {
  * excluded — the editor appends it after a divider.
  */
 export const PRESET_ORDER = [
-    DefaultPreset.ID,
-    ZoomInLightPreset.ID,
-    ZoomInHeavyPreset.ID,
-    SleepyPreset.ID,
-    NaturePreset.ID,
+  ZoomInLightPreset.ID,
+  ZoomInHeavyPreset.ID,
+  SleepyPreset.ID,
+  NaturePreset.ID,
 ];
 
 export const CUSTOM_PRESET = CustomPreset.ID;
@@ -172,10 +248,10 @@ export const DEFAULT_PRESET = ZoomInLightPreset.ID;
  * @returns {typeof BasePreset}
  */
 export function resolvePresetClass(presetId) {
-    return PRESET_REGISTRY[presetId] || PRESET_REGISTRY[DEFAULT_PRESET];
+  return PRESET_REGISTRY[presetId] || PRESET_REGISTRY[DEFAULT_PRESET];
 }
 
 /** @param {string} presetId */
 export function isCustomPreset(presetId) {
-    return presetId === CUSTOM_PRESET;
+  return presetId === CUSTOM_PRESET;
 }

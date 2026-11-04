@@ -22,7 +22,6 @@ export {
 
 export {
   BasePreset,
-  DefaultPreset,
   ZoomInLightPreset,
   ZoomInHeavyPreset,
   SleepyPreset,
