@@ -35,16 +35,65 @@ export class WallhavenSource extends RemoteSource {
     return true;
   }
 
+  /**
+   * A new feed window (app start, source switch, settings reload) starts a new
+   * Wallhaven browse session, so pagination restarts from page 1 when the
+   * persisted queue has no leftovers.
+   */
+  async fetchItems() {
+    const key = this.constructor.storageKey;
+    const storeData = (await getFromStore(key)) || { queue: [], applied: null };
+    if (!Array.isArray(storeData.queue) || storeData.queue.length === 0) {
+      storeData.page = 1;
+      storeData.last_page = null;
+      storeData.queue_total = 0;
+      await saveToStore(key, storeData);
+    }
+    return super.fetchItems();
+  }
+
   /** Take the next wallpaper off the persisted queue, refilling it if empty. */
   async fetchItem() {
     const key = this.constructor.storageKey;
     const storeData = (await getFromStore(key)) || { queue: [], applied: null };
     const queue = Array.isArray(storeData.queue) ? storeData.queue : [];
+    storeData.queue = queue;
 
     if (queue.length === 0) {
+      const page = Math.max(1, Number(storeData.page) || 1);
+      const lastPage = Number(storeData.last_page) || 0;
+
+      // The last batch already was the final page of the result set. This is
+      // what makes a Wallhaven query with fewer images than `per_page` (e.g.
+      // `total: 5, per_page: 24`) end instead of refetching page 1 forever.
+      if (lastPage > 0 && page > lastPage) {
+        storeData.queue_total = 0;
+        await saveToStore(key, storeData);
+        return null;
+      }
+
       // Strict on purpose: a network failure must surface as an error the
       // user can retry, never as "this feed has nothing left".
-      queue.push(...(await fetchWallhavenQueue({ strict: true })));
+      const batch = await fetchWallhavenQueue({ strict: true, page });
+      const meta = batch?.meta || {};
+      const items = Array.isArray(batch) ? [...batch] : [];
+      const perPage = Number(meta.per_page) || items.length || 24;
+      const reportedLastPage = Number(meta.last_page) || 0;
+
+      // A short or empty page is the end of the feed even if the API did not
+      // report `last_page` (both are treated as "no further pages").
+      const isLastPage = items.length === 0 || items.length < perPage;
+
+      storeData.page = page + 1;
+      storeData.last_page = reportedLastPage || (isLastPage ? page : 0);
+      storeData.queue_total = items.length;
+
+      if (items.length === 0) {
+        await saveToStore(key, storeData);
+        return null;
+      }
+
+      queue.push(...items);
       storeData.queue_total = queue.length;
     }
 

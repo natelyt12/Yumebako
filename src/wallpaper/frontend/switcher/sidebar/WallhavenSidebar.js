@@ -114,10 +114,23 @@ export function createWallhavenSidebar({ dataControl, sidebar }) {
   }
 
   function setCategoriesFromBinary(binary = "010") {
-    const pad = binary.padEnd(3, "0");
+    const pad = String(binary).padEnd(3, "0");
     catGeneral.setAttribute("aria-pressed", pad[0] === "1" ? "true" : "false");
     catAnime.setAttribute("aria-pressed", pad[1] === "1" ? "true" : "false");
     catPeople.setAttribute("aria-pressed", pad[2] === "1" ? "true" : "false");
+  }
+
+  /**
+   * Settings store categories either as a binary string ("010") or as the
+   * `{ general, anime, people }` object used by the defaults. Normalize both
+   * shapes to the string this form (and the API helper) works with.
+   */
+  function toCategoriesBinary(value) {
+    if (typeof value === "string") return value.padEnd(3, "0").slice(0, 3);
+    if (value && typeof value === "object") {
+      return `${value.general ? "1" : "0"}${value.anime ? "1" : "0"}${value.people ? "1" : "0"}`;
+    }
+    return "010";
   }
 
   function updateTopRangeVisibility() {
@@ -255,7 +268,7 @@ export function createWallhavenSidebar({ dataControl, sidebar }) {
     const cfg = getSettings().wallhavenConfig || {};
     savedConfig = {
       query: cfg.query || "",
-      categories: cfg.categories || "010",
+      categories: toCategoriesBinary(cfg.categories),
       resolution: cfg.resolution || "any",
       sorting: cfg.sorting || "random",
       topRange: cfg.topRange || "1M",
