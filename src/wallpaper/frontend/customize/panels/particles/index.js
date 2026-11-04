@@ -29,9 +29,29 @@ function genId() {
 export class EffectsEditorUI {
   constructor(engine) {
     this.engine = engine;
-    this.isDirty = false;
+    this._dirty = false;
     this.workingState = null;
     this.columnLists = {};
+    this.saveBtn = null;
+    this.savedSnapshot = null;
+
+    // Every `isDirty = true` assignment refreshes the Save button, so it stays
+    // disabled while the working state still matches the last save.
+    Object.defineProperty(this, "isDirty", {
+      get: () => this._dirty,
+      set: (value) => {
+        this._dirty = value;
+        if (this.saveBtn) this._refreshSaveState();
+      },
+    });
+  }
+
+  _refreshSaveState() {
+    if (!this.saveBtn || !this.workingState) return;
+    const equal = JSON.stringify(this.workingState) === this.savedSnapshot;
+    this.saveBtn.disabled = equal;
+    this._dirty = !equal;
+    setSubmenuDirty(!equal);
   }
 
   createPanel() {
@@ -53,6 +73,7 @@ export class EffectsEditorUI {
         staticEnabled: saved.staticEnabled === true,
       }),
     );
+    this.savedSnapshot = JSON.stringify(this.workingState);
     this.isDirty = false;
     this.columnLists = {};
     this.columns = {};
@@ -81,6 +102,8 @@ export class EffectsEditorUI {
 
     const btnSave = this.clone.querySelector("#btn_save");
     if (btnSave) {
+      this.saveBtn = btnSave;
+      btnSave.disabled = true;
       btnSave.addEventListener("click", () => this._handleSave());
     }
 
@@ -97,6 +120,14 @@ export class EffectsEditorUI {
           static: [],
         };
         this.engine.loadState(savedData);
+        this.workingState = JSON.parse(
+          JSON.stringify({
+            dynamic: savedData.dynamic || [],
+            static: savedData.static || [],
+            dynamicEnabled: savedData.dynamicEnabled === true,
+            staticEnabled: savedData.staticEnabled === true,
+          }),
+        );
         this.isDirty = false;
         setSubmenuDirty(false);
       },
@@ -337,7 +368,8 @@ export class EffectsEditorUI {
     // Action buttons: Delete, then Edit (Pencil), then Checkbox Toggle on the far right
     const btnDelete = makeBtn(Icons.particleDelete, async () => {
       const confirmed = await showConfirm(
-        t("particles.delete_confirm_msg") || "Bạn có chắc chắn muốn xóa hiệu ứng này không?",
+        t("particles.delete_confirm_msg") ||
+          "Bạn có chắc chắn muốn xóa hiệu ứng này không?",
         {
           title: t("particles.delete_confirm_title") || "Xóa hiệu ứng",
           okText: t("common.delete") || "Xóa",
@@ -468,7 +500,6 @@ export class EffectsEditorUI {
     this._refreshList("dynamic");
     this._refreshList("static");
     this.isDirty = true;
-    setSubmenuDirty(true);
     showNotification(t("particles.clear_all_success"), "success");
   }
 
@@ -481,6 +512,7 @@ export class EffectsEditorUI {
     current.enabled = true;
     saveSettings({ particles: current });
     this.engine.loadState(current);
+    this.savedSnapshot = JSON.stringify(this.workingState);
 
     showNotification(t("common.saved_changes"), "success");
     this.isDirty = false;

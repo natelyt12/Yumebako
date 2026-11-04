@@ -14,6 +14,7 @@ import {
   applyFilterConfig,
   applyWallpaperFilters,
 } from "../../../../backend/rendering/filter.js";
+import { createSaveState } from "../../state.js";
 
 const STANDARD_SPECS = [
   {
@@ -69,7 +70,7 @@ export function createFiltersPanel() {
   const el = template.content.firstElementChild;
 
   const slidersHost = document.createElement("div");
-  slidersHost.className = "flex_col gap_12 w_full";
+  slidersHost.className = "wallpaper_slider_grid w_full";
   el.appendChild(slidersHost);
 
   /** @type {Record<string, ReturnType<typeof createSlider>>} */
@@ -109,7 +110,7 @@ export function createFiltersPanel() {
   el.appendChild(divider);
 
   const actions = document.createElement("div");
-  actions.className = "flex_row gap_8 w_full";
+  actions.className = "wallpaper_panel_actions";
 
   const resetBtn = document.createElement("button");
   resetBtn.type = "button";
@@ -120,6 +121,8 @@ export function createFiltersPanel() {
   saveBtn.type = "button";
   saveBtn.className = "btn flex_1";
   saveBtn.textContent = t("wavy.btn_save", "Lưu");
+
+  const saveState = createSaveState(saveBtn);
 
   actions.append(resetBtn, saveBtn);
   el.appendChild(actions);
@@ -139,9 +142,13 @@ export function createFiltersPanel() {
     return values;
   };
 
+  // The values the panel opened with are the "last saved" baseline.
+  saveState.markSaved(readConfig());
+
   const setPreview = () => {
-    syncDirty(true);
-    applyFilterConfig(readConfig());
+    const config = readConfig();
+    syncDirty(saveState.sync(config));
+    applyFilterConfig(config);
   };
 
   const revert = () => {
@@ -160,12 +167,14 @@ export function createFiltersPanel() {
   });
 
   saveBtn.addEventListener("click", () => {
+    const config = readConfig();
     saveSettings({
       wallpaperConfig: {
         ...(getSettings().wallpaperConfig || {}),
-        ...readConfig(),
+        ...config,
       },
     });
+    saveState.markSaved(config);
     showNotification(t("common.saved_changes"), "success");
     syncDirty(false);
     applyWallpaperFilters();

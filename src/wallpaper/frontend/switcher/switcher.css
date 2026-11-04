@@ -55,11 +55,17 @@
        content column absorbs the remaining width). */
     --customize-max-width: 1300px;
     --customize-sidebar-width: 300px;
+    /* Single source of truth for the sheet slide. Any mode that borrows the
+       whole screen (e.g. the position editor) reuses these values so the sheet
+       leaves and returns with this same motion instead of a bespoke offset. */
+    --switcher-rest-y: calc(100% + 50px);
+    --switcher-open-motion: 0.7s var(--expo_out);
+    --switcher-close-motion: 0.45s var(--cubic_in);
     /* Không fade khi mở/đóng: bảng trượt lên là đủ, độ mờ đã do từng thẻ trong
        carousel đảm nhiệm (xem `geometry.js`). */
-    transform: translateY(calc(100% + 50px));
+    transform: translateY(var(--switcher-rest-y));
     transition:
-      transform 0.45s var(--cubic_in),
+      transform var(--switcher-close-motion),
       max-height 0.8s var(--expo_out),
       height 0.8s var(--expo_out),
       padding 0.8s var(--expo_out);
@@ -78,7 +84,7 @@
     backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
     border-top: 1px solid rgba(255, 255, 255, 0.14);
     box-shadow:
-      0 -8px 32px rgba(0, 0, 0, 0.45),
+      0 -8px 32px rgba(0, 0, 0, 0.25),
       inset 0 1px 0 rgba(255, 255, 255, 0.12);
     z-index: -1;
     pointer-events: none;
@@ -88,22 +94,36 @@
     transform: translateY(0);
     opacity: 1;
     transition:
-      transform 0.7s var(--expo_out),
+      transform var(--switcher-open-motion),
       max-height 0.8s var(--expo_out),
       height 0.8s var(--expo_out),
       padding 0.8s var(--expo_out);
   }
 
-  /* Khung cha morph lên toàn màn hình khi submenu mở */
-  .wallpaper_switcher_inner.submenu_active {
+  /* The position editor borrows the whole screen: the sheet leaves with its own
+     close motion and returns with its own open motion (no custom animation). */
+  body.wallpaper_position_editing .wallpaper_switcher {
+    pointer-events: none !important;
+  }
+
+  body.wallpaper_position_editing
+    .wallpaper_switcher.active
+    .wallpaper_switcher_inner {
+    transform: translateY(var(--switcher-rest-y));
+    transition: transform var(--switcher-close-motion);
+  }
+
+  /* Khung cha morph lên toàn màn hình khi submenu mở hoặc giữ overflow: hidden khi đóng */
+  .wallpaper_switcher_inner.submenu_active,
+  .wallpaper_switcher_inner.customization_closing {
     height: var(--switcher-submenu-height, 100vh);
     max-height: var(--switcher-submenu-height, 100vh);
-    overflow: hidden;
+    overflow: hidden !important;
     /* The sheet's glass lives on ::before, whose shadow gets clipped by the
        `overflow: hidden` used to mask the sliding panel. Repaint the same
        ambient shadow on the host itself so panels that do not fill the screen
        (Customize) still read as a floating card. */
-    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.25);
   }
 
   /* 1. Main View: giữ layout; hiệu ứng fade + lùi (recede) do component submenu
@@ -122,6 +142,22 @@
     flex-direction: column;
     align-items: center;
     justify-content: flex-end;
+  }
+
+  /* Customize Submenu: vertical slide with 40% travel distance and clean clipping */
+  .wallpaper_switcher_inner[data-submenu-type="customize"],
+  .wallpaper_switcher_inner[data-submenu-type="customize"] .submenu_view,
+  .wallpaper_switcher_inner[data-submenu-type="customize"]
+    .settings_submenu_view {
+    --submenu-enter-x: 0%;
+    --submenu-enter-y: 40%;
+    --submenu-recede-x: 0%;
+    --submenu-recede-y: -40%;
+  }
+
+  .wallpaper_switcher_inner[data-submenu-type="customize"] .submenu_main_view {
+    --submenu-recede-x: 0%;
+    --submenu-recede-y: -40%;
   }
 
   /* 2. Submenu View: khung/kích thước/transition do `.submenu_view` dùng chung
@@ -164,23 +200,13 @@
     user-select: none;
   }
 
-  /* Hold V: hide the whole sheet (glass + content) so only the wallpaper
-     remains. Instant, no fade either way. */
+  /* Hold V: only the sheet's glass background goes transparent so the wallpaper
+     shows through; every control stays exactly where it is. Instant, no fade. */
   .wallpaper_switcher_inner.wallpaper_preview_active {
     box-shadow: none !important;
   }
 
   .wallpaper_switcher_inner.wallpaper_preview_active::before {
-    opacity: 0 !important;
-  }
-
-  /* The sheet's content goes too, leaving only the wallpaper. Opacity (not
-     visibility/pointer-events) so the controls underneath keep receiving
-     pointer input while previewing. */
-  .wallpaper_switcher_inner.wallpaper_preview_active
-    .wallpaper_customize_submenu_header,
-  .wallpaper_switcher_inner.wallpaper_preview_active
-    .wallpaper_customize_submenu_content {
     opacity: 0 !important;
   }
 
@@ -208,5 +234,4 @@
     padding: 24px max(24px, 3.5vw);
     box-sizing: border-box;
   }
-
 }

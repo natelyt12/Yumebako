@@ -189,6 +189,20 @@ export class WallpaperSwitcher {
       );
     });
 
+    // A feed with nothing left used to end silently, so pressing "fetch more"
+    // (or hitting the trailing "+") looked broken. Prefer the source-specific
+    // "no results" copy when it exists, otherwise the generic explanation.
+    dataControl.on("feed:exhausted", ({ sourceId }) => {
+      const specificKey = `sp.api.${sourceId}.no_result`;
+      const specific = t(specificKey);
+      showNotification(
+        specific && specific !== specificKey
+          ? specific
+          : t("wallpaper_switcher.feed_exhausted"),
+        "info",
+      );
+    });
+
     // Fetch failures (network down, blocked request, expired API key...) used to
     // only reach the console, leaving the "+" button silently doing nothing.
     dataControl.on("error", ({ message }) => {
@@ -556,6 +570,11 @@ export class WallpaperSwitcher {
     // Click outside to close wallpaper switcher
     document.addEventListener("pointerdown", (e) => {
       if (!this.isOpen) return;
+      // The position editor is a fullscreen modal over the switcher: pointer
+      // gestures there must not close the switcher (which would otherwise pop
+      // the action-button pill back in the middle of a grab).
+      if (document.body.classList.contains("wallpaper_position_editing"))
+        return;
 
       const target = e.target;
       if (
@@ -575,6 +594,9 @@ export class WallpaperSwitcher {
     // Keyboard navigation
     window.addEventListener("keydown", (e) => {
       if (!this.isOpen) return;
+      // Let the position editor own the keyboard while it is open.
+      if (document.body.classList.contains("wallpaper_position_editing"))
+        return;
 
       const inner = this.container?.querySelector(".wallpaper_switcher_inner");
       if (
@@ -642,6 +664,7 @@ export class WallpaperSwitcher {
     this.container.classList.add("active");
     this.toggleBtn.classList.add("active");
     this.carousel?.setActive(true);
+    this.bar?.bindPreviewHold?.();
 
     // Let the slide-in transition settle the layout, then snap the carousel
     // into place. Deliberately no settle notification: merely opening the
@@ -687,6 +710,7 @@ export class WallpaperSwitcher {
     // wheel and drag events must not reach it at all.
     this.carousel?.setActive(false);
     this.container?.classList.remove("active");
+    this.bar?.unbindPreviewHold?.();
     this.toggleBtn?.classList.remove("active");
   }
 

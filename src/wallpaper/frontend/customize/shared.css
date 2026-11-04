@@ -21,17 +21,22 @@
     opacity: 0.45;
   }
 
-  /* ── Shared slider layout ─────────────────────────────────────────────────
-     Two columns, so a panel can pair related controls (X | Y, zoom | blur …)
-     instead of stacking every slider vertically. */
-  .wallpaper_slider_grid {
+  /* ── Shared slider / panel layout ────────────────────────────────────────
+     Panel content is always split into two columns: controls fill cells left
+     to right, top to bottom, and a lone control simply occupies the first cell. */
+  .wallpaper_slider_grid,
+  .wallpaper_panel_grid {
     display: grid;
-    /* Two columns whenever the panel is wide enough, one column in the narrow
-       Settings submenu the same panels still fall back to. */
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
     gap: 16px 20px;
     min-width: 0;
+  }
+
+  /* Group headings stretch across both columns instead of sitting in a cell. */
+  .wallpaper_slider_grid > .wallpaper_filter_group_title,
+  .wallpaper_panel_grid > .wallpaper_filter_group_title {
+    grid-column: 1 / -1;
   }
 
   /* A grid cell that stacks several slider groups in one column. */
@@ -40,5 +45,16 @@
     flex-direction: column;
     gap: 20px;
     min-width: 0;
+  }
+
+  /* ── Panel action rows ────────────────────────────────────────────────────
+     Reset/Save (and similar) pairs stay on a comfortable width, centred inside
+     the panel, instead of stretching into very long bars on wide panels. */
+  .wallpaper_panel_actions {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    max-width: 560px;
+    margin: 0px auto 0;
   }
 }

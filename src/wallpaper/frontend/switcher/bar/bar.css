@@ -35,6 +35,23 @@
     gap: 4px;
   }
 
+  /* Keyboard affordance for the hold-to-preview shortcut, sitting next to the
+     meta chip. Hidden on narrow viewports where the top bar runs out of room. */
+  .wallpaper_preview_hint {
+    font-size: 0.8em;
+    font-weight: 500;
+    color: var(--text-muted);
+    white-space: nowrap;
+    user-select: none;
+    margin-right: 8px;
+  }
+
+  @media (max-width: 760px) {
+    .wallpaper_preview_hint {
+      display: none;
+    }
+  }
+
   .wallpaper_switcher_icon_btn,
   .wallpaper_switcher_close_btn {
     width: 36px;

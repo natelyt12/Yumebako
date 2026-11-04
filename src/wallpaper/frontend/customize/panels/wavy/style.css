@@ -12,11 +12,20 @@
   .wallpaper_wavy_panel,
   .wallpaper_wavy_content,
   .wallpaper_wavy_advanced,
-  .wallpaper_wavy_shared,
   .wallpaper_parallax_content {
     display: flex;
     flex-direction: column;
     gap: 12px;
+    min-width: 0;
+  }
+
+  /* Wavy and Parallax already sit in the two-column `wallpaper_wavy_columns`
+     grid, so their own slider stacks must not open a second grid inside a
+     column — they stay as a plain vertical list. */
+  .wallpaper_wavy_slider_list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
     min-width: 0;
   }
 

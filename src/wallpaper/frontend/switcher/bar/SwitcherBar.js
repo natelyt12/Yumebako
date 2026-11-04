@@ -1,13 +1,12 @@
 import "./bar.css";
 import { renderIcons } from "/src/core/icon.js";
 import { t } from "/src/core/i18n.js";
+import { showConfirm, openSubmenu, closeSubmenu } from "/src/core/ui.js";
 import {
-  showConfirm,
-  openSubmenu,
-  closeSubmenu,
-  setSubmenuDirty,
-} from "/src/core/ui.js";
-import { getSettings, saveSettings } from "/src/core/storageHandler.js";
+  getSettings,
+  saveSettings,
+  subscribe,
+} from "/src/core/storageHandler.js";
 import {
   resolveCardMeta,
   escapeHtml,
@@ -18,7 +17,9 @@ import {
   CUSTOMIZE_TABS,
   createCustomizePanel,
   hasCustomizePanel,
+  openPositionEditorPopup,
 } from "../../customize/index.js";
+import { getEffectStates } from "../../customize/state.js";
 
 /** Sources whose wallpaper window is browsable/manageable in the grid. */
 const MANAGE_SOURCES = new Set([
@@ -90,6 +91,10 @@ export class SwitcherBar {
     this._isBusy = false;
     /** Pending timer that clears the action row after it has faded out. */
     this._actionsClearTimer = null;
+    /** Timer delaying the cleanup of customize submenu styles until closing animation ends. */
+    this._customizeCloseTimer = null;
+    /** Unsubscribers for the tab effect indicators. */
+    this._customizeDotUnsubs = [];
   }
 
   /**
@@ -216,7 +221,10 @@ export class SwitcherBar {
     }
 
     this.closeSidebar();
-    host.classList.remove("customization_active");
+    clearTimeout(this._customizeCloseTimer);
+    this._customizeCloseTimer = null;
+    host.classList.remove("customization_active", "customization_closing");
+    delete host.dataset.submenuType;
     host.style.removeProperty("--switcher-submenu-height");
     this.customizeBtn?.classList.remove("active");
 
@@ -276,7 +284,7 @@ export class SwitcherBar {
     const host = this.container.closest(".wallpaper_switcher_inner");
     if (!host) return;
 
-    if (host.classList.contains("customization_active")) {
+    if (this.customizeBtn?.classList.contains("active")) {
       closeSubmenu();
       return;
     }
@@ -301,13 +309,32 @@ export class SwitcherBar {
       this.manageGrid = null;
     }
 
+    clearTimeout(this._customizeCloseTimer);
+    this._customizeCloseTimer = null;
+    host.classList.remove("customization_closing");
     host.classList.add("customization_active");
-    host.style.setProperty("--switcher-submenu-height", "100vh");
+    host.dataset.submenuType = "customize";
+    host.style.setProperty(
+      "--switcher-submenu-height",
+      "min(calc(var(--switcher-inner-height, 546px) + 200px), 100vh)",
+    );
     this.customizeBtn?.classList.add("active");
 
     const title = t("sp.wallpaper_customization.title", "Tùy chỉnh hình nền");
-    const tabsHtml = CUSTOMIZE_TABS.map(
-      (tab, index) => `
+    const tabsHtml =
+      `
+        <button
+          type="button"
+          class="wallpaper_customize_tab customize_action_tab"
+          data-customize-action="arrange"
+        >
+          <i data-icon="arrangeWallpaper"></i>
+          <span class="wallpaper_customize_tab_label" data-i18n="sp.wallpaper_customization.arrange_wallpaper">${escapeHtml(t("sp.wallpaper_customization.arrange_wallpaper"))}</span>
+          <span class="customize_tab_dot" data-tab-dot="arrange"></span>
+        </button>
+      ` +
+      CUSTOMIZE_TABS.map(
+        (tab, index) => `
         <button
           type="button"
           class="wallpaper_customize_tab${index === 0 ? " is-active" : ""}"
@@ -318,9 +345,10 @@ export class SwitcherBar {
         >
           <i data-icon="${tab.icon}"></i>
           <span class="wallpaper_customize_tab_label" data-i18n="${tab.labelKey}">${escapeHtml(tab.label)}</span>
+          <span class="customize_tab_dot" data-tab-dot="${tab.id}"></span>
         </button>
       `,
-    ).join("");
+      ).join("");
 
     const content = `
       <div class="wallpaper_customize_submenu_header">
@@ -344,7 +372,7 @@ export class SwitcherBar {
             >Currently editing:</span>
             <div class="manage_detail_figure wallpaper_customize_preview" id="wallpaper_customize_preview"></div>
           </div>
-          <div class="wallpaper_customize_tabs" role="tablist" aria-label="${escapeHtml(title)}">
+          <div class="wallpaper_customize_tabs" role="tablist">
             ${tabsHtml}
           </div>
         </aside>
@@ -368,14 +396,26 @@ export class SwitcherBar {
         if (this._customizePanel?.isDirty?.()) this._customizePanel.revert();
         this._customizePanel?.dispose?.();
         this._customizePanel = null;
-        this._unbindPreviewKey(host);
-        host.classList.remove("customization_active");
-        // Keep `--switcher-submenu-height`: `onClose` runs before the shared
-        // component drops `.submenu_active`, and removing the token there would
-        // make the open rule fall back to `100vh` for a beat — the host flashes
-        // full-screen before morphing back. It is overwritten on the next open
-        // (and cleared by `openManageSubmenu`).
+        this._unbindCustomizeDots();
         this.customizeBtn?.classList.remove("active");
+
+        host.classList.add("customization_closing");
+        // Collapse the sheet back to its resting height in the same beat as the
+        // panel sliding home; waiting for the slide first read as a lag.
+        host.style.setProperty(
+          "--switcher-submenu-height",
+          "var(--switcher-inner-height, 546px)",
+        );
+        clearTimeout(this._customizeCloseTimer);
+        this._customizeCloseTimer = setTimeout(() => {
+          this._customizeCloseTimer = null;
+          host.classList.remove(
+            "customization_active",
+            "customization_closing",
+          );
+          host.style.removeProperty("--switcher-submenu-height");
+          delete host.dataset.submenuType;
+        }, 800);
       },
     });
 
@@ -383,19 +423,23 @@ export class SwitcherBar {
       host.querySelector("#wallpaper_customize_preview"),
     );
     this._bindCustomizeTabs(host);
-    this._bindPreviewKey(host);
+    this._bindCustomizeDots(host);
   }
 
   /**
-   * "Hold V to preview wallpaper": while V is held inside this editor the glass
-   * surface is dropped (instantly) so the wallpaper shows through, without
-   * hiding the panel content. Scoped to the open Customize submenu, and ignored
-   * while typing in a field.
-   * @param {HTMLElement} host
+   * "Hold V to preview wallpaper": while V is held the sheet's glass and all
+   * views are hidden (instantly) so only the wallpaper remains. Bound for the
+   * whole time the switcher is open, and ignored while typing in a field.
+   * @param {HTMLElement} host - The `.wallpaper_switcher_inner` element.
    * @private
    */
   _bindPreviewKey(host) {
     this._unbindPreviewKey(host);
+
+    const isSwitcherOpen = () =>
+      Boolean(
+        host.closest(".wallpaper_switcher")?.classList.contains("active"),
+      );
 
     const setPreview = (active) => {
       host.classList.toggle("wallpaper_preview_active", active);
@@ -414,7 +458,7 @@ export class SwitcherBar {
               target.type,
             )));
       if (isTextInput) return;
-      if (!host.classList.contains("customization_active")) return;
+      if (!isSwitcherOpen()) return;
 
       e.preventDefault();
       if (e.repeat) return;
@@ -426,12 +470,9 @@ export class SwitcherBar {
     };
 
     const onKeyUp = (e) => {
-      if (e.key?.toLowerCase() === "v") {
-        if (host.classList.contains("customization_active")) {
-          e.preventDefault();
-        }
-        setPreview(false);
-      }
+      if (e.key?.toLowerCase() !== "v") return;
+      if (isSwitcherOpen()) e.preventDefault();
+      setPreview(false);
     };
 
     // A keyup can be lost when the window loses focus mid-hold, so any signal
@@ -461,6 +502,16 @@ export class SwitcherBar {
     this._previewKeyCleanup?.();
     this._previewKeyCleanup = null;
     host?.classList.remove("wallpaper_preview_active");
+  }
+
+  /** Bind the hold-V preview for as long as the switcher stays open. */
+  bindPreviewHold() {
+    this._bindPreviewKey(this.container);
+  }
+
+  /** Release the hold-V preview (switcher closing). */
+  unbindPreviewHold() {
+    this._unbindPreviewKey(this.container);
   }
 
   /**
@@ -509,16 +560,78 @@ export class SwitcherBar {
     if (tabs.length === 0) return;
 
     tabs.forEach((tab) => {
-      tab.addEventListener("click", () => {
-        this._selectCustomizeTab(host, tab.dataset.customizeTab);
+      tab.addEventListener("click", async () => {
+        // Action row: opens the fullscreen editor, never becomes the active tab.
+        if (tab.dataset.customizeAction === "arrange") {
+          openPositionEditorPopup();
+          return;
+        }
+
+        const nextTabId = tab.dataset.customizeTab;
+        const activeTabId = host.querySelector(
+          ".wallpaper_customize_tab.is-active",
+        )?.dataset.customizeTab;
+        const isSwitching = Boolean(activeTabId && activeTabId !== nextTabId);
+
+        // Leaving a section with unsaved edits would silently discard them, so
+        // ask first (same dirty contract as closing the whole submenu).
+        if (isSwitching && this._customizePanel?.isDirty?.()) {
+          const proceed = await showConfirm(
+            t("sp.wallpaper_customization.discard_changes_on_switch"),
+            { isDanger: true },
+          );
+          if (!proceed) return;
+        }
+
+        this._selectCustomizeTab(host, nextTabId);
       });
     });
 
     // Prefer the first section with a panel so the right column is useful on open.
     const initial =
-      tabs.find((tab) => hasCustomizePanel(tab.dataset.customizeTab)) ||
-      tabs[0];
+      tabs.find(
+        (tab) =>
+          tab.dataset.customizeTab &&
+          hasCustomizePanel(tab.dataset.customizeTab),
+      ) || tabs.find((tab) => tab.dataset.customizeTab);
     if (initial) this._selectCustomizeTab(host, initial.dataset.customizeTab);
+  }
+
+  /**
+   * Keep the static "has effect" dot on each Customize tab in sync with the
+   * saved settings. Dots update live after a save, never animate.
+   * @param {HTMLElement} host
+   * @private
+   */
+  _bindCustomizeDots(host) {
+    this._syncCustomizeTabDots(host);
+    this._unbindCustomizeDots();
+
+    this._customizeDotUnsubs = [
+      "wallpaperConfig",
+      "wallpaperPosition",
+      "particles",
+      "onload",
+      "wavy",
+    ].map((key) => subscribe(key, () => this._syncCustomizeTabDots(host)));
+  }
+
+  /** @private */
+  _unbindCustomizeDots() {
+    this._customizeDotUnsubs?.forEach((unsubscribe) => unsubscribe());
+    this._customizeDotUnsubs = [];
+  }
+
+  /**
+   * @param {HTMLElement} host
+   * @private
+   */
+  _syncCustomizeTabDots(host) {
+    if (!host?.isConnected) return;
+    const states = getEffectStates();
+    host.querySelectorAll("[data-tab-dot]").forEach((dot) => {
+      dot.classList.toggle("is-on", Boolean(states[dot.dataset.tabDot]));
+    });
   }
 
   /**
@@ -530,11 +643,9 @@ export class SwitcherBar {
    */
   _selectCustomizeTab(host, tabId) {
     const tabs = Array.from(host.querySelectorAll(".wallpaper_customize_tab"));
-    const activeTabId = tabs.find((tab) => tab.classList.contains("is-active"))
-      ?.dataset.customizeTab;
-    const changedTab = Boolean(activeTabId && activeTabId !== tabId);
 
     tabs.forEach((tab) => {
+      if (tab.dataset.customizeAction) return;
       const isActive = tab.dataset.customizeTab === tabId;
       tab.classList.toggle("is-active", isActive);
       tab.setAttribute("aria-selected", String(isActive));
@@ -549,7 +660,6 @@ export class SwitcherBar {
     this._customizePanel?.dispose?.();
     this._customizePanel = null;
     panelHost.replaceChildren();
-    if (changedTab) setSubmenuDirty(true);
 
     const panel = createCustomizePanel(tabId);
     if (!panel) {

@@ -21,6 +21,7 @@ import {
   cloneData,
   getWavyController,
 } from "../../../../backend/effects/motion/WavyEngine.js";
+import { createSaveState } from "../../state.js";
 
 /** Motion spec groups that move the wallpaper along an axis. */
 const AXIS_GROUP_IDS = new Set(["x", "y", "rot"]);
@@ -174,7 +175,7 @@ export function createWavyPanel() {
   motionSelect.id = "wavy_panel_motion_type";
 
   const motionSliders = document.createElement("div");
-  motionSliders.className = "wallpaper_slider_grid";
+  motionSliders.className = "wallpaper_wavy_slider_list";
 
   const motionTooltip = document.createElement("span");
   motionTooltip.className = "tooltip";
@@ -225,7 +226,7 @@ export function createWavyPanel() {
   );
 
   const parallaxSliders = document.createElement("div");
-  parallaxSliders.className = "wallpaper_slider_grid";
+  parallaxSliders.className = "wallpaper_wavy_slider_list";
 
   const parallaxContent = document.createElement("div");
   parallaxContent.className = "wallpaper_parallax_content";
@@ -252,7 +253,7 @@ export function createWavyPanel() {
   );
 
   const sharedHost = document.createElement("div");
-  sharedHost.className = "wallpaper_wavy_shared";
+  sharedHost.className = "wallpaper_slider_grid";
 
   // ── Structure: Actions ───────────────────────────────────────────────────
 
@@ -260,7 +261,7 @@ export function createWavyPanel() {
   actionsDivider.className = "section_divider";
 
   const actions = document.createElement("div");
-  actions.className = "flex_row gap_8 w_full";
+  actions.className = "wallpaper_panel_actions";
 
   const resetBtn = document.createElement("button");
   resetBtn.type = "button";
@@ -271,6 +272,9 @@ export function createWavyPanel() {
   saveBtn.type = "button";
   saveBtn.className = "btn flex_1";
   saveBtn.textContent = t("wavy.btn_save", "Lưu");
+
+  const saveState = createSaveState(saveBtn);
+  const snapshot = () => JSON.parse(JSON.stringify(working));
 
   actions.append(resetBtn, saveBtn);
 
@@ -292,7 +296,7 @@ export function createWavyPanel() {
 
   const markDirty = () => {
     if (isInitializing.value) return;
-    syncDirty(true);
+    syncDirty(saveState.sync(snapshot()));
   };
 
   /** Start the loop when either wavy or parallax is switched on. */
@@ -513,6 +517,7 @@ export function createWavyPanel() {
     });
     persistConfig();
     startConfig = cloneData(wavy?.getConfig() ?? working);
+    saveState.markSaved(snapshot());
     showNotification(t("common.saved_changes"), "success");
     syncDirty(false);
   };
@@ -552,6 +557,7 @@ export function createWavyPanel() {
     renderAll();
     syncControls();
     isInitializing.value = false;
+    saveState.sync(snapshot());
     syncDirty(false);
   };
 
@@ -658,6 +664,7 @@ export function createWavyPanel() {
   syncControls();
   isInitializing.value = false;
   initButtons(el);
+  saveState.markSaved(snapshot());
   syncDirty(false);
 
   return { el, isDirty: () => isDirty, revert };

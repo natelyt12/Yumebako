@@ -29,6 +29,7 @@ import {
   normalizeEasingId,
 } from "../../../../backend/effects/onload/easing.js";
 import { getOnloadEngine } from "../../../../backend/effects/onload/index.js";
+import { createSaveState } from "../../state.js";
 
 /**
  * "Startup Animation" editor (the old OnloadEditorUI, ported to the Customize
@@ -49,7 +50,8 @@ export function createOnloadPanel() {
   let isPreviewing = false;
 
   // Working copy — every edit is previewed live but only persisted on Save.
-  let working = { ...(getSettings().onload || {}) };
+  // The advanced section is always visible, so the flag is always on.
+  let working = { ...(getSettings().onload || {}), advanced: true };
   const spec = BasePreset.getSettingsSpec();
 
   const section = (titleKey, children) => {
@@ -103,11 +105,15 @@ export function createOnloadPanel() {
 
   // ── Preset + advanced ────────────────────────────────────────────────────
   const presetSelect = selectRow("onload_preset");
-  const advancedToggle = toggleRow(
-    "onload_anim.advanced_settings",
-    null,
-    "onload_advanced_toggle",
-  );
+
+  // Two-column helper: controls flow left→right then top→bottom, so a lone
+  // control naturally lands in the first cell.
+  const grid = (...children) => {
+    const wrap = document.createElement("div");
+    wrap.className = "wallpaper_panel_grid";
+    children.forEach((child) => child && wrap.appendChild(child));
+    return wrap;
+  };
 
   const advancedSection = document.createElement("div");
   advancedSection.className = "wallpaper_onload_advanced";
@@ -121,12 +127,12 @@ export function createOnloadPanel() {
   const easingSelect = selectRow("onload_bg_easing");
 
   const overlaySliders = document.createElement("div");
-  overlaySliders.className = "flex_col gap_12 w_full";
+  overlaySliders.className = "wallpaper_slider_grid";
   overlaySliders.id = "onload_overlay_sliders";
 
   advancedSection.append(
     section("onload_anim.custom_bg_label", [bgSliders]),
-    section("onload_anim.bg_easing_label", [easingSelect]),
+    section("onload_anim.bg_easing_label", [grid(easingSelect)]),
     section("onload_anim.custom_overlay_label", [overlaySliders]),
   );
 
@@ -141,7 +147,7 @@ export function createOnloadPanel() {
   divider.className = "section_divider";
 
   const actions = document.createElement("div");
-  actions.className = "flex_row gap_8 w_full";
+  actions.className = "wallpaper_panel_actions";
 
   const previewBtn = document.createElement("button");
   previewBtn.type = "button";
@@ -153,12 +159,15 @@ export function createOnloadPanel() {
   saveBtn.className = "btn flex_1";
   saveBtn.textContent = t("onload_anim.btn_save", "Lưu");
 
+  const saveState = createSaveState(saveBtn);
+  const snapshot = () => JSON.parse(JSON.stringify(working));
+
   actions.append(previewBtn, saveBtn);
 
   el.append(
-    section("onload_anim.preset_label", [presetSelect, advancedToggle.label]),
+    section("onload_anim.preset_label", [grid(presetSelect)]),
     advancedSection,
-    section("onload_anim.other_settings_label", [widgetImmediate.label]),
+    section("onload_anim.other_settings_label", [grid(widgetImmediate.label)]),
     divider,
     actions,
   );
@@ -241,7 +250,7 @@ export function createOnloadPanel() {
 
   const markDirty = () => {
     if (isInitializing.value) return;
-    syncDirty(true);
+    syncDirty(saveState.sync(snapshot()));
   };
 
   /**
@@ -267,9 +276,8 @@ export function createOnloadPanel() {
 
     widgetImmediate.input.checked = working.widget_immediate !== false;
 
-    const isAdvanced = working.advanced === true;
-    advancedToggle.input.checked = isAdvanced;
-    advancedSection.classList.toggle("hidden", !isAdvanced);
+    // Advanced controls are always visible now; keep the flag on for the engine.
+    working.advanced = true;
   };
 
   const selectPreset = (presetId) => {
@@ -322,9 +330,11 @@ export function createOnloadPanel() {
         ...working,
         preset: working.preset || DEFAULT_PRESET,
         widget_immediate: working.widget_immediate !== false,
-        advanced: working.advanced === true,
+        // The advanced section is always shown, so it is always "enabled".
+        advanced: true,
       },
     });
+    saveState.markSaved(snapshot());
     showNotification(t("common.saved_changes"), "success");
     syncDirty(false);
   };
@@ -337,21 +347,11 @@ export function createOnloadPanel() {
     renderSliders();
     syncControls();
     isInitializing.value = false;
+    saveState.sync(snapshot());
     syncDirty(false);
   };
 
   // ── Bindings ─────────────────────────────────────────────────────────────
-
-  advancedToggle.input.addEventListener("change", () => {
-    const checked = advancedToggle.input.checked;
-    working.advanced = checked;
-    advancedSection.classList.toggle("hidden", !checked);
-
-    // Expanding/collapsing is a view preference, not a tunable value: persist it
-    // right away so it never marks the panel dirty.
-    const current = getSettings().onload || {};
-    saveSettings({ onload: { ...current, advanced: checked } });
-  });
 
   widgetImmediate.input.addEventListener("change", () => {
     working.widget_immediate = widgetImmediate.input.checked;
@@ -381,6 +381,7 @@ export function createOnloadPanel() {
   renderIcons(el);
   syncControls();
   isInitializing.value = false;
+  saveState.markSaved(snapshot());
   syncDirty(false);
 
   return { el, isDirty: () => isDirty, revert };
