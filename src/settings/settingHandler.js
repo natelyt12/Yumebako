@@ -46,6 +46,13 @@ export async function initSettingsLauncher() {
     initSettingsNav();
     initNavFloatingTooltip();
 
+    // Bottom nav: open the Wallpaper Switcher (it closes Settings on its own).
+    document
+      .getElementById("settings_wallpaper_btn")
+      ?.addEventListener("click", () => {
+        window.wallpaperSwitcher?.open?.();
+      });
+
     // --- 3. INIT FEATURES ---
 
     initAppUtils();

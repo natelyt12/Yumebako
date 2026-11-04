@@ -27,7 +27,7 @@
     </div>
   </div>
 
-  <!-- Bottom action card: Morphing Close/Back button on top + Eye (preview) on bottom -->
+  <!-- Bottom action card: Morphing Close/Back button on top + Wallpaper Switcher on bottom -->
   <div class="nav_group nav_group_close">
     <div class="nav_slot_morph">
       <div class="nav_item nav_item_close" id="setting_close_btn" data-tooltip-i18n="sp.sb.close">
@@ -38,9 +38,14 @@
         <span class="submenu_dirty_dot" id="submenu_dirty_dot"></span>
       </div>
     </div>
-    <div class="nav_item submenu_eye_btn" id="submenu_eye_btn" data-tooltip-i18n="sp.sb.preview">
-      <i data-icon="preview"></i>
-    </div>
+    <button
+      type="button"
+      class="nav_item settings_wallpaper_btn"
+      id="settings_wallpaper_btn"
+      data-tooltip-i18n="sp.sb.wallpaper"
+    >
+      <i data-icon="sidebar_wallpaper"></i>
+    </button>
   </div>
 
   <!-- Singleton floating tooltip gliding across navigation items -->

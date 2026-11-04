@@ -11,14 +11,6 @@
    duplicated motion rules are what previously kept the Settings panel from
    inheriting the four shared directions. */
 
-  /* Hold-to-preview: Ẩn tức thì toàn bộ panel cài đặt khi nhấn giữ xem trước, không có hiệu ứng fade */
-  #setting_wrapper.preview_eye_active {
-    opacity: 0 !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-    transition: none !important;
-  }
-
   /* The custom dropdown component lives in `core/ui/dropdown.css` — see that file
    to restyle triggers, panels, items and the selection checkmark. */
 

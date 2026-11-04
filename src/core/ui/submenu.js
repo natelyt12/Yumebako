@@ -274,43 +274,6 @@ export function openSidebarSubmenu(title, contentNode, options = {}) {
   });
 }
 
-let isEyePreviewHolding = false;
-
-// Global hold-to-preview event delegation for eye button
-window.addEventListener(
-  "pointerdown",
-  (e) => {
-    const eyeBtn = e.target.closest("#submenu_eye_btn, .submenu_eye_btn");
-    if (eyeBtn) {
-      e.preventDefault();
-      const container =
-        activeSubmenuState.container ||
-        document.getElementById("setting_wrapper");
-      if (container) {
-        isEyePreviewHolding = true;
-        container.classList.add("preview_eye_active");
-      }
-    }
-  },
-  { capture: true },
-);
-
-const stopEyePreview = () => {
-  if (isEyePreviewHolding) {
-    isEyePreviewHolding = false;
-    const container =
-      activeSubmenuState.container ||
-      document.getElementById("setting_wrapper");
-    if (container) {
-      container.classList.remove("preview_eye_active");
-    }
-  }
-};
-
-window.addEventListener("pointerup", stopEyePreview, { capture: true });
-window.addEventListener("pointercancel", stopEyePreview, { capture: true });
-window.addEventListener("mouseleave", stopEyePreview, { capture: true });
-
 /**
  * Attempt to close the active Submenu with unsaved changes check.
  * @param {boolean} [force=false] - If true, bypasses unsaved check and closes immediately.
