@@ -4,7 +4,7 @@
   .custom_slider_group {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
     width: 100%;
   }
 
@@ -85,96 +85,151 @@
   }
 
   :root {
-    --slider-track-height: 36px;
-    --slider-wave-width: 4px;
-    --slider-flat-width: 4px;
-    --slider-thumb-width: 3px;
-    --slider-thumb-height: 32px;
-    --slider-thumb-hover-extend: 4px;
-    --slider-thumb-radius: 4px;
-    --slider-num-width: 76px;
+    --slider-track-height: 30px;
+    --slider-rail-height: 3px;
+    --slider-thumb-width: 2px;
+    --slider-thumb-height: 25px;
+    --slider-thumb-gap: 3px;
+    --slider-num-width: 70px;
     --slider-unit-width: 48px;
   }
 
   .slider_row_container {
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: 12px;
     width: 100%;
   }
 
-  /* Custom Range Slider — Material 3 Expressive (Wavy) */
+  /* Rail, fill and a flat pill thumb are drawn here. The native range sits on
+     top, transparent, and only provides dragging / clicking / keyboard. */
   .custom_slider_track_container {
+    --slider-progress: 50%;
+    /* Half the thumb plus the visible gap: how far the rail/fill stop away from
+       the thumb's centre. */
+    --slider-gap-offset: calc(
+      var(--slider-thumb-width) / 2 + var(--slider-thumb-gap)
+    );
     position: relative;
-    width: 100%;
-    height: var(--slider-track-height);
-    margin: 0 4px;
-    display: flex;
-    align-items: center;
+    flex: 1;
+    min-width: 0;
+    height: var(--slider-track-height, 28px);
+    margin: 0 2px;
+    cursor: pointer;
     user-select: none;
   }
 
-  .custom_slider_svg {
+  .slider_rail,
+  .slider_fill {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    overflow: visible;
-  }
-
-  .custom_slider_wave_path {
-    fill: none;
-    stroke: var(--text-primary);
-    stroke-width: var(--slider-wave-width);
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    transition: stroke 0.2s var(--smooth);
-  }
-
-  .custom_slider_track_container:hover .custom_slider_wave_path {
-    stroke: #ffffff;
-  }
-
-  .custom_slider_flat_line {
-    fill: none;
-    stroke: var(--divider);
-    stroke-width: var(--slider-flat-width);
-    stroke-linecap: round;
-    transition: stroke 0.2s var(--smooth);
-  }
-
-  .custom_slider_track_container:hover .custom_slider_flat_line {
-    stroke: rgba(255, 255, 255, 0.35);
-  }
-
-  .custom_slider_thumb {
-    position: absolute;
-    width: var(--slider-thumb-width);
-    height: var(--slider-thumb-height);
-    border-radius: var(--slider-thumb-radius);
-    background-color: var(--text-primary);
     top: 50%;
+    transform: translateY(-50%);
+    height: var(--slider-rail-height, 4px);
+    border-radius: 999px;
+    pointer-events: none;
+    transition: background-color 0.2s var(--smooth);
+  }
+
+  /* Fill stops short of the thumb; rail resumes after it — that is the gap. */
+  .slider_fill {
+    left: 0;
+    width: max(
+      0px,
+      calc(var(--slider-progress, 50%) - var(--slider-gap-offset))
+    );
+    background-color: var(--text-primary);
+  }
+
+  .slider_rail {
+    left: min(
+      100%,
+      calc(var(--slider-progress, 50%) + var(--slider-gap-offset))
+    );
+    width: max(
+      0px,
+      calc(100% - var(--slider-progress, 50%) - var(--slider-gap-offset))
+    );
+    background-color: var(--divider);
+  }
+
+  /* Thin vertical bar thumb. */
+  .slider_thumb {
+    position: absolute;
+    left: var(--slider-progress, 50%);
+    top: 50%;
+    width: var(--slider-thumb-width, 4px);
+    height: var(--slider-thumb-height, 22px);
+    border-radius: 999px;
+    background-color: #ffffff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
     transform: translate(-50%, -50%);
     pointer-events: none;
     transition:
-      background-color 0.2s var(--smooth),
-      height 0.2s var(--smooth);
+      transform 0.15s var(--smooth),
+      box-shadow 0.15s var(--smooth);
   }
 
-  .custom_slider_track_container:hover .custom_slider_thumb {
-    height: calc(var(--slider-thumb-height) + var(--slider-thumb-hover-extend));
+  .custom_slider_track_container:hover .slider_fill {
     background-color: #ffffff;
   }
 
-  .custom_slider_thumb.dragging {
-    height: calc(var(--slider-thumb-height) + var(--slider-thumb-hover-extend));
-    background-color: #ffffff;
+  .custom_slider_track_container:hover .slider_rail {
+    background-color: rgba(255, 255, 255, 0.28);
   }
 
-  .custom_slider_group.disabled .custom_slider_svg,
-  .custom_slider_group.disabled .custom_slider_thumb {
+  .custom_slider_track_container:hover .slider_thumb,
+  .custom_slider_track_container:active .slider_thumb {
+    transform: translate(-50%, -50%) scale(1.12);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Transparent native range overlay. The real thumb is 1px so the value/track
+     mapping stays practically 1:1 with the drawn thumb. */
+  .custom_slider_range {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    z-index: 2;
+  }
+
+  .custom_slider_range::-webkit-slider-runnable-track {
+    height: 100%;
+    background: transparent;
+  }
+
+  .custom_slider_range::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    border: none;
+    background: transparent;
+    opacity: 0;
+  }
+
+  .custom_slider_range::-moz-range-track {
+    height: 100%;
+    background: transparent;
+  }
+
+  .custom_slider_range::-moz-range-thumb {
+    width: 1px;
+    height: 1px;
+    border: none;
+    background: transparent;
+    opacity: 0;
+  }
+
+  .custom_slider_group.disabled .custom_slider_track_container {
     opacity: 0.4;
   }
 
