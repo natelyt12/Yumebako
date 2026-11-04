@@ -64,7 +64,7 @@
   .btn_body {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
     min-width: 0;
     text-align: left;
   }
@@ -214,7 +214,6 @@
     background-color: #f0f0f5;
     border-color: #f0f0f5;
   }
-
 
   /* Danger variant (replaces the legacy `.danger_btn` / `.btn_warning`). */
   .btn[data-variant="danger"] {
