@@ -200,10 +200,18 @@ export function createWavyPanel() {
     advancedSection,
   );
 
-  // ── Structure: Parallax Section ──────────────────────────────────────────
+  // ── Structure: Side-by-side Sections ─────────────────────────────────────
+  // Wavy on the left, parallax on the right; they share one engine loop, so
+  // pairing them keeps the dependent controls visible at the same time.
 
-  const parallaxDivider = document.createElement("div");
-  parallaxDivider.className = "section_divider";
+  const columns = document.createElement("div");
+  columns.className = "wallpaper_wavy_columns";
+
+  const wavyColumn = document.createElement("div");
+  wavyColumn.className = "wallpaper_wavy_column";
+  wavyColumn.append(wavySectionTitle, wavyEnabledToggle.label, wavyContent);
+
+  // ── Structure: Parallax Section ──────────────────────────────────────────
 
   const parallaxSectionTitle = sectionTitle(
     "wavy.parallax_section_label",
@@ -222,6 +230,16 @@ export function createWavyPanel() {
   const parallaxContent = document.createElement("div");
   parallaxContent.className = "wallpaper_parallax_content";
   parallaxContent.append(parallaxSliders);
+
+  const parallaxColumn = document.createElement("div");
+  parallaxColumn.className = "wallpaper_wavy_column";
+  parallaxColumn.append(
+    parallaxSectionTitle,
+    parallaxEnabledToggle.label,
+    parallaxContent,
+  );
+
+  columns.append(wavyColumn, parallaxColumn);
 
   // ── Structure: Shared Zoom (Scale) Section ───────────────────────────────
 
@@ -257,13 +275,7 @@ export function createWavyPanel() {
   actions.append(resetBtn, saveBtn);
 
   el.append(
-    wavySectionTitle,
-    wavyEnabledToggle.label,
-    wavyContent,
-    parallaxDivider,
-    parallaxSectionTitle,
-    parallaxEnabledToggle.label,
-    parallaxContent,
+    columns,
     sharedDivider,
     sharedSectionTitle,
     sharedHost,
