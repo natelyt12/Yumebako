@@ -56,5 +56,36 @@
     width: 100%;
     max-width: 560px;
     margin: 0px auto 0;
+    flex-shrink: 0;
+  }
+
+  .wallpaper_panel_actions .btn {
+    min-height: 40px;
+    height: 40px;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 1024px) {
+    .wallpaper_slider_grid,
+    .wallpaper_panel_grid {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 16px;
+    }
+
+    .wallpaper_panel_actions {
+      flex-direction: column;
+      width: 100%;
+      max-width: 100%;
+      gap: 8px;
+    }
+
+    .wallpaper_panel_actions .btn {
+      flex: none !important;
+      width: 100%;
+      height: 40px !important;
+      min-height: 40px !important;
+      flex-shrink: 0 !important;
+      justify-content: center;
+    }
   }
 }

@@ -49,7 +49,7 @@
     min-width: 0;
   }
 
-  @media (max-width: 680px) {
+  @media (max-width: 1024px) {
     .effects_columns {
       grid-template-columns: minmax(0, 1fr);
     }
@@ -252,7 +252,7 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    padding: 0 14px;
+    padding: 0 12px;
     opacity: 0;
     transform: translateY(-6px);
     transition:
@@ -264,7 +264,7 @@
   .effect_card_drawer.open .effect_card_drawer_content {
     opacity: 1;
     transform: translateY(0);
-    padding: 12px 14px 14px 14px;
+    padding: 8px 12px 12px 12px;
   }
 
   .effects_placeholder {

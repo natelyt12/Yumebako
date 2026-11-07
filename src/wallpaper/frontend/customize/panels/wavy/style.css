@@ -31,7 +31,7 @@
 
   /* Too narrow for two columns (Settings fallback, small viewports): stack
      them back into a single column. */
-  @media (max-width: 680px) {
+  @media (max-width: 1024px) {
     .wallpaper_wavy_columns {
       grid-template-columns: minmax(0, 1fr);
     }
