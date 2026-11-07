@@ -27,8 +27,8 @@
   /* ── Floating HUD Popup at Bottom-Left ────────────────────────────────────── */
   .wallpaper_position_hud {
     position: fixed;
-    bottom: 24px;
-    left: 24px;
+    bottom: 12px;
+    left: 12px;
     z-index: var(--z-modal);
     width: 340px;
     max-width: calc(100vw - 48px);
