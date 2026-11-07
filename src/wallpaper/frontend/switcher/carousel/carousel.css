@@ -27,11 +27,25 @@
     --accent-active: #eab308;
     --accent-buffer: linear-gradient(135deg, #f472b6, #db2777);
 
-    /* Hiệu ứng thở của khung ngắm */
-    --breathe-duration: 2.5s;
-    --breathe-start-scale: 1;
-    --breathe-zoom-scale: 1.05;
-    /* <<== CHỈNH ĐỘ ZOOM TO RA CỦA HIỆU ỨNG THỞ TẠI ĐÂY */
+    /* ── Khung ngắm: viền tĩnh, nét đứt lúc lướt và vệt quét lúc chốt thẻ ──
+       Đây là SSOT duy nhất của cả hiệu ứng: CarouselEngine chỉ đọc
+       `--vf-sweep-duration` để biết lúc nào chốt thẻ, không giữ bản sao nào. */
+    --vf-stroke: rgba(255, 255, 255, 0.9);
+    --vf-ring-width: 2px;
+    --vf-active-scale: 1.04;
+    /* <<== CHỈNH ĐỘ PHÓNG TO CỦA VIỀN KHI ĐANG LƯỚT */
+
+    /* Nét đứt: tính theo `pathLength="1000"` của vòng SVG, không phải px. */
+    --vf-dash-length: 8;
+    /* <<== ĐỘ DÀI NÉT ĐỨT (có thể chỉnh tự do: 8, 10, 12, 16...) */
+    --vf-dash-gap: 5;
+    /* <<== KHOẢNG CÁCH GIỮA CÁC NÉT ĐỨT (có thể chỉnh tự do: 6, 8, 10, 12...) */
+    --vf-dash-cycle: 120s;
+    /* <<== TỐC ĐỘ CHẠY MỘT VÒNG: số giây chạy hết 1 vòng chu vi (nhỏ = nhanh, lớn = chậm) */
+    --vf-morph-duration: 500ms;
+
+    /* Vệt chốt thẻ: thời gian 4 đỉnh nở về 4 tâm cạnh */
+    --vf-sweep-duration: 800ms;
 
     /* [1] Fade-out icon loading (chỉ icon ở tâm, không gồm label) */
     --loading-fadeout-duration: 0.4s;
@@ -58,7 +72,7 @@
     display: flex;
     align-items: center;
     overflow: visible;
-    cursor: grab;
+    cursor: default;
     user-select: none;
     -webkit-user-select: none;
     transition: opacity 0.2s var(--smooth);
@@ -106,18 +120,16 @@
     transform: translate(-50%, -50%) scale(1);
     width: calc(var(--base-width) - var(--card-margin) * 2);
     height: calc(var(--container-height) - var(--card-margin) * 2);
-    border: 2px solid rgba(255, 255, 255, 0.85);
+    border: var(--vf-ring-width) solid var(--vf-stroke);
     border-radius: 0;
     pointer-events: none;
     z-index: 25;
     box-sizing: border-box;
-    box-shadow: 0 0 16px rgba(255, 255, 255, 0.12);
     /* Fade in 0.5s với expo-out, transform chuyển đổi mượt mà khi lướt chọn thẻ */
     transition:
       opacity 0.5s var(--expo_out),
       transform 0.45s var(--expo_out),
-      border-color 0.2s ease,
-      box-shadow 0.25s ease;
+      border-color var(--vf-morph-duration) ease;
   }
 
   /* Biến mất khi đang xóa ảnh hoặc ẩn */
@@ -126,42 +138,104 @@
     transition: 0s !important;
   }
 
-  /* Vòng thở: đứng yên thì ẩn, chỉ bật khi đang lướt/kéo */
-  .wallpaper_switcher .carousel-viewfinder::after {
-    content: "";
+  /* Vòng SVG của khung ngắm: chỉ hiện khi đang lướt hoặc đang quét chốt.
+     Lúc đứng yên thì khung ngắm vẽ viền bằng `border`, vòng này ẩn hẳn — hai
+     nét trùng nhau nên đổi qua lại không thấy nháy. */
+  .wallpaper_switcher .viewfinder-ring {
     position: absolute;
-    inset: -2px;
-    border: 1.5px solid rgba(255, 255, 255, 0.75);
-    border-radius: 0;
-    pointer-events: none;
-    box-sizing: border-box;
+    /* Trùm lên cả bề dày `border` của khung: absolute con neo theo padding box
+       nên phải nới ra đúng chừng đó, nếu không vòng SVG tụt vào trong. */
+    top: calc(-1 * var(--vf-ring-width));
+    left: calc(-1 * var(--vf-ring-width));
+    width: calc(100% + var(--vf-ring-width) * 2);
+    height: calc(100% + var(--vf-ring-width) * 2);
+    overflow: visible;
+    fill: none;
     opacity: 0;
+    transition: opacity var(--vf-morph-duration) ease;
   }
 
-  .wallpaper_switcher .carousel-viewfinder.is-moving::after,
-  .wallpaper_switcher
-    .carousel-container.is-dragging
-    .carousel-viewfinder::after {
-    animation: wp-viewfinder-breathe var(--breathe-duration)
-      cubic-bezier(0.2, 0.55, 0.35, 1) infinite;
+  /* Màu + bề dày nét dùng chung biến với `border` của khung:
+     `_syncViewfinderRing()` đọc chính bề dày đó để inset đường đi, nên hai nét
+     luôn trùng khít nhau và bảo toàn độ dày 100%. */
+  .wallpaper_switcher .carousel-viewfinder .viewfinder-ring path {
+    fill: none;
+    stroke: var(--vf-stroke);
+    stroke-width: var(--vf-ring-width);
+    stroke-linecap: square;
+    stroke-linejoin: miter;
   }
 
-  @keyframes wp-viewfinder-breathe {
-    0% {
-      transform: scale(var(--breathe-start-scale));
-      opacity: 0.85;
-    }
-
-    100% {
-      transform: scale(var(--breathe-zoom-scale));
-      opacity: 0;
-    }
+  /* Mask cắt nét đứt: 8 nhánh vẽ nét đen dày hơn để xóa sạch nét đứt bên dưới khi các góc nở ra */
+  .wallpaper_switcher .viewfinder-ring .vf-mask-arms .vf-arm {
+    fill: none !important;
+    stroke: #000000 !important;
+    stroke-width: calc(var(--vf-ring-width) + 4px) !important;
+    stroke-linecap: square !important;
+    stroke-dasharray: 100 100;
+    stroke-dashoffset: 100;
   }
 
+  /* 8 nhánh nét liền nở từ 4 đỉnh: ban đầu ẩn ở độ dài 0 */
+  .wallpaper_switcher .viewfinder-ring .vf-progress-arms .vf-arm {
+    stroke-dasharray: 100 100;
+    stroke-dashoffset: 100;
+  }
+
+  .wallpaper_switcher .carousel-viewfinder.is-moving .viewfinder-ring,
+  .wallpaper_switcher .carousel-viewfinder.is-settling .viewfinder-ring {
+    opacity: 1;
+  }
+
+  /* Đang lướt/kéo hoặc đang settle: viền phóng ra ngoài thẻ và nét đứt chạy theo
+     chiều kim đồng hồ. Viền `border` nhường chỗ cho vòng SVG để hai nét
+     không chồng lên nhau. */
   .wallpaper_switcher .carousel-viewfinder.is-moving,
-  .wallpaper_switcher .carousel-container.is-dragging .carousel-viewfinder {
-    transform: translate(-50%, -50%) scale(1.03);
-    border-color: #ffffff;
+  .wallpaper_switcher .carousel-viewfinder.is-settling {
+    transform: translate(-50%, -50%) scale(var(--vf-active-scale));
+  }
+
+  .wallpaper_switcher .carousel-viewfinder.has-ring.is-moving,
+  .wallpaper_switcher .carousel-viewfinder.has-ring.is-settling {
+    border-color: transparent;
+  }
+
+  /* Nét đứt chạy linear đều đặn theo chiều kim đồng hồ */
+  .wallpaper_switcher .carousel-viewfinder.is-moving .vf-trace,
+  .wallpaper_switcher .carousel-viewfinder.is-settling .vf-trace {
+    stroke-dasharray: var(--vf-dash-length) var(--vf-dash-gap);
+    animation: wp-viewfinder-run var(--vf-dash-cycle) linear infinite;
+  }
+
+  /* Đã dừng: 4 đỉnh đồng loạt nở 8 nhánh về 4 tâm cạnh.
+     Đến đâu, mask dọn sạch nét đứt tới đó và nét liền phủ kín, khóa chặt khung ngắm. */
+  .wallpaper_switcher .carousel-viewfinder.is-settling .vf-mask-arms .vf-arm,
+  .wallpaper_switcher
+    .carousel-viewfinder.is-settling
+    .vf-progress-arms
+    .vf-arm {
+    animation: wp-viewfinder-lock var(--vf-sweep-duration) linear forwards;
+  }
+
+  @keyframes wp-viewfinder-run {
+    from {
+      stroke-dashoffset: 0;
+    }
+
+    to {
+      stroke-dashoffset: -1000;
+    }
+  }
+
+  /* Nở từ đỉnh (100) về tâm cạnh (0) */
+  @keyframes wp-viewfinder-lock {
+    from {
+      stroke-dashoffset: 100;
+    }
+
+    to {
+      stroke-dashoffset: 0;
+    }
   }
 
   /* ── Track & thẻ ───────────────────────────────────────────────────────── */

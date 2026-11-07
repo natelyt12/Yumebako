@@ -59,6 +59,14 @@ const COLLAPSE_MS = 600;
 const FADE_OUT_MS = 200;
 
 /**
+ * Khoảng lùi thêm sau khi animation quét viền kết thúc.
+ *
+ * Chỉ là epsilon chống lệch một frame giữa hẹn giờ và compositor, không phải
+ * tham số của hiệu ứng: mọi thời lượng thật nằm trong `carousel.css`.
+ */
+const VF_COMMIT_GRACE_MS = 40;
+
+/**
  * Tần số lò xo suy từ `duration`: ω = SPRING_OMEGA / (duration / 1000).
  *
  * Lò xo tới hạn đi hết 99% quãng đường ở ω·t ≈ 6.6 và đứng hẳn ở ω·t ≈ 9.6, nên 10
@@ -173,8 +181,20 @@ export class CarouselEngine {
     this._hardListeners = new Set();
     this._stateListeners = new Set();
     this._suppressHardSelect = false;
+    /** Hẹn giờ chốt thẻ sau khi vệt quét viền chạy xong (null = không có). */
+    this._commitId = null;
+
+    this._vfRing = this.viewfinder?.querySelector(".viewfinder-ring") ?? null;
+    this._vfTrace = this._vfRing?.querySelector(".vf-trace") ?? null;
+    this._vfMaskArms = this._vfRing
+      ? Array.from(this._vfRing.querySelectorAll(".vf-mask-arms .vf-arm"))
+      : [];
+    this._vfProgressArms = this._vfRing
+      ? Array.from(this._vfRing.querySelectorAll(".vf-progress-arms .vf-arm"))
+      : [];
 
     this._applyAccentBg();
+    this._syncViewfinderRing();
     this._bindInput();
   }
 
@@ -287,8 +307,8 @@ export class CarouselEngine {
     cardEl._bgUrl = url;
     cardEl.dataset.bgUrl = url;
     cardEl._isImageLoaded = true;
-    const bg = cardEl._cachedNodes?.bg || cardEl.querySelector('.card-bg');
-    if (bg) bg.style.backgroundImage = 'url(\x27' + url + '\x27)';
+    const bg = cardEl._cachedNodes?.bg || cardEl.querySelector(".card-bg");
+    if (bg) bg.style.backgroundImage = "url(\x27" + url + "\x27)";
   }
 
   /* ── Điều hướng ────────────────────────────────────────────────────────── */
@@ -335,6 +355,7 @@ export class CarouselEngine {
 
   /** Đo lại tâm rồi đặt lại layout tại vị trí đang chốt (dùng khi resize). */
   recenter() {
+    this._syncViewfinderRing();
     if (this.isDeleting || this.count === 0) return;
     this._centerCache = null;
     this._recenterLayout();
@@ -398,7 +419,8 @@ export class CarouselEngine {
           known._bgUrl = newUrl;
           known.dataset.bgUrl = newUrl;
           if (known._isImageLoaded && known._cachedNodes?.bg) {
-            known._cachedNodes.bg.style.backgroundImage = 'url(\'' + newUrl + '\')';
+            known._cachedNodes.bg.style.backgroundImage =
+              "url('" + newUrl + "')";
           }
         }
         return known;
@@ -477,6 +499,7 @@ export class CarouselEngine {
     if (!cardEl) return Promise.resolve(false);
 
     this.isDeleting = true;
+    this._cancelCommit();
     this.viewfinder?.classList.add("is-hidden");
     this._notifyState();
 
@@ -523,7 +546,6 @@ export class CarouselEngine {
     if (frame) animateUnpinDrop(frame, () => this._collapseDeleted(index));
     else this._collapseDeleted(index);
 
-
     // Bên gọi (adapter của store) cần biết lúc nào thẻ đã thực sự rời danh sách
     // để đồng bộ lại cửa sổ dữ liệu.
     return settled;
@@ -554,7 +576,6 @@ export class CarouselEngine {
 
     return { first, last };
   }
-
 
   /** Chuyển đổi qua lại giữa Mode 1 (theo slot) và Mode 2 (bung đủ khung). */
   toggleCurrentCardMode() {
@@ -681,6 +702,7 @@ export class CarouselEngine {
   /** Gỡ toàn bộ listener và vòng lặp — gọi khi tháo switcher. */
   destroy() {
     this._cancelAnimation();
+    this._cancelCommit();
     this._wheelClear();
     this._listeners.forEach(({ target, type, handler, options }) =>
       target.removeEventListener(type, handler, options),
@@ -795,8 +817,10 @@ export class CarouselEngine {
     this.softIndex = anim.target;
     this.continuousIndex = anim.target;
     this._renderAt(anim.target);
-    this._setSettled(true);
-    this._notifyHard();
+
+    // Đứng yên chưa đủ để chốt: còn một vệt quét viền phải chạy hết (xem
+    // `_beginCommit`), rồi mới báo hard-select.
+    this._beginCommit();
   };
 
   /** Tần số góc của lò xo, suy từ `duration` — xem `SPRING_OMEGA`. */
@@ -897,7 +921,7 @@ export class CarouselEngine {
 
       this.hardIndex = this._clamp(nextActive);
       this.softIndex = this.hardIndex;
-    this.continuousIndex = this.hardIndex;
+      this.continuousIndex = this.hardIndex;
 
       this.isDeleting = false;
       this._recenterLayout();
@@ -1150,10 +1174,125 @@ export class CarouselEngine {
   /* ── Trạng thái & thông báo ───────────────────────────────────────────── */
 
   _setSettled(settled) {
+    // Mọi lần đổi trạng thái đều huỷ vệt quét đang chờ: hoặc vừa chốt xong, hoặc
+    // người dùng lại lướt tiếp nên vệt cũ không còn nghĩa.
+    this._cancelCommit();
     if (this.isSettled === settled) return;
     this.isSettled = settled;
-    this.viewfinder?.classList.toggle("is-moving", !settled);
+    if (!settled) {
+      this._syncViewfinderRing();
+      this.viewfinder?.classList.add("is-moving");
+    } else {
+      this.viewfinder?.classList.remove("is-moving");
+    }
     this._notifyState(settled ? "hard" : "soft");
+  }
+
+  /**
+   * Dải vừa đứng yên: chạy vệt quét viền rồi mới chốt.
+   *
+   * Viền vẫn nhấc nguyên tại chỗ (không hạ xuống vội): vệt quét solid khép kín
+   * viền ngay lập tức, dài đúng `--vf-sweep-duration`. Hết vệt mới
+   * `_setSettled(true)` — chính là lúc viền hạ xuống — rồi mới báo hard-select,
+   * nên bên nhận chỉ thấy "đã chốt" khi viền đã liền và về đúng mép thẻ.
+   */
+  _beginCommit() {
+    if (this.isSettled || this._commitId !== null) return;
+    this._syncViewfinderRing();
+
+    const finish = () => {
+      this._commitId = null;
+      this._setSettled(true);
+      this._notifyHard();
+    };
+    const sweepMs = this._vfDuration("--vf-sweep-duration");
+
+    this.viewfinder?.classList.add("is-settling");
+    // Không đọc được thời lượng (không có bảng CSS) thì chốt luôn, đừng treo.
+    if (sweepMs <= 0) {
+      finish();
+      return;
+    }
+    this._commitId = setTimeout(finish, sweepMs + VF_COMMIT_GRACE_MS);
+  }
+
+  /** Huỷ vệt quét đang chờ (nếu có). */
+  _cancelCommit() {
+    if (this._commitId !== null) {
+      clearTimeout(this._commitId);
+      this._commitId = null;
+    }
+    this.viewfinder?.classList.remove("is-settling");
+  }
+
+  /**
+   * Đọc một biến thời lượng của CSS, quy về ms.
+   *
+   * Cố tình không có giá trị dự phòng trong JS: `carousel.css` là nguồn duy nhất
+   * của hiệu ứng, đọc hụt nghĩa là hiệu ứng không tồn tại nên trả 0.
+   */
+  _vfDuration(name) {
+    if (!this.viewfinder) return 0;
+    const raw = getComputedStyle(this.viewfinder).getPropertyValue(name).trim();
+    const value = parseFloat(raw);
+    if (!Number.isFinite(value)) return 0;
+    return raw.endsWith("ms") ? value : value * 1000;
+  }
+
+  /**
+   * Vẽ lại hình học vòng ngắm theo đúng kích thước khung.
+   *
+   * Tạo đường chu vi kín cho nét đứt chạy liên tục, đồng thời chia 8 nhánh nở
+   * từ 4 góc về 4 tâm cạnh khi chốt thẻ.
+   * Chưa đo được khung (switcher còn ẩn) thì bỏ qua — `has-ring` chỉ bật khi đã
+   * có đường đi thật, nhờ vậy viền `border` không biến mất trước khi vòng SVG
+   * có gì để vẽ.
+   */
+  _syncViewfinderRing() {
+    if (!this.viewfinder || !this._vfRing) return;
+    const width = this.viewfinder.offsetWidth;
+    const height = this.viewfinder.offsetHeight;
+    if (!width || !height) return;
+
+    // Nửa bề dày nét: đường đi lùi vào để nét nằm trọn bên trong khung, trùng
+    // khít với `border` mà khung đang vẽ — nên đổi `--vf-ring-width` là cả hai
+    // phía đổi theo.
+    const { borderTopWidth } = getComputedStyle(this.viewfinder);
+    const strokeWidth = Number.parseFloat(borderTopWidth);
+    if (!(strokeWidth > 0)) return;
+    const inset = strokeWidth / 2;
+
+    const x0 = inset;
+    const y0 = inset;
+    const x1 = width - inset;
+    const y1 = height - inset;
+    const mx = width / 2;
+    const my = height / 2;
+
+    const dPerimeter =
+      `M ${x0} ${y1} L ${x0} ${y0} L ${x1} ${y0} L ${x1} ${y1} Z`;
+    this._vfRing.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    if (this._vfTrace) this._vfTrace.setAttribute("d", dPerimeter);
+
+    // 8 nhánh nở từ 4 đỉnh về 4 tâm cạnh:
+    // [0,1] Top-Left     -> Top-Center, Left-Center
+    // [2,3] Top-Right    -> Top-Center, Right-Center
+    // [4,5] Bottom-Right -> Bottom-Center, Right-Center
+    // [6,7] Bottom-Left  -> Bottom-Center, Left-Center
+    const armsD = [
+      `M ${x0} ${y0} L ${mx} ${y0}`,
+      `M ${x0} ${y0} L ${x0} ${my}`,
+      `M ${x1} ${y0} L ${mx} ${y0}`,
+      `M ${x1} ${y0} L ${x1} ${my}`,
+      `M ${x1} ${y1} L ${mx} ${y1}`,
+      `M ${x1} ${y1} L ${x1} ${my}`,
+      `M ${x0} ${y1} L ${mx} ${y1}`,
+      `M ${x0} ${y1} L ${x0} ${my}`,
+    ];
+
+    this._vfMaskArms.forEach((path, i) => path.setAttribute("d", armsD[i]));
+    this._vfProgressArms.forEach((path, i) => path.setAttribute("d", armsD[i]));
+    this.viewfinder.classList.add("has-ring");
   }
 
   _notifySoft() {
@@ -1284,9 +1423,6 @@ export class CarouselEngine {
     // Bỏ qua cú nhấn trên nút bấm bên trong thẻ (nếu có) để không cướp click.
     if (event?.target?.closest?.("button, a, input")) return;
 
-    this._cancelAnimation();
-    this._anim = null;
-    this._setSettled(false);
     // Cờ chặn click của cú kéo trước phải được xoá ngay từ đầu cú mới: nếu cú
     // trước nhả chuột ngoài sân khấu thì click dọn dẹp không bao giờ tới.
     this._suppressClick = false;
@@ -1304,11 +1440,8 @@ export class CarouselEngine {
       sampleMs: performance.now(),
       sampleVirtual: this.continuousIndex,
       vx: 0,
+      isMoved: false,
     };
-
-    this.hardIndex = this._clamp(Math.round(this.continuousIndex));
-    this.container.classList.add("is-dragging");
-    document.body.classList.add(DRAG_ROOT_CLASS);
   }
 
   _moveDrag(clientX) {
@@ -1321,8 +1454,18 @@ export class CarouselEngine {
     drag.deltaX = deltaX;
     drag.durationMs = now - drag.startTime;
 
-    // Chỉ cần biết "đã kéo hay chưa" đủ sớm để click sau đó bị bỏ qua.
-    if (isDragMoved(deltaX)) this._suppressClick = true;
+    // Chỉ nhận là đang kéo (grab/dragging) khi chuột thực sự di chuyển vượt ngưỡng
+    if (!drag.isMoved) {
+      if (!isDragMoved(deltaX)) return;
+      drag.isMoved = true;
+      this._cancelAnimation();
+      this._anim = null;
+      this._setSettled(false);
+      this._suppressClick = true;
+      this.hardIndex = this._clamp(Math.round(this.continuousIndex));
+      this.container.classList.add("is-dragging");
+      document.body.classList.add(DRAG_ROOT_CLASS);
+    }
 
     const virtual = dragToVirtualIndex(drag.startIndex, deltaX, this.count);
     drag.virtual = virtual;
@@ -1356,6 +1499,9 @@ export class CarouselEngine {
 
     this.container.classList.remove("is-dragging");
     document.body.classList.remove(DRAG_ROOT_CLASS);
+
+    // Người dùng chỉ click chuột mà không di chuyển vượt ngưỡng: không tính là kéo
+    if (!drag.isMoved) return;
 
     const target = resolveDragTarget({
       virtualIndex: drag.virtual,
