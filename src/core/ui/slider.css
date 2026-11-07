@@ -99,6 +99,10 @@
     align-items: center;
     gap: 12px;
     width: 100%;
+    /* The thin vertical thumb reads as a horizontal resize handle, so the
+       pointer becomes one over the whole drag row (including the 1–2px gaps
+       around the thumb, where a text caret used to appear). */
+    cursor: ew-resize;
   }
 
   /* Rail, fill and a flat pill thumb are drawn here. The native range sits on
@@ -115,7 +119,7 @@
     min-width: 0;
     height: var(--slider-track-height, 28px);
     margin: 0 2px;
-    cursor: pointer;
+    cursor: ew-resize;
     user-select: none;
   }
 
@@ -196,7 +200,7 @@
     border: none;
     appearance: none;
     -webkit-appearance: none;
-    cursor: pointer;
+    cursor: ew-resize;
     z-index: 2;
   }
 

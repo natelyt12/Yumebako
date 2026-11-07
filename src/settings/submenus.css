@@ -44,7 +44,7 @@
     height: 100%;
     stroke-width: 1.5;
     transform-style: preserve-3d;
-    transition: transform 0.4s var(--expo_out);
+    transition: transform 0.6s var(--expo_out);
   }
 
   .btn_active .sbsctsvg svg {

@@ -125,7 +125,13 @@
     opacity: 0.5;
   }
 
-  /* Toggle bars behave as normal .btn with switch track affordance. */
+  /* Toggle bars behave as normal .btn with switch track affordance.
+     They are `<label>` elements (so the hidden checkbox toggles natively), and a
+     label carries no pointer affordance of its own — `label[for]` in base.css
+     only covers the explicit-for form, which this is not. */
+  .btn[data-action="toggle"] {
+    cursor: pointer;
+  }
 
   .btn[data-action="toggle"] > input {
     position: absolute;

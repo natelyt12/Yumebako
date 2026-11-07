@@ -99,6 +99,7 @@
     transition: color 0.2s var(--smooth);
     color: var(--text-secondary);
     position: relative;
+    cursor: pointer;
   }
 
   .nav_item::before {

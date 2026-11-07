@@ -106,8 +106,19 @@
     transition: opacity 0.3s var(--expo_out) 0s;
   }
 
-  #action_buttons.toggle_hidden {
+  /* "Hide action buttons": the group keeps its place but is transparent until
+     the pointer comes to it. The base rule alone left it unreachable — a
+     transparent box still hit-tests, so hovering must bring it back. */
+  #action_buttons.toggle_hidden,
+  #setting_toggle_btn.toggle_hidden {
     opacity: 0;
+  }
+
+  #action_buttons.toggle_hidden:hover,
+  #action_buttons.toggle_hidden:focus-within,
+  #setting_toggle_btn.toggle_hidden:hover,
+  #setting_toggle_btn.toggle_hidden:focus-visible {
+    opacity: 1;
   }
 
   /* Slide action buttons off-screen during preview */
@@ -138,6 +149,7 @@
     box-shadow: none !important;
     margin: 0 !important;
     color: var(--text-primary);
+    cursor: pointer;
     transition:
       background-color 0.2s var(--smooth),
       box-shadow 0.2s var(--smooth);

@@ -24,6 +24,21 @@
     outline: none;
   }
 
+  /* Affordance for anything that acts on click. Declared once so components do
+     not each have to remember it; a component that owns a richer cursor
+     (drag handles, disabled states) overrides it locally. */
+  button,
+  [role="button"],
+  summary,
+  label[for] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: default;
+  }
+
   :focus,
   :focus-visible {
     outline: none;

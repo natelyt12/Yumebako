@@ -195,6 +195,8 @@
     color: var(--text-primary);
     gap: 0;
     padding: 0 14px;
+    /* Items can be <div> rows too, so they need the pointer affordance here. */
+    cursor: pointer;
     transition:
       background-color 0.15s var(--ease_out),
       color 0.15s var(--ease_out);
