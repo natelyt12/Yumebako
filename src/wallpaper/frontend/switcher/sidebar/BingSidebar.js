@@ -99,9 +99,20 @@ export function createBingSidebar({ dataControl, sidebar }) {
     checkDirty();
 
     try {
+      const prevIndex = dataControl.currentIndex;
       await clearBingCache();
       if (dataControl.activeSourceId === "bing") {
         await sidebar.reload("bing");
+
+        // Bắn card:hard (qua setHardIndex) để Layer 4 (Renderer) cập nhật lại hình nền desktop theo res mới
+        const targetIndex = Math.min(
+          Math.max(0, prevIndex),
+          Math.max(0, (dataControl.items?.length || 1) - 1),
+        );
+        const activeCard = dataControl.items?.[targetIndex];
+        if (activeCard) {
+          dataControl.setHardIndex(targetIndex);
+        }
       }
       sidebar.close();
       showNotification(t("common.saved_changes", "Đã lưu thay đổi"), "success");
