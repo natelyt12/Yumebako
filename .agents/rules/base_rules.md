@@ -22,17 +22,27 @@ These are the rules the agent must always keep in mind when coding a new feature
   - Do **NOT** run `npm run build` after changes unless explicitly requested by the user or checking syntax error.
   - Do **NOT** run tests (`pnpm test`) automatically after changes; ONLY run tests when the user explicitly requests to commit or run tests.
 - **Continuous refactoring:** The user refactors the codebase very often. If a request makes any guidance in this rule file outdated, **proactively ask the user** whether this rule file should be updated instead of forcing a wrong implementation.
-- **UI work:** Before changing markup, styles, or user-facing interactions, read and follow `.agent/rules/ui_rules.md`. Keep that file aligned when shared UI conventions change.
+- **UI work:** Before changing markup, styles, or user-facing interactions, read and follow `.agents/rules/ui_rules.md`. Keep that file aligned when shared UI conventions change.
 - **Locale sync (i18n):** Whenever a feature is ADDED or REMOVED:
   - Always check and update the locale files together (`public/locales/en.json`, `public/locales/vi.json`).
   - Adding a feature: declare every key for both languages and run `npm run sort-locales`.
   - Removing a feature: review and remove every related locale key, leaving no orphan keys behind.
+- **Comments & JSDoc Standards:**
+  - **Language rules:**
+    - **Vietnamese:** Use Vietnamese exclusively for comments explaining configurable variables, customization options, tuning parameters, and settings values (giải thích ý nghĩa biến cấu hình, ngưỡng giá trị cho người dùng/developer dễ tùy chỉnh).
+    - **English:** All other technical comments (architecture, algorithms, logic flow, bug fixes, edge-case handling) and JSDoc tags must be written in English.
+  - **JSDoc scope (where to document):**
+    - **Required:** Exported functions/APIs, class definitions & public methods, core infrastructure services (`src/core/`), storage schemas & typedefs (`@typedef`), data pipelines, and custom event bus payloads. Document types with `@param`, `@returns`, and `@type` for solid IDE autocompletion.
+    - **Skip / keep lightweight:** Trivial internal helper arrows, obvious DOM click listeners, and small self-explanatory local callbacks to avoid documentation bloat.
+  - **Deprecated code & clean deletion:**
+    - When a feature, option, or function is deprecated or replaced: delete the code completely and cleanly.
+    - Do **NOT** leave commented-out code blocks or orphan notes like `// deprecated`, `// was removed`, `// old logic`. Git history already tracks past implementations.
 
 ## 3. Project Structure & Directory Overview
 
 ```text
 yumebako/
-├── .agent/rules/         # Agent guidelines (base_rules, ui_rules, wallpaper_architecture, commit_rules)
+├── .agents/rules/        # Agent guidelines (base_rules, ui_rules, wallpaper_architecture, commit_rules)
 ├── public/               # Static assets & localization files (locales/en.json, locales/vi.json)
 ├── scripts/              # Build & localization sync scripts (sort_locales, sync_locales)
 ├── tests/                # Test suites (unit tests, carousel performance & jitter tests)
@@ -91,9 +101,3 @@ yumebako/
 - **`src/widgets/`**: Startpage widgets. Each widget is self-contained with its own JS, HTML template, CSS, and settings markup.
 - **`src/settings/`**: Manages app-wide settings modal interactions, tab navigation, and system diagnostics/maintenance. Wallpaper editor panels and their templates/styles belong under `src/wallpaper/`; do not import wallpaper UI modules from Settings.
 - **`public/locales/`**: Must remain strictly synchronized between `en.json` and `vi.json`.
-
-### Wallpaper Customize Panel Convention
-- Open wallpaper customization from the Wallpaper Switcher, not the Settings modal.
-- Keep each submenu's controller, HTML template, and CSS under `wallpaper/frontend/customize/panels/<panel>/`. Shared presentation belongs in `frontend/customize/shared.css` only when multiple panels genuinely share it.
-- Keep data, source, rendering, and effect behavior under `wallpaper/backend/`; panel components call those APIs without relocating or duplicating engine logic.
-- Settings may retain app-wide wallpaper backup/export and source attribution, but it must not own wallpaper editor markup, initialization hooks, or editor styles.

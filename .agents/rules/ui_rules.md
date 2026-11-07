@@ -101,7 +101,7 @@ Use the shared UI components through `src/core/ui.js` and their implementations 
 ## 5. Icons, text, and localization
 
 - Use the icon registry in `src/core/icon.js` (Phosphor raw SVGs). In markup use `<i data-icon="iconName"></i>` and call `renderIcons(rootNode)` for dynamically injected markup; do not depend on emoji or unrelated icon sets for interface controls.
-- Never hardcode user-facing text. Add keys to both `public/locales/en.json` and `public/locales/vi.json` and follow the locale-sync/sorting workflow in `.agent/rules/base_rules.md`.
+- Never hardcode user-facing text. Add keys to both `public/locales/en.json` and `public/locales/vi.json` and follow the locale-sync/sorting workflow in `.agents/rules/base_rules.md`.
 - In markup, use `data-i18n` for text, `data-i18n-placeholder` for placeholders, and `data-i18n-html` only for intentional translated HTML (with `data-i18n-link` when translated bracket text becomes a link).
 - In JavaScript, use `t(key, variables)` from `src/core/i18n.js`. Translate newly created or injected content with `translateDOM` or the relevant component initializer.
 - Use `.tooltip` for explanatory notes and descriptions. Keep help text concise and supplementary; it should not replace a visible label or required instruction.
