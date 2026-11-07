@@ -6,7 +6,7 @@
     /* Minimum width of the expanded panel. The collapsed chip always hugs its
        summary text; a summary wider than this floor simply keeps the panel at
        that same width, and the detail content follows it. */
-    --meta-expanded-w: 320px;
+    --meta-expanded-w: 200px;
     /* Single source of truth for the summary weight: the invisible sizer (which
        reserves the collapsed width) and the visible header must render the text
        at the same weight, otherwise the sizer measures narrower than the header
@@ -230,7 +230,12 @@
     color: var(--text-primary);
     font-weight: 500;
     text-align: right;
-    word-break: break-word;
+  }
+
+  .wallpaper_switcher_meta_body .meta_detail_row:not(.is-stacked) .meta_value {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .wallpaper_switcher_meta_body .meta_value a {
@@ -268,6 +273,7 @@
     font-size: 11px;
     opacity: 0.88;
     line-height: 1.4;
+    white-space: normal;
+    word-break: break-word;
   }
-
 }
