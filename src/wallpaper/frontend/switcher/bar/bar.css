@@ -5,11 +5,19 @@
     position: relative;
     width: 100%;
     max-width: 1800px;
-    padding: 0 max(24px, 3.5vw) 10px;
+    padding: 0 max(24px, 3.5vw);
+    /* The 10px that used to be `padding-bottom` lives outside the bar now:
+       a padded 36px bar only has a 26px content box, so the in-flow groups
+       (tabs, icon buttons) centred on 13px while the absolutely positioned
+       centre group centred on 18px — a permanent 5px sag. Keeping the bar's
+       box at exactly 36px makes both centre on the same line. */
+    margin-bottom: 10px;
     box-sizing: border-box;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    /* Pin the height so the line box cannot grow with the font's line-height. */
+    height: 36px;
     pointer-events: none;
     z-index: 40;
   }
@@ -22,6 +30,281 @@
     display: flex;
     align-items: center;
     gap: 10px;
+  }
+
+  /* Center effects indicator group.
+     Metrics match the source tabs (`height: 34px`, `padding: 3px`), and so does
+     the motion: every chip is an icon-only pill at rest, and hovering one grows
+     its label out to the right, pushing the chips after it along the row.
+
+     The pill hugs its content (`width: max-content`) and is centred with a
+     transform, so the group stays optically centred on the bar while the row
+     reflows frame by frame. Nothing here is in flow, so a chip opening cannot
+     shift the bar's `space-between` distribution (and with it the side groups).
+
+     It is always on screen now: the leading "+" (Customize this wallpaper) is
+     the only entry point to the effect panel, so the group cannot fade out when
+     no effect is active. */
+  .wallpaper_switcher_top_center {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: inline-flex;
+    align-items: center;
+    width: max-content;
+    height: 34px;
+    padding: 3px;
+    border-radius: 50px;
+    background: var(--button);
+    border: 1px solid var(--glass-border-sm);
+    box-sizing: border-box;
+    /* Below the source-tab drawer (z-index 30): when the top bar gets narrow,
+       the drawer must paint over this group, not the other way round. */
+    z-index: 20;
+    overflow: visible;
+    opacity: 1;
+    /* Pure fade in/out with the card, exactly like `.wallpaper_source_actions`.
+       `visibility` flips instantly on the way in and only after the fade on the
+       way out, so a hidden group is out of the tab order and cannot be hovered. */
+    visibility: visible;
+    transition:
+      opacity 0.2s var(--smooth),
+      visibility 0s linear 0s;
+  }
+
+  .wallpaper_switcher_top_center.is-hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+      opacity 0.2s var(--smooth),
+      visibility 0s linear 0.2s;
+  }
+
+  /* Chips sit in their own row after the "+".
+     No `gap` on purpose: a gap is a dead strip the pointer has to cross, and
+     because the pill re-centres every frame, a label snapping shut on the way
+     out and the next one snapping open on the way in made the whole row jitter.
+     Each chip already keeps 7px of air around its 14px icon, so the row still
+     reads as separated chips.
+
+     The 5px next to the "+" lives on this row (not on the button) so an empty
+     row leaves no stray notch inside the pill. */
+  .wallpaper_top_effect_list {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .wallpaper_top_effect_add + .wallpaper_top_effect_list:not(:empty) {
+    margin-left: 5px;
+  }
+
+  /* "Customize this wallpaper" — a brighter pill pinned before the chips, with
+     the same metrics as them (28px cell, 28px tall).
+     Same morph too: the icon cell is fixed, the label track opens from `0fr` to
+     `1fr`, so hovering grows the circle into a labelled pill.
+
+     Deliberately a <div role="button">, exactly like the chips beside it: a real
+     <button> would inherit the shared field chrome from core/ui/button.css
+     (`width: 100%`, `gap: 10px`, `justify-content: center`, …) and every one of
+     those would need a reset here. */
+  .wallpaper_top_effect_add {
+    flex: 0 0 auto;
+    display: inline-grid;
+    grid-auto-flow: column;
+    grid-template-columns: 28px minmax(0, 0fr);
+    align-items: center;
+    height: 28px;
+    padding: 0;
+    border-radius: 50px;
+    /* Same fill as a hovered effect chip — the "+" reads as a lit control even
+       at rest, because it is the one thing in the row that is always an action
+       rather than a state readout. */
+    background: rgba(255, 255, 255, 0.16);
+    color: #ffffff;
+    cursor: pointer;
+    overflow: hidden;
+    white-space: nowrap;
+    user-select: none;
+    outline: none;
+    transition:
+      grid-template-columns 0.36s var(--expo_out),
+      background-color 0.2s var(--ease_out);
+  }
+
+  /* Nothing to read out: the "+" is the only control left, so it keeps its
+     label open instead of hiding it behind a hover, and rests with no fill —
+     with no chips beside it, a lit pill would be the only thing in the bar.
+     Hovering then lights it back up with the exact fill it has when chips are
+     present. A disabled button never lights up (see below).
+     `:not(.is-disabled)` is what keeps a disabled button icon-only: it must
+     never open by itself. */
+  .wallpaper_switcher_top_center:has(.wallpaper_top_effect_list:empty)
+    .wallpaper_top_effect_add:not(.is-disabled) {
+    grid-template-columns: 28px minmax(0, 1fr);
+    background: transparent;
+  }
+
+  .wallpaper_switcher_top_center:has(.wallpaper_top_effect_list:empty)
+    .wallpaper_top_effect_add:not(.is-disabled):hover,
+  .wallpaper_switcher_top_center:has(.wallpaper_top_effect_list:empty)
+    .wallpaper_top_effect_add:not(.is-disabled):focus-visible {
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  .wallpaper_switcher_top_center:has(.wallpaper_top_effect_list:empty)
+    .wallpaper_top_effect_add:not(.is-disabled)
+    .wallpaper_top_effect_text {
+    opacity: 1;
+  }
+
+  .wallpaper_top_effect_add:hover,
+  .wallpaper_top_effect_add:focus-visible {
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+
+  .wallpaper_top_effect_add svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    justify-self: center;
+    color: #ffffff;
+    fill: currentColor;
+    transition: transform 0.28s var(--expo_out);
+  }
+
+  .wallpaper_top_effect_add .wallpaper_top_effect_text {
+    display: block;
+    min-width: 0;
+    padding-right: 12px;
+    overflow: hidden;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 28px;
+    color: #ffffff;
+    opacity: 0;
+    pointer-events: none;
+    user-select: none;
+    transition: opacity 0.18s var(--ease_out);
+  }
+
+  .wallpaper_top_effect_add:hover .wallpaper_top_effect_text,
+  .wallpaper_top_effect_add:focus-visible .wallpaper_top_effect_text {
+    opacity: 1;
+    transition: opacity 0.2s var(--ease_out);
+  }
+
+  /* Disabled (any source but Collection): a "no entry" icon, transparent fill
+     and a "not allowed" cursor. Everything else behaves like the enabled state —
+     hovering still opens the label so the reason is readable; only the click is
+     refused (see the guard on the button handlers). */
+  .wallpaper_switcher_top_center .wallpaper_top_effect_add.is-disabled {
+    background: transparent;
+    cursor: default;
+  }
+
+  /* While the panel is open the plus turns into a cross (click closes it). */
+  .wallpaper_top_effect_add.active svg {
+    transform: rotate(45deg);
+  }
+
+  /* An icon cell that is always 28px wide plus a label track that opens from
+     `0fr` to `1fr`. Grid track interpolation is what makes the width grow
+     smoothly — animating `width` towards `max-content` (the previous approach)
+     is not interpolable, so the pill used to snap to its full width and only
+     the text revealed, which read as a tooltip rather than a layout morph. */
+  .wallpaper_top_effect_tab {
+    position: relative;
+    flex: 0 0 auto;
+    display: inline-grid;
+    grid-auto-flow: column;
+    grid-template-columns: 28px minmax(0, 0fr);
+    align-items: center;
+    height: 28px;
+    padding: 0;
+    margin: 0;
+    border: none;
+    border-radius: 50px;
+    background: transparent;
+    box-shadow: none;
+    color: #ffffff;
+    box-sizing: border-box;
+    cursor: pointer;
+    overflow: hidden;
+    white-space: nowrap;
+    user-select: none;
+    outline: none;
+    transition:
+      grid-template-columns 0.36s var(--expo_out),
+      background-color 0.2s var(--ease_out);
+  }
+
+  .wallpaper_top_effect_tab:hover,
+  .wallpaper_top_effect_tab:focus-visible {
+    grid-template-columns: 28px minmax(0, 1fr);
+    background-color: rgba(255, 255, 255, 0.16);
+  }
+
+  .wallpaper_top_effect_tab:active {
+    background-color: rgba(255, 255, 255, 0.22);
+  }
+
+  /* `renderIcons()` swaps `<i data-icon>` for a bare `<svg width="14">`.
+     As a replaced element the svg ignores `justify-self: stretch`, so it used
+     to sit at the *start* of the 28px icon track — every icon 7px left of its
+     own cell, and the whole row left-shifted inside the pill by a full icon
+     gap. Centre it explicitly instead. */
+  .wallpaper_top_effect_tab > svg,
+  .wallpaper_top_effect_tab > i[data-icon] {
+    justify-self: center;
+  }
+
+  .wallpaper_top_effect_tab i[data-icon] {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    font-size: 14px;
+    line-height: 1;
+    color: #ffffff;
+  }
+
+  .wallpaper_top_effect_tab svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: #ffffff;
+    fill: currentColor;
+  }
+
+  /* The label is a grid item in its own (animating) track, so it is clipped by
+     the track itself and never needs `max-width` stunts. Its right padding is
+     constant: a zero-width track hides it entirely when collapsed. */
+  .wallpaper_top_effect_tab .wallpaper_top_effect_text {
+    display: block;
+    min-width: 0;
+    padding-right: 12px;
+    overflow: hidden;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 28px;
+    color: #ffffff;
+    opacity: 0;
+    pointer-events: none;
+    user-select: none;
+    transition: opacity 0.18s var(--ease_out);
+  }
+
+  .wallpaper_top_effect_tab:hover .wallpaper_top_effect_text,
+  .wallpaper_top_effect_tab:focus-visible .wallpaper_top_effect_text {
+    opacity: 1;
+    transition: opacity 0.2s var(--ease_out);
   }
 
   /* Source settings trigger: icon button sitting just left of the source tabs. */
@@ -44,12 +327,6 @@
     white-space: nowrap;
     user-select: none;
     margin-right: 8px;
-  }
-
-  @media (max-width: 760px) {
-    .wallpaper_preview_hint {
-      display: none;
-    }
   }
 
   .wallpaper_switcher_icon_btn,
@@ -306,6 +583,7 @@
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
+    cursor: pointer;
     transition:
       max-width 0.5s var(--expo_out),
       opacity 0.4s var(--expo_out),
@@ -426,11 +704,9 @@
     flex-shrink: 0;
   }
 
-  /* Fetch button is-loading spinning removed; loader is now beside counter */
-
   /* ── Responsive Compact Mode on Narrow Screens ─────────── */
 
-  @media (max-width: 1100px) {
+  @media (max-width: 1300px) {
     .wallpaper_action span,
     .wallpaper_switcher_left .btn span,
     .wallpaper_switcher_controls .btn span {
@@ -446,13 +722,6 @@
     }
   }
 
-  @media (max-width: 900px) {
-    .wallpaper_switcher_meta_wrapper,
-    .wallpaper_switcher_meta_info {
-      display: none !important;
-    }
-  }
-
   .wallpaper_switcher .hidden {
     display: none !important;
   }
@@ -463,5 +732,9 @@
     opacity: 0 !important;
     pointer-events: none !important;
     transition: opacity 0.3s var(--expo_out) 0s;
+  }
+
+  .wallpaper_preview_hint {
+    display: none;
   }
 }

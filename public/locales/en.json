@@ -344,6 +344,7 @@
     "sp.wallpaper_customization.arrange_wallpaper": "Adjust Position",
     "sp.wallpaper_customization.bloom": "Bloom Effect",
     "sp.wallpaper_customization.brightness": "Brightness",
+    "sp.wallpaper_customization.collection_only_hint": "Add a photo to your collection to customize",
     "sp.wallpaper_customization.contrast": "Contrast",
     "sp.wallpaper_customization.discard_changes_on_switch": "This tab has unsaved changes. Switching will discard them. Continue?",
     "sp.wallpaper_customization.filters": "Filters & Colors",

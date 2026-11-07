@@ -31,12 +31,13 @@ import paletteIcon from "@phosphor-icons/core/assets/regular/palette.svg?raw";
 import paintBrushIcon from "@phosphor-icons/core/assets/regular/paint-brush.svg?raw";
 import wavesIcon from "@phosphor-icons/core/assets/regular/waves.svg?raw";
 import sparkleIcon from "@phosphor-icons/core/assets/regular/sparkle.svg?raw";
-import playCircleIcon from "@phosphor-icons/core/assets/regular/play-circle.svg?raw";
+import playIcon from "@phosphor-icons/core/assets/regular/play.svg?raw";
 import filmStripIcon from "@phosphor-icons/core/assets/regular/film-strip.svg?raw";
 import starIcon from "@phosphor-icons/core/assets/regular/star.svg?raw";
 import starFillIcon from "@phosphor-icons/core/assets/fill/star-fill.svg?raw";
 import cameraIcon from "@phosphor-icons/core/assets/regular/camera.svg?raw";
 import pencilSimpleIcon from "@phosphor-icons/core/assets/regular/pencil-simple.svg?raw";
+import prohibitIcon from "@phosphor-icons/core/assets/regular/prohibit.svg?raw";
 
 function withSize(svg, size = 24, style = "") {
   return svg.replace(
@@ -49,6 +50,7 @@ export const Icons = {
   particleCheck: withSize(checkIcon, 14),
   particleX: withSize(xIcon, 14),
   plus: withSize(plusIcon, 16),
+  prohibit: withSize(prohibitIcon, 16),
   close: withSize(xIcon),
   settings: withSize(gearIcon),
   chevronDown: withSize(caretDownIcon),
@@ -100,7 +102,7 @@ export const Icons = {
   wavySettings: withSize(wavesIcon, 18),
   parallaxSettings: withSize(arrowsOutCardinalIcon, 18),
   particlesSettings: withSize(sparkleIcon, 18),
-  onloadSettings: withSize(playCircleIcon, 18),
+  onloadSettings: withSize(playIcon, 18),
   videoBadge: withSize(filmStripIcon, 16),
   imageBadge: withSize(imageIcon, 16),
   addMore: withSize(plusIcon, 40),

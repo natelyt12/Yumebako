@@ -29,6 +29,39 @@ const MANAGE_SOURCES = new Set([
   "unsplash",
 ]);
 
+const EFFECT_DEFS = [
+  {
+    id: "arrange",
+    icon: "arrangeWallpaper",
+    labelKey: "sp.wallpaper_customization.arrange_wallpaper",
+    label: "Điều chỉnh vị trí",
+  },
+  {
+    id: "filters",
+    icon: "filterSettings",
+    labelKey: "sp.wallpaper_customization.filters",
+    label: "Bộ lọc & màu sắc",
+  },
+  {
+    id: "particles",
+    icon: "particlesSettings",
+    labelKey: "sp.wallpaper_customization.particles_settings",
+    label: "Hiệu ứng nền",
+  },
+  {
+    id: "onload",
+    icon: "onloadSettings",
+    labelKey: "sp.wallpaper_customization.onload_settings",
+    label: "Hoạt ảnh mở trang",
+  },
+  {
+    id: "wavy",
+    icon: "wavySettings",
+    labelKey: "sp.wallpaper_customization.wavy_parallax",
+    label: "Wavy + Parallax",
+  },
+];
+
 /**
  * SwitcherBar.js
  * ---------------------------------------------------------------------------
@@ -74,6 +107,10 @@ export class SwitcherBar {
     this.actionsContainer = container.querySelector(
       "#wallpaper_switcher_actions",
     );
+    this.topCenterEl = container.querySelector(
+      "#wallpaper_switcher_top_center",
+    );
+    this.topEffectsEl = container.querySelector("#wallpaper_top_effect_list");
     this.manageBtn = container.querySelector("#wallpaper_manage_btn");
     this.customizeBtn = container.querySelector("#wallpaper_customize_btn");
     this.fetchBtn = container.querySelector("#wallpaper_fetch_btn");
@@ -95,6 +132,10 @@ export class SwitcherBar {
     this._customizeCloseTimer = null;
     /** Unsubscribers for the tab effect indicators. */
     this._customizeDotUnsubs = [];
+    /** Unsubscribers for the center top bar effect indicators. */
+    this._topEffectsUnsubs = [];
+    /** Active effect ids currently painted in the center top bar. */
+    this._topEffectsSignature = "";
   }
 
   /**
@@ -114,6 +155,7 @@ export class SwitcherBar {
 
     this._bindEvents();
     this.renderTabs();
+    this.bindTopBarEffects();
     this.syncState(this.dataControl.getState(), true);
     if (this.metaWrapperEl) {
       this.metaWrapperEl.addEventListener("mouseenter", () => {
@@ -131,10 +173,12 @@ export class SwitcherBar {
     this.dataControl.on("card:soft", ({ card }) => {
       this.syncMetaInfo(card);
       this.hideActions();
+      this._setTopEffectsVisible(false);
     });
     this.dataControl.on("card:hard", ({ card }) => {
       this.syncMetaInfo(card);
       this.renderActions(card);
+      this._setTopEffectsVisible(Boolean(card), card);
     });
     this.dataControl.on("source:change", ({ sourceId }) => {
       this.closeSidebar();
@@ -143,11 +187,14 @@ export class SwitcherBar {
       this.syncMetaInfo(null);
       this.hideActions();
       this.renderActions(null);
+      this._setTopEffectsVisible(false);
     });
     this.dataControl.on("cards:loaded", () => {
+      const card = this.dataControl.activeCard;
       this.syncRightSlot(this.dataControl.activeSourceId);
-      this.syncMetaInfo(this.dataControl.activeCard);
-      this.renderActions(this.dataControl.activeCard);
+      this.syncMetaInfo(card);
+      this.renderActions(card);
+      this._setTopEffectsVisible(Boolean(card), card);
     });
 
     return this;
@@ -160,11 +207,23 @@ export class SwitcherBar {
       this.openManageSubmenu();
     });
 
-    // Wallpaper customization: toggles 600px bottom submenu
-    this.customizeBtn?.addEventListener("click", (e) => {
-      e.stopPropagation();
-      this.toggleCustomizeSubmenu();
-    });
+    // Wallpaper customization: toggles the Customize submenu. It is a
+    // `<div role="button">` (like the effect chips) so it never inherits the
+    // shared bare-button chrome — hence the explicit keyboard handling.
+    if (this.customizeBtn) {
+      const toggleCustomize = (e) => {
+        e.stopPropagation();
+        if (this.customizeBtn.classList.contains("is-disabled")) return;
+        this.toggleCustomizeSubmenu();
+      };
+      this.customizeBtn.addEventListener("click", toggleCustomize);
+      this.customizeBtn.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          toggleCustomize(e);
+        }
+      });
+    }
 
     // Fetch button (for sources that support fetching more)
     this.fetchBtn?.addEventListener("click", async () => {
@@ -293,7 +352,7 @@ export class SwitcherBar {
   }
 
   /** Mở submenu Customize cao tối đa bằng viewport, trượt từ dưới lên. */
-  openCustomizeSubmenu() {
+  openCustomizeSubmenu(initialTabId = null) {
     const host = this.container.closest(".wallpaper_switcher_inner");
     if (!host) return;
 
@@ -334,20 +393,25 @@ export class SwitcherBar {
         </button>
       ` +
       CUSTOMIZE_TABS.map(
-        (tab, index) => `
-        <button
-          type="button"
-          class="wallpaper_customize_tab${index === 0 ? " is-active" : ""}"
-          role="tab"
-          aria-selected="${index === 0}"
-          aria-controls="wallpaper_customize_panel"
-          data-customize-tab="${tab.id}"
-        >
-          <i data-icon="${tab.icon}"></i>
-          <span class="wallpaper_customize_tab_label" data-i18n="${tab.labelKey}">${escapeHtml(tab.label)}</span>
-          <span class="customize_tab_dot" data-tab-dot="${tab.id}"></span>
-        </button>
-      `,
+        (tab, index) => {
+          const isSelected = initialTabId
+            ? tab.id === initialTabId
+            : index === 0;
+          return `
+          <button
+            type="button"
+            class="wallpaper_customize_tab${isSelected ? " is-active" : ""}"
+            role="tab"
+            aria-selected="${isSelected}"
+            aria-controls="wallpaper_customize_panel"
+            data-customize-tab="${tab.id}"
+          >
+            <i data-icon="${tab.icon}"></i>
+            <span class="wallpaper_customize_tab_label" data-i18n="${tab.labelKey}">${escapeHtml(tab.label)}</span>
+            <span class="customize_tab_dot" data-tab-dot="${tab.id}"></span>
+          </button>
+        `;
+        },
       ).join("");
 
     const content = `
@@ -422,7 +486,7 @@ export class SwitcherBar {
     this._renderCustomizePreview(
       host.querySelector("#wallpaper_customize_preview"),
     );
-    this._bindCustomizeTabs(host);
+    this._bindCustomizeTabs(host, initialTabId);
     this._bindCustomizeDots(host);
   }
 
@@ -555,7 +619,7 @@ export class SwitcherBar {
    * @param {HTMLElement} host
    * @private
    */
-  _bindCustomizeTabs(host) {
+  _bindCustomizeTabs(host, initialTabId = null) {
     const tabs = Array.from(host.querySelectorAll(".wallpaper_customize_tab"));
     if (tabs.length === 0) return;
 
@@ -587,13 +651,17 @@ export class SwitcherBar {
       });
     });
 
-    // Prefer the first section with a panel so the right column is useful on open.
+    const targetTab = initialTabId
+      ? tabs.find((tab) => tab.dataset.customizeTab === initialTabId)
+      : null;
     const initial =
+      targetTab ||
       tabs.find(
         (tab) =>
           tab.dataset.customizeTab &&
           hasCustomizePanel(tab.dataset.customizeTab),
-      ) || tabs.find((tab) => tab.dataset.customizeTab);
+      ) ||
+      tabs.find((tab) => tab.dataset.customizeTab);
     if (initial) this._selectCustomizeTab(host, initial.dataset.customizeTab);
   }
 
@@ -632,6 +700,149 @@ export class SwitcherBar {
     host.querySelectorAll("[data-tab-dot]").forEach((dot) => {
       dot.classList.toggle("is-on", Boolean(states[dot.dataset.tabDot]));
     });
+  }
+
+  /**
+   * Keep the center top bar effect indicators in sync with current wallpaper effects.
+   */
+  bindTopBarEffects() {
+    this._topEffectsUnsubs?.forEach((unsub) => unsub());
+    this._topEffectsUnsubs = [
+      "wallpaperConfig",
+      "wallpaperPosition",
+      "particles",
+      "onload",
+      "wavy",
+    ].map((key) => subscribe(key, () => this.syncTopBarEffects()));
+
+    this.syncTopBarEffects();
+  }
+
+  /**
+   * Enable/disable the top-bar "Customize this wallpaper" button. Effects are
+   * written back onto the active Collection item, so outside Collection there
+   * is nothing to customize: the button stops opening the panel, swaps to a
+   * "no entry" icon and explains itself in its tooltip / aria-label.
+   * @param {boolean} available
+   * @private
+   */
+  _setCustomizeAvailable(available) {
+    const btn = this.customizeBtn;
+    if (!btn) return;
+
+    const text = available
+      ? t("sp.wallpaper_customization.title", "Tùy chỉnh hình nền")
+      : t(
+          "sp.wallpaper_customization.collection_only_hint",
+          "Hãy thêm ảnh vào bộ sưu tập để tùy chỉnh",
+        );
+
+    btn.classList.toggle("is-disabled", !available);
+    if (btn.getAttribute("aria-disabled") !== String(!available)) {
+      btn.setAttribute("aria-disabled", String(!available));
+    }
+    // Only the accessible name — a native `title` tooltip would fight the label
+    // that already opens on hover.
+    if (btn.getAttribute("aria-label") !== text) {
+      btn.setAttribute("aria-label", text);
+    }
+
+    const label = btn.querySelector(".wallpaper_top_effect_text");
+    if (label && label.textContent !== text) label.textContent = text;
+
+    this._setCustomizeIcon(available ? "plus" : "prohibit");
+  }
+
+  /**
+   * Swap the customize button's icon. `renderIcons()` replaces `<i data-icon>`
+   * with a bare `<svg>`, so the placeholder has to be rebuilt before rendering.
+   * @param {string} name
+   * @private
+   */
+  _setCustomizeIcon(name) {
+    const btn = this.customizeBtn;
+    if (!btn || btn.dataset.customizeIcon === name) return;
+    btn.dataset.customizeIcon = name;
+    btn.querySelector("svg, i[data-icon]")?.remove();
+    btn.insertAdjacentHTML("afterbegin", `<i data-icon="${name}"></i>`);
+    renderIcons(btn);
+  }
+
+  syncTopBarEffects(card = null) {
+    if (!this.topEffectsEl) return;
+    const states = getEffectStates(card?.effects);
+    const activeDefs = EFFECT_DEFS.filter((def) => Boolean(states[def.id]));
+
+    // Re-rendering identical content would drop the pill's hover state (it
+    // would collapse under the cursor) every time a setting that does not
+    // change the active effect set is saved.
+    const signature = activeDefs.map((def) => def.id).join(",");
+    if (signature === this._topEffectsSignature) return;
+    this._topEffectsSignature = signature;
+
+    this.topEffectsEl.innerHTML = activeDefs
+      .map(
+        (def) => `
+        <div
+          class="wallpaper_top_effect_tab"
+          role="button"
+          tabindex="0"
+          aria-label="${escapeHtml(t(def.labelKey, def.label))}"
+          data-effect-id="${def.id}"
+        >
+          <i data-icon="${def.icon}"></i>
+          <span class="wallpaper_top_effect_text">${escapeHtml(t(def.labelKey, def.label))}</span>
+        </div>
+      `,
+      )
+      .join("");
+
+    renderIcons(this.topEffectsEl);
+
+    this.topEffectsEl
+      .querySelectorAll(".wallpaper_top_effect_tab")
+      .forEach((el) => {
+        const trigger = (e) => {
+          e.stopPropagation();
+          const effectId = el.dataset.effectId;
+          if (effectId === "arrange") {
+            openPositionEditorPopup();
+          } else {
+            const host = this.container.closest(".wallpaper_switcher_inner");
+            if (host?.classList.contains("customization_active")) {
+              this._selectCustomizeTab(host, effectId);
+            } else {
+              this.openCustomizeSubmenu(effectId);
+            }
+          }
+        };
+
+        el.addEventListener("click", trigger);
+        el.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            trigger(e);
+          }
+        });
+      });
+  }
+
+  /**
+   * Fade the whole effect pill out/in with the card, mirroring the action row
+   * (`.wallpaper_source_actions`): a pure opacity fade, and `pointer-events`
+   * blocked while hidden so the chips under the cursor cannot be hit.
+   * @param {boolean} visible
+   * @param {Object|null} [card] Wallpaper being settled; its own effects are the
+   *   truth until the renderer mirrors them into the settings (which only
+   *   happens after the new image has decoded).
+   * @private
+   */
+  _setTopEffectsVisible(visible, card = null) {
+    if (!this.topCenterEl) return;
+    // Refresh the chips *before* the pill is painted: the fade-in must already
+    // show the new set, never the previous one for a frame.
+    if (visible) this.syncTopBarEffects(card);
+    this.topCenterEl.classList.toggle("is-hidden", !visible);
   }
 
   /**
@@ -901,11 +1112,40 @@ export class SwitcherBar {
   }
 
   /**
-   * Cập nhật chiều cao mở rộng thực tế của thẻ morph dựa trên nội dung chi tiết.
+   * Cập nhật kích thước mở rộng (rộng + cao) của thẻ morph dựa trên nội dung chi tiết.
+   * Tự động tính toán bề rộng để các dòng thông tin (Author, Camera, Stats...)
+   * luôn nằm trọn trên 1 dòng, trừ các dòng multiline/stacked (như bản quyền Bing).
    */
   _updateMetaExpandedHeight() {
     if (!this.metaBodyEl || !this.metaCardEl) return;
     const update = () => {
+      // 1. Tính toán bề rộng cần thiết cho các dòng 1 hàng (bỏ qua dòng is-stacked)
+      const rows = this.metaBodyEl.querySelectorAll(
+        ".meta_detail_row:not(.is-stacked)",
+      );
+      let maxRowWidth = 0;
+      rows.forEach((row) => {
+        const labelEl = row.querySelector(".meta_label");
+        const valEl = row.querySelector(".meta_value");
+        const labelW = labelEl ? labelEl.scrollWidth : 0;
+        const valW = valEl ? valEl.scrollWidth : 0;
+        // label + gap (12px) + value
+        const total = labelW + 12 + valW;
+        if (total > maxRowWidth) maxRowWidth = total;
+      });
+
+      // Padding trái (14px) + phải (14px) = 28px, viền 2px, đệm an toàn 6px = 36px
+      const minW = 260;
+      const maxW = Math.min(480, Math.floor(window.innerWidth * 0.45));
+      const neededW = maxRowWidth > 0 ? Math.ceil(maxRowWidth + 36) : minW;
+      const finalW = Math.min(maxW, Math.max(minW, neededW));
+
+      this.metaCardEl.style.setProperty("--meta-expanded-w", `${finalW}px`);
+      if (this.metaWrapperEl) {
+        this.metaWrapperEl.style.setProperty("--meta-expanded-w", `${finalW}px`);
+      }
+
+      // 2. Đo chiều cao thực tế sau khi bề rộng mới đã được áp dụng
       const h = this.metaBodyEl.offsetHeight;
       if (h > 0) {
         // Viền trên 1px + viền dưới 1px = 2px
@@ -1196,11 +1436,10 @@ export class SwitcherBar {
       }
     }
 
-    // Wallpaper customization is a Collection concept for now.
-    if (this.customizeBtn) {
-      this._setButtonVisible(this.customizeBtn, id === "collection", immediate);
-    }
-
+    // Wallpaper customization is written back onto the active Collection item,
+    // so every other source gets the button in its disabled, self-explaining
+    // state instead of a dead click.
+    this._setCustomizeAvailable(isCollection);
     if (this.fetchBtn) {
       this._setButtonVisible(this.fetchBtn, canGrow, immediate);
       const labelSpan = this.fetchBtn.querySelector("span");

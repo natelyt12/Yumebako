@@ -36,6 +36,29 @@
           </svg>
         </div>
       </div>
+      <div
+        class="wallpaper_switcher_top_center"
+        id="wallpaper_switcher_top_center"
+      >
+        <div
+          class="wallpaper_top_effect_add"
+          id="wallpaper_customize_btn"
+          role="button"
+          tabindex="0"
+          aria-label="Tùy chỉnh hình nền"
+        >
+          <i data-icon="plus"></i>
+          <span
+            class="wallpaper_top_effect_text"
+            data-i18n="sp.wallpaper_customization.title"
+            >Tùy chỉnh hình nền</span
+          >
+        </div>
+        <div
+          class="wallpaper_top_effect_list"
+          id="wallpaper_top_effect_list"
+        ></div>
+      </div>
       <div class="wallpaper_switcher_top_right">
         <span
           class="wallpaper_preview_hint"
@@ -76,7 +99,40 @@
     </div>
     <div class="carousel-container hide-accent-bg" id="wallpaper_carousel">
       <div class="carousel-guide"></div>
-      <div class="carousel-viewfinder"></div>
+      <div class="carousel-viewfinder">
+        <svg class="viewfinder-ring" aria-hidden="true" focusable="false">
+          <defs>
+            <mask id="wp_viewfinder_mask">
+              <rect width="100%" height="100%" fill="white" />
+              <g class="vf-mask-arms">
+                <path class="vf-arm" pathLength="100" fill="none"></path>
+                <path class="vf-arm" pathLength="100" fill="none"></path>
+                <path class="vf-arm" pathLength="100" fill="none"></path>
+                <path class="vf-arm" pathLength="100" fill="none"></path>
+                <path class="vf-arm" pathLength="100" fill="none"></path>
+                <path class="vf-arm" pathLength="100" fill="none"></path>
+                <path class="vf-arm" pathLength="100" fill="none"></path>
+                <path class="vf-arm" pathLength="100" fill="none"></path>
+              </g>
+            </mask>
+          </defs>
+          <path
+            class="vf-trace"
+            pathLength="1000"
+            mask="url(#wp_viewfinder_mask)"
+          ></path>
+          <g class="vf-progress-arms">
+            <path class="vf-arm" pathLength="100" fill="none"></path>
+            <path class="vf-arm" pathLength="100" fill="none"></path>
+            <path class="vf-arm" pathLength="100" fill="none"></path>
+            <path class="vf-arm" pathLength="100" fill="none"></path>
+            <path class="vf-arm" pathLength="100" fill="none"></path>
+            <path class="vf-arm" pathLength="100" fill="none"></path>
+            <path class="vf-arm" pathLength="100" fill="none"></path>
+            <path class="vf-arm" pathLength="100" fill="none"></path>
+          </g>
+        </svg>
+      </div>
       <div
         class="carousel-track hide-accent-bg"
         id="wallpaper_carousel_track"
@@ -101,16 +157,6 @@
           <i data-icon="manageCollection"></i>
           <span data-i18n="wallpaper_switcher.manage_wallpapers"
             >Quản lý hình nền</span
-          >
-        </button>
-        <button
-          type="button"
-          class="btn wallpaper_action wallpaper_customize_btn"
-          id="wallpaper_customize_btn"
-        >
-          <i data-icon="sidebar_wallpaper"></i>
-          <span data-i18n="sp.wallpaper_customization.title"
-            >Tùy chỉnh hình nền</span
           >
         </button>
       </div>

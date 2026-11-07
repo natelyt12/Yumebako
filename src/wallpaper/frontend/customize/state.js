@@ -73,10 +73,31 @@ function arrangeAdded(settings, defaults) {
 }
 
 /** Which Customize tabs currently hold a non-default ("added") effect. */
-export function getEffectStates() {
-  const settings = getSettings();
+export function getEffectStates(effects = null) {
   const defaults = getDefaultWallpaperEffects();
 
+  // Card-level effects (`card.effects`) are what the renderer is *about to*
+  // write into the settings, but that write only happens once the new image has
+  // decoded. Reading the card directly lets the UI paint the right icons on the
+  // same frame the card settles, instead of flashing the previous set.
+  if (effects) {
+    return effectStatesFor(
+      {
+        wallpaperConfig: { ...defaults.filter, ...(effects.filter || {}) },
+        wallpaperPosition: { ...defaults.position, ...(effects.position || {}) },
+        wavy: { ...defaults.wavy, ...(effects.wavy || {}) },
+        particles: effects.particles || {},
+        onload: { ...defaults.onload, ...(effects.onload || {}) },
+      },
+      defaults,
+    );
+  }
+
+  return effectStatesFor(getSettings(), defaults);
+}
+
+/** @param {Object} settings @param {Object} defaults */
+function effectStatesFor(settings, defaults) {
   return {
     arrange: arrangeAdded(settings, defaults),
     filters: filtersAdded(settings, defaults),
