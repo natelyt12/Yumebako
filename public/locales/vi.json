@@ -46,7 +46,7 @@
     "onload_anim.widget_immediate_tooltip": "Nếu tắt, giao diện sẽ đợi hoạt ảnh mở trang chạy xong mới hiển thị.",
     "onload_anim.window_title": "Hoạt ảnh mở trang",
     "onload_anim.zoom_in_heavy_preset": "Điện ảnh",
-    "onload_anim.zoom_in_light_preset": "Nhẹ nhàng",
+    "onload_anim.zoom_in_light_preset": "Nhẹ nhàng (Mặc định)",
     "onload_anim.zoom_label": "Độ zoom",
     "parallax.amplitude": "Biên độ bám chuột",
     "parallax.btn_default": "Mặc định",

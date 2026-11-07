@@ -46,7 +46,7 @@
     "onload_anim.widget_immediate_tooltip": "If disabled, the UI will wait for the startup animation to finish before appearing.",
     "onload_anim.window_title": "Startup Animation",
     "onload_anim.zoom_in_heavy_preset": "Cinematic",
-    "onload_anim.zoom_in_light_preset": "Gentle",
+    "onload_anim.zoom_in_light_preset": "Gentle (Default)",
     "onload_anim.zoom_label": "Zoom",
     "parallax.amplitude": "Cursor Parallax Scale",
     "parallax.btn_default": "Defaults",
