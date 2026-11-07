@@ -85,9 +85,15 @@ export default defineConfig({
   server: {
     port: 3546,
     strictPort: true,
-    hmr: {
-      port: 3546,
-    },
     cors: true,
+    // HMR rides the dev server port by default, so no `server.hmr` override is
+    // needed (and `server.hmr.port` is deprecated in favour of `server.ws.*`).
+    watch: {
+      // `temp/` is scratch space (prototypes, headless-browser profiles). Browser
+      // profiles keep cache files locked, and chokidar throws EBUSY on those —
+      // which used to kill the whole dev server. Nothing in `src/` imports from
+      // `temp/`, so there is nothing to watch there.
+      ignored: ["**/temp/**"],
+    },
   },
 });
