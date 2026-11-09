@@ -20,10 +20,10 @@ import { clamp } from "./easing.js";
 /** Kích thước chuẩn của sketch: thẻ tâm 800px, ảnh trong 792×446 (16:9). */
 export const DEFAULT_GEOMETRY = Object.freeze({
   baseWidth: 744,
-  cardMargin: 2,
+  cardMargin: 3,
   containerHeight: 420,
   /** Bề rộng theo từng bước khoảng cách: tâm, ±1, ±2, ±3, rồi sàn. */
-  percentageCurve: Object.freeze([1.0, 0.3, 0.2, 0.1, 0.05]),
+  percentageCurve: Object.freeze([1.0, 0.45, 0.22, 0.1, 0.05]),
   /** Bề rộng tối thiểu (px) cho các thẻ ở rất xa tâm. */
   minWidth: 35,
   /**
@@ -33,7 +33,6 @@ export const DEFAULT_GEOMETRY = Object.freeze({
    */
   opacityCurve: Object.freeze([1, 0.9, 0.7, 0.5, 0.3, 0.1]),
 });
-
 
 /**
  * Lớp class của thẻ trong DOM. Tách ra thành biến để khi ghép vào hệ wallpaper
@@ -76,7 +75,9 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
 
     const step = Math.floor(offset);
     const t = offset - step;
-    return opacityCurve[step] + (opacityCurve[step + 1] - opacityCurve[step]) * t;
+    return (
+      opacityCurve[step] + (opacityCurve[step + 1] - opacityCurve[step]) * t
+    );
   };
 
   /**
@@ -206,7 +207,10 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
    * Compute interpolated layout mathematically at continuous index without touching DOM styles.
    */
   const computeInterpolatedLayout = (continuousIndex, count, screenCenter) => {
-    const fromIdx = Math.max(0, Math.min(Math.floor(continuousIndex), count - 1));
+    const fromIdx = Math.max(
+      0,
+      Math.min(Math.floor(continuousIndex), count - 1),
+    );
     const toIdx = Math.max(0, Math.min(Math.ceil(continuousIndex), count - 1));
     const t = continuousIndex - fromIdx;
 

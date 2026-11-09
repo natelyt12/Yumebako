@@ -86,8 +86,13 @@ export default defineConfig({
     port: 3546,
     strictPort: true,
     cors: true,
-    // HMR rides the dev server port by default, so no `server.hmr` override is
-    // needed (and `server.hmr.port` is deprecated in favour of `server.ws.*`).
+    // When running as a Chrome extension (chrome-extension://...), location.port
+    // is empty, causing Vite's HMR client to default to port 80 (ws://localhost/)
+    // and fail before falling back. Explicitly specifying the ws port ensures
+    // immediate, error-free WebSocket connection during live reload.
+    ws: {
+      port: 3546,
+    },
     watch: {
       // `temp/` is scratch space (prototypes, headless-browser profiles). Browser
       // profiles keep cache files locked, and chokidar throws EBUSY on those —

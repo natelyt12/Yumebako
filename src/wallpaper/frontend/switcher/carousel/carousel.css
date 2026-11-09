@@ -14,10 +14,10 @@
   .wallpaper_switcher {
     /* Kích thước thẻ & sân khấu */
     --base-width: 744px;
-    --card-margin: 2px;
-    /* Margin 2px để thu hẹp gap hai bên giữa các thẻ */
+    --card-margin: 3px;
+    /* Margin mỗi bên thẻ: khoảng cách (gap) giữa hai ảnh liền kề là (--card-margin * 2) = 6px */
     --container-height: 420px;
-    /* (744 - 2*2) * 9 / 16 + 2*2 ≈ 420px (tỉ lệ 16:9) */
+    /* (744 - 3*2) * 9 / 16 + 3*2 ≈ 420px (tỉ lệ 16:9) */
 
     /* Màu sân khấu: chỉ dùng khi bật accent bg. Mặc định sân khấu trong suốt để
        gradient của switcher (và chính wallpaper phía sau) lộ qua, thay vì một
@@ -30,10 +30,14 @@
     /* ── Khung ngắm: viền tĩnh, nét đứt lúc lướt và vệt quét lúc chốt thẻ ──
        Đây là SSOT duy nhất của cả hiệu ứng: CarouselEngine chỉ đọc
        `--vf-sweep-duration` để biết lúc nào chốt thẻ, không giữ bản sao nào. */
-    --vf-stroke: rgba(255, 255, 255, 0.9);
+    --vf-stroke: #ffffff;
     --vf-ring-width: 2px;
     --vf-active-scale: 1.04;
     /* <<== CHỈNH ĐỘ PHÓNG TO CỦA VIỀN KHI ĐANG LƯỚT */
+    --vf-settle-duration: 0.38s;
+    /* <<== THỜI GIAN HẠ / THU VIỀN KHUNG NGẮM */
+    --vf-settle-easing: cubic-bezier(0.34, 1.35, 0.64, 1);
+    /* <<== EASING NẢY NHẸ (MECHANICAL SPRING) KHI KHÓA CHỐT KHUNG NGẮM */
 
     /* Nét đứt: tính theo `pathLength="1000"` của vòng SVG, không phải px. */
     --vf-dash-length: 8;
@@ -125,10 +129,10 @@
     pointer-events: none;
     z-index: 25;
     box-sizing: border-box;
-    /* Fade in 0.5s với expo-out, transform chuyển đổi mượt mà khi lướt chọn thẻ */
+    /* Fade in 0.5s với expo-out, transform chuyển đổi đàn hồi khi lướt và chốt thẻ */
     transition:
       opacity 0.5s var(--expo_out),
-      transform 0.45s var(--expo_out),
+      transform var(--vf-settle-duration) var(--vf-settle-easing),
       border-color var(--vf-morph-duration) ease;
   }
 

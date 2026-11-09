@@ -163,7 +163,6 @@
     "sp.api.collection.resolutionLabel": "Resolution: {{width}}x{{height}}",
     "sp.api.collection.select_mode": "Select Mode",
     "sp.api.collection.setWallpaper": "Set as background",
-    "sp.api.collection.settings_title": "Collection Settings",
     "sp.api.collection.sizeLabel": "Size: {{size}} MB",
     "sp.api.collection.sourceLabel": "Source: {{source}}",
     "sp.api.collection.sourceLocal": "Local",

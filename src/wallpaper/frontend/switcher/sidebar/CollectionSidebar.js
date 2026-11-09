@@ -15,7 +15,6 @@ export function createCollectionSidebar({ dataControl }) {
 
     form.innerHTML = `
         <div class="source_sidebar_section">
-            <span class="source_sidebar_section_title" data-i18n="sp.api.collection.settings_title"></span>
             <label class="btn" data-action="toggle">
                 <div class="btn_body">
                     <span class="btn_title" data-i18n="sp.api.collection.video_sound"></span>

@@ -46,7 +46,7 @@ export function createManageGrid({
         <div class="manage_toolbar" hidden>
             <div class="manage_toolbar_group">
                 <button type="button" class="btn manage_toolbar_btn" data-manage-action="settings">
-                    <i data-icon="settings"></i><span data-i18n="sp.api.collection.settings_title">Cài đặt bộ sưu tập</span>
+                    <i data-icon="settings"></i><span></span>
                 </button>
             </div>
             <div class="manage_toolbar_group">
@@ -163,31 +163,18 @@ export function createManageGrid({
     window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
 
   /**
-   * Enter + FLIP animation for the grid.
-   * - A card that was not on screen fades/rises in (staggered for the first few).
+   * FLIP animation for the grid.
    * - A card that moved (a neighbour was added/removed) slides to its new slot.
+   * - New cards appear immediately without entrance animation for snappy rendering.
    * Uses the Web Animations API so no inline styles/classes are left behind.
    */
   function animateCards(cardElements, previousRects) {
-    let enterIndex = 0;
+    if (!previousRects || previousRects.size === 0) return;
+
     cardElements.forEach((cardEl) => {
       const prevRect = previousRects.get(cardEl.dataset.id);
-      if (!prevRect) {
-        const delay = Math.min(enterIndex++, 10) * 20;
-        cardEl.animate(
-          [
-            { opacity: 0, transform: "translateY(10px) scale(0.96)" },
-            { opacity: 1, transform: "translateY(0) scale(1)" },
-          ],
-          {
-            duration: 260,
-            delay,
-            easing: "cubic-bezier(0.2, 0, 0, 1)",
-            fill: "backwards",
-          },
-        );
-        return;
-      }
+      if (!prevRect) return;
+
       const nextRect = cardEl.getBoundingClientRect();
       const dx = prevRect.left - nextRect.left;
       const dy = prevRect.top - nextRect.top;
@@ -291,7 +278,7 @@ export function createManageGrid({
     const cardElements = displayItems.map((card) => buildCard(card, activeId));
     gridEl.replaceChildren(...cardElements);
     renderIcons(gridEl);
-    if (useMotion) animateCards(cardElements, previousRects);
+    if (useMotion && previousRects.size > 0) animateCards(cardElements, previousRects);
     if (isSelectMode) refreshMultiSelectionUI();
     renderDetail();
   }
@@ -520,11 +507,9 @@ export function createManageGrid({
       source.actions.some((action) => action.id === "add");
     btnAddSelected.hidden = !isSelectMode || !canAddToCollection;
 
-    const settingsLabel = isCollection
-      ? t("sp.api.collection.settings_title")
-      : t("wallpaper_switcher.extra_settings", {
-          source: source?.name || "",
-        });
+    const settingsLabel = t("wallpaper_switcher.extra_settings", {
+      source: source?.name || "",
+    });
     const settingsSpan = btnSettings.querySelector("span");
     if (settingsSpan && settingsSpan.textContent !== settingsLabel) {
       settingsSpan.textContent = settingsLabel;

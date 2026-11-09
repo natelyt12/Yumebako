@@ -163,7 +163,6 @@
     "sp.api.collection.resolutionLabel": "Độ phân giải: {{width}}x{{height}}",
     "sp.api.collection.select_mode": "Chọn nhiều",
     "sp.api.collection.setWallpaper": "Đặt làm nền",
-    "sp.api.collection.settings_title": "Cài đặt bộ sưu tập",
     "sp.api.collection.sizeLabel": "Dung lượng: {{size}} MB",
     "sp.api.collection.sourceLabel": "Nguồn: {{source}}",
     "sp.api.collection.sourceLocal": "Trên máy",
