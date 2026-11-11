@@ -1,7 +1,12 @@
 import "./bar.css";
 import { renderIcons } from "/src/core/icon.js";
 import { t } from "/src/core/i18n.js";
-import { showConfirm, openSubmenu, closeSubmenu } from "/src/core/ui.js";
+import {
+  showConfirm,
+  showNotification,
+  openSubmenu,
+  closeSubmenu,
+} from "/src/core/ui.js";
 import {
   getSettings,
   saveSettings,
@@ -15,11 +20,16 @@ import { SwitcherSidebar } from "../sidebar/SwitcherSidebar.js";
 import { createManageGrid } from "../manage/manageGrid.js";
 import {
   CUSTOMIZE_TABS,
+  EFFECT_CATALOG,
+  EFFECT_SETTING_KEYS,
   createCustomizePanel,
   hasCustomizePanel,
   openPositionEditorPopup,
 } from "../../customize/index.js";
-import { getEffectStates } from "../../customize/state.js";
+import {
+  getEffectStates,
+  getCardCustomizations,
+} from "../../customize/state.js";
 
 /** Sources whose wallpaper window is browsable/manageable in the grid. */
 const MANAGE_SOURCES = new Set([
@@ -28,39 +38,6 @@ const MANAGE_SOURCES = new Set([
   "wallhaven",
   "unsplash",
 ]);
-
-const EFFECT_DEFS = [
-  {
-    id: "arrange",
-    icon: "arrangeWallpaper",
-    labelKey: "sp.wallpaper_customization.arrange_wallpaper",
-    label: "Điều chỉnh vị trí",
-  },
-  {
-    id: "filters",
-    icon: "filterSettings",
-    labelKey: "sp.wallpaper_customization.filters",
-    label: "Bộ lọc & màu sắc",
-  },
-  {
-    id: "particles",
-    icon: "particlesSettings",
-    labelKey: "sp.wallpaper_customization.particles_settings",
-    label: "Hiệu ứng nền",
-  },
-  {
-    id: "onload",
-    icon: "onloadSettings",
-    labelKey: "sp.wallpaper_customization.onload_settings",
-    label: "Hoạt ảnh mở trang",
-  },
-  {
-    id: "wavy",
-    icon: "wavySettings",
-    labelKey: "sp.wallpaper_customization.wavy_parallax",
-    label: "Wavy + Parallax",
-  },
-];
 
 /**
  * SwitcherBar.js
@@ -136,6 +113,10 @@ export class SwitcherBar {
     this._topEffectsUnsubs = [];
     /** Active effect ids currently painted in the center top bar. */
     this._topEffectsSignature = "";
+    /** Coalesce the effect-key subscriptions into one dot refresh per tick. */
+    this._customizeDotsScheduled = false;
+    /** Coalesce the effect-key subscriptions into one top-bar refresh per tick. */
+    this._topEffectsScheduled = false;
   }
 
   /**
@@ -380,24 +361,25 @@ export class SwitcherBar {
     this.customizeBtn?.classList.add("active");
 
     const title = t("sp.wallpaper_customization.title", "Tùy chỉnh hình nền");
-    const tabsHtml =
-      `
+    const arrangeDef = EFFECT_CATALOG.find((def) => def.action);
+    const arrangeTabHtml = arrangeDef
+      ? `
         <button
           type="button"
           class="wallpaper_customize_tab customize_action_tab"
-          data-customize-action="arrange"
+          data-customize-action="${arrangeDef.id}"
         >
-          <i data-icon="arrangeWallpaper"></i>
-          <span class="wallpaper_customize_tab_label" data-i18n="sp.wallpaper_customization.arrange_wallpaper">${escapeHtml(t("sp.wallpaper_customization.arrange_wallpaper"))}</span>
-          <span class="customize_tab_dot" data-tab-dot="arrange"></span>
+          <i data-icon="${arrangeDef.icon}"></i>
+          <span class="wallpaper_customize_tab_label" data-i18n="${arrangeDef.labelKey}">${escapeHtml(t(arrangeDef.labelKey, arrangeDef.label))}</span>
+          <span class="customize_tab_dot" data-tab-dot="${arrangeDef.id}"></span>
         </button>
-      ` +
-      CUSTOMIZE_TABS.map(
-        (tab, index) => {
-          const isSelected = initialTabId
-            ? tab.id === initialTabId
-            : index === 0;
-          return `
+      `
+      : "";
+    const tabsHtml =
+      arrangeTabHtml +
+      CUSTOMIZE_TABS.map((tab, index) => {
+        const isSelected = initialTabId ? tab.id === initialTabId : index === 0;
+        return `
           <button
             type="button"
             class="wallpaper_customize_tab${isSelected ? " is-active" : ""}"
@@ -411,8 +393,7 @@ export class SwitcherBar {
             <span class="customize_tab_dot" data-tab-dot="${tab.id}"></span>
           </button>
         `;
-        },
-      ).join("");
+      }).join("");
 
     const content = `
       <div class="wallpaper_customize_submenu_header">
@@ -439,6 +420,14 @@ export class SwitcherBar {
           <div class="wallpaper_customize_tabs" role="tablist">
             ${tabsHtml}
           </div>
+          <button
+            type="button"
+            class="wallpaper_customize_reset_all"
+            id="wallpaper_customize_reset_all"
+          >
+            <i data-icon="trash"></i>
+            <span data-i18n="sp.wallpaper_customization.clear_all">${escapeHtml(t("sp.wallpaper_customization.clear_all", "Xóa toàn bộ tùy chỉnh"))}</span>
+          </button>
         </aside>
         <section
           class="wallpaper_customize_panel"
@@ -651,6 +640,11 @@ export class SwitcherBar {
       });
     });
 
+    const resetAllBtn = host.querySelector("#wallpaper_customize_reset_all");
+    resetAllBtn?.addEventListener("click", () =>
+      this._resetAllCustomizations(host, resetAllBtn),
+    );
+
     const targetTab = initialTabId
       ? tabs.find((tab) => tab.dataset.customizeTab === initialTabId)
       : null;
@@ -666,6 +660,58 @@ export class SwitcherBar {
   }
 
   /**
+   * "Xóa toàn bộ tùy chỉnh": wipe every effect category of the wallpaper being
+   * edited (position, filters, particles, onload, wavy) after confirmation,
+   * then rebuild the open panel so its controls reflect the restored defaults.
+   * @param {HTMLElement} host
+   * @param {HTMLButtonElement|null} [trigger]
+   * @private
+   */
+  async _resetAllCustomizations(host, trigger = null) {
+    if (!this.dataControl.activeCard) return;
+
+    const title = t(
+      "sp.wallpaper_customization.clear_all",
+      "Xóa toàn bộ tùy chỉnh",
+    );
+    const proceed = await showConfirm(
+      t(
+        "sp.wallpaper_customization.clear_all_confirm",
+        "Tất cả tùy chỉnh của hình nền này sẽ trở về mặc định. Tiếp tục?",
+      ),
+      {
+        title,
+        okText: t("sp.wallpaper_customization.clear_all_ok", "Xóa"),
+        isDanger: true,
+      },
+    );
+    if (!proceed) return;
+
+    if (trigger) trigger.disabled = true;
+    try {
+      await this.dataControl.resetActiveCardEffects();
+    } finally {
+      if (trigger) trigger.disabled = false;
+    }
+
+    // Rebuild the active section on the fresh defaults (also clears any dirty
+    // preview) and refresh the "has effect" indicators.
+    const activeTabId = host.querySelector(".wallpaper_customize_tab.is-active")
+      ?.dataset.customizeTab;
+    if (activeTabId) this._selectCustomizeTab(host, activeTabId);
+    this._syncCustomizeTabDots(host);
+    this.syncTopBarEffects();
+
+    showNotification(
+      t(
+        "sp.wallpaper_customization.clear_all_done",
+        "Đã xóa toàn bộ tùy chỉnh",
+      ),
+      "success",
+    );
+  }
+
+  /**
    * Keep the static "has effect" dot on each Customize tab in sync with the
    * saved settings. Dots update live after a save, never animate.
    * @param {HTMLElement} host
@@ -675,19 +721,32 @@ export class SwitcherBar {
     this._syncCustomizeTabDots(host);
     this._unbindCustomizeDots();
 
-    this._customizeDotUnsubs = [
-      "wallpaperConfig",
-      "wallpaperPosition",
-      "particles",
-      "onload",
-      "wavy",
-    ].map((key) => subscribe(key, () => this._syncCustomizeTabDots(host)));
+    this._customizeDotUnsubs = EFFECT_SETTING_KEYS.map((key) =>
+      subscribe(key, () => this._scheduleCustomizeTabDots(host)),
+    );
+  }
+
+  /**
+   * One settings save fires five effect-key subscriptions (wallpaperConfig,
+   * wallpaperPosition, particles, onload, wavy). Collapse them into a single
+   * dot refresh on the next microtask instead of recomputing five times.
+   * @param {HTMLElement} host
+   * @private
+   */
+  _scheduleCustomizeTabDots(host) {
+    if (this._customizeDotsScheduled) return;
+    this._customizeDotsScheduled = true;
+    queueMicrotask(() => {
+      this._customizeDotsScheduled = false;
+      this._syncCustomizeTabDots(host);
+    });
   }
 
   /** @private */
   _unbindCustomizeDots() {
     this._customizeDotUnsubs?.forEach((unsubscribe) => unsubscribe());
     this._customizeDotUnsubs = [];
+    this._customizeDotsScheduled = false;
   }
 
   /**
@@ -707,15 +766,25 @@ export class SwitcherBar {
    */
   bindTopBarEffects() {
     this._topEffectsUnsubs?.forEach((unsub) => unsub());
-    this._topEffectsUnsubs = [
-      "wallpaperConfig",
-      "wallpaperPosition",
-      "particles",
-      "onload",
-      "wavy",
-    ].map((key) => subscribe(key, () => this.syncTopBarEffects()));
+    this._topEffectsUnsubs = EFFECT_SETTING_KEYS.map((key) =>
+      subscribe(key, () => this._scheduleTopBarEffects()),
+    );
 
     this.syncTopBarEffects();
+  }
+
+  /**
+   * Collapse the five effect-key subscriptions fired by one settings save into
+   * a single top-bar refresh on the next microtask.
+   * @private
+   */
+  _scheduleTopBarEffects() {
+    if (this._topEffectsScheduled) return;
+    this._topEffectsScheduled = true;
+    queueMicrotask(() => {
+      this._topEffectsScheduled = false;
+      this.syncTopBarEffects();
+    });
   }
 
   /**
@@ -771,7 +840,7 @@ export class SwitcherBar {
   syncTopBarEffects(card = null) {
     if (!this.topEffectsEl) return;
     const states = getEffectStates(card?.effects);
-    const activeDefs = EFFECT_DEFS.filter((def) => Boolean(states[def.id]));
+    const activeDefs = EFFECT_CATALOG.filter((def) => Boolean(states[def.id]));
 
     // Re-rendering identical content would drop the pill's hover state (it
     // would collapse under the cursor) every time a setting that does not
@@ -1142,7 +1211,10 @@ export class SwitcherBar {
 
       this.metaCardEl.style.setProperty("--meta-expanded-w", `${finalW}px`);
       if (this.metaWrapperEl) {
-        this.metaWrapperEl.style.setProperty("--meta-expanded-w", `${finalW}px`);
+        this.metaWrapperEl.style.setProperty(
+          "--meta-expanded-w",
+          `${finalW}px`,
+        );
       }
 
       // 2. Đo chiều cao thực tế sau khi bề rộng mới đã được áp dụng
@@ -1326,19 +1398,24 @@ export class SwitcherBar {
    */
   async _handleDeleteCard(card, isPermanent, triggerBtn = null) {
     if (isPermanent) {
-      const confirmed = await showConfirm(
-        t(
-          "sp.api.collection.delete_msg",
-          "Bạn có chắc chắn muốn xóa hình nền này khỏi bộ sưu tập?",
-        ),
-        {
-          title: t("sp.api.collection.delete_title", "Xác nhận xóa"),
-          okText: t("sp.api.collection.delete_btn", "Xóa"),
-          isDanger: true,
-          anchor: triggerBtn || this.actionsContainer,
-          placement: "top-right",
-        },
+      const isActive =
+        String(this.dataControl.activeCard?.id) === String(card?.id);
+      const customs = getCardCustomizations(card, isActive);
+      let msg = t(
+        "sp.api.collection.delete_msg",
+        "Bạn có chắc chắn muốn xóa hình nền này khỏi bộ sưu tập?",
       );
+      if (customs.length > 0) {
+        const customNames = customs.map((c) => `• ${c.label}`).join("\n");
+        msg += `\n\n${t("sp.api.collection.delete_customizations_warning", "Hình nền này hiện đang sở hữu các tùy chỉnh sau:")}\n${customNames}`;
+      }
+      const confirmed = await showConfirm(msg, {
+        title: t("sp.api.collection.delete_title", "Xác nhận xóa"),
+        okText: t("sp.api.collection.delete_btn", "Xóa"),
+        isDanger: true,
+        anchor: triggerBtn || this.actionsContainer,
+        placement: "top-right",
+      });
       if (!confirmed) return;
     }
 

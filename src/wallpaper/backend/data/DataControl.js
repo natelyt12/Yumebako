@@ -5,6 +5,12 @@ import { describeFetchError } from "./errors.js";
 import { t } from "/src/core/i18n.js";
 import { updateCollectionItemEffects } from "../sources/api/collectionDb.js";
 import {
+  sortCardsByCustomizations,
+  invalidateEffectStates,
+} from "../effects/effectStates.js";
+import { applyWallpaperFilters } from "../rendering/filter.js";
+import { applyWallpaperPosition } from "../rendering/position.js";
+import {
   getSettings,
   saveSettings,
   subscribe,
@@ -1040,6 +1046,13 @@ export class DataControl {
       }
     }
 
+    // The profile was mutated in place, so its cached state is stale. Drop it
+    // before re-sorting, which reads every card's customization count.
+    invalidateEffectStates(card.effects);
+
+    // Tự động sắp xếp lại toàn bộ danh sách: nhiều tùy chỉnh nhất lên đầu
+    this.sortCurrentItems();
+
     if (this.activeSourceId) {
       await this._persistCards(this.activeSourceId, this.items);
     }
@@ -1055,7 +1068,113 @@ export class DataControl {
       }
     }
 
-    this.emit("card:effects_changed", { card, effects: card.effects });
+    this.emit("card:effects_changed", {
+      card,
+      effects: card.effects,
+      index: this.currentIndex,
+    });
+  }
+
+  /**
+   * Đặt lại toàn bộ hiệu ứng của thẻ đang hoạt động về mặc định (cả 5 nhóm:
+   * vị trí, bộ lọc, hiệu ứng nền, hoạt ảnh mở trang, wavy/parallax).
+   * Đồng bộ giá trị mặc định vào settings toàn cục để các panel và renderer
+   * cùng đọc một nguồn, rồi áp dụng ngay lên hình nền.
+   *
+   * @returns {Promise<boolean>} `true` nếu có thẻ để đặt lại.
+   */
+  async resetActiveCardEffects() {
+    const card = this.activeCard;
+    if (!card) return false;
+
+    const defaults = getDefaultWallpaperEffects();
+    card.effects = defaults;
+
+    this.sortCurrentItems();
+
+    if (this.activeSourceId) {
+      await this._persistCards(this.activeSourceId, this.items);
+    }
+
+    if (this.activeSourceId === "collection") {
+      try {
+        await updateCollectionItemEffects(card.id, card.effects);
+      } catch (err) {
+        console.error(
+          "[DataControl] Error syncing collection item effects:",
+          err,
+        );
+      }
+    }
+
+    // Ghi giá trị mặc định vào settings. Guard để các subscriber của chính
+    // DataControl không ghi ngược lại thẻ (và sắp xếp lại) lần nữa.
+    this.isApplyingCardEffects = true;
+    try {
+      const conf = getSettings().wallpaperConfig || {};
+      saveSettings({
+        wallpaperConfig: {
+          ...conf,
+          brightness: defaults.filter.brightness,
+          contrast: defaults.filter.contrast,
+          saturate: defaults.filter.saturate,
+          bloom: defaults.filter.bloom,
+          blur: defaults.filter.blur,
+        },
+        wallpaperPosition: defaults.position,
+        particles: defaults.particles,
+        wavy: defaults.wavy,
+        onload: { ...defaults.onload },
+      });
+    } finally {
+      this.isApplyingCardEffects = false;
+    }
+
+    // Bộ lọc và vị trí không có subscription áp lại; wavy và particles tự lo
+    // qua subscriber settings của chúng.
+    applyWallpaperFilters(defaults.filter);
+    applyWallpaperPosition(defaults.position);
+
+    this.emit("card:effects_changed", {
+      card,
+      effects: card.effects,
+      index: this.currentIndex,
+    });
+
+    return true;
+  }
+
+  /**
+   * Tự động sắp xếp lại `this.items` theo số lượng tùy chỉnh giảm dần.
+   * Cập nhật `this.currentIndex` tương ứng với vị trí mới của thẻ đang active.
+   */
+  sortCurrentItems() {
+    if (!Array.isArray(this.items) || this.items.length <= 1) return;
+    const currentCard = this.activeCard;
+    const activeId = currentCard?.id ?? null;
+
+    this.items = sortCardsByCustomizations(this.items, activeId);
+
+    if (currentCard) {
+      const nextIndex = this.items.findIndex(
+        (c) => String(c.id) === String(currentCard.id),
+      );
+      if (nextIndex !== -1 && nextIndex !== this.currentIndex) {
+        this.currentIndex = nextIndex;
+        this.softIndex = nextIndex;
+        if (this.activeSourceId) {
+          const sourceIndices =
+            getSettings().wallpaperSwitcher?.sourceIndices || {};
+          sourceIndices[this.activeSourceId] = this.currentIndex;
+          saveSettings({
+            wallpaperSwitcher: {
+              ...getSettings().wallpaperSwitcher,
+              sourceIndices,
+            },
+          });
+        }
+      }
+    }
   }
 
   async _persistCards(sourceId, cards) {

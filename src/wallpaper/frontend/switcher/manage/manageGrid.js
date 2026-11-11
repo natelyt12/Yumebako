@@ -2,6 +2,7 @@ import "./manage.css";
 import { t, translateDOM } from "/src/core/i18n.js";
 import { renderIcons } from "/src/core/icon.js";
 import { showConfirm, showNotification } from "/src/core/ui.js";
+import { subscribe } from "/src/core/storageHandler.js";
 import {
   formatFileSize,
   formatResolution,
@@ -13,6 +14,11 @@ import {
   isCardInCollection,
   addCardsToCollection,
 } from "../../../backend/sources/sourceActions.js";
+import {
+  getCardCustomizations,
+  sortCardsByCustomizations,
+} from "../../customize/state.js";
+import { EFFECT_SETTING_KEYS } from "../../customize/catalog.js";
 
 /**
  * manageGrid.js
@@ -33,6 +39,37 @@ import {
  * Every mutation goes through `DataControl` (`setHardIndex`, `deleteCard`) as
  * the architecture requires; no direct database access here.
  */
+
+/**
+ * Render the "applied customizations" icon strip shared by the card caption and
+ * the detail pane, so both stay visually consistent and share one markup path.
+ *
+ * @param {Array<{ id: string, icon: string, label: string }>} customs
+ * @param {Object} options
+ * @param {string}  options.containerClass - Class for the wrapper span.
+ * @param {string}  options.itemClass      - Class for each icon item span.
+ * @param {boolean} [options.containerTitle=false] - Put all labels in the wrapper title.
+ * @returns {string} HTML, or "" when there is nothing to show.
+ */
+function buildCustomizationIconsHtml(
+  customs,
+  { containerClass, itemClass, containerTitle = false },
+) {
+  if (!customs || customs.length === 0) return "";
+
+  const items = customs
+    .map(
+      (custom) =>
+        `<span class="${itemClass}" title="${escapeHtml(custom.label)}"><i data-icon="${custom.icon}"></i></span>`,
+    )
+    .join("");
+  const titleAttr = containerTitle
+    ? ` title="${escapeHtml(customs.map((custom) => custom.label).join(", "))}"`
+    : "";
+
+  return `<span class="${containerClass}"${titleAttr}>${items}</span>`;
+}
+
 export function createManageGrid({
   dataControl,
   onUpload,
@@ -113,6 +150,8 @@ export function createManageGrid({
   const selectedIds = new Set();
   /** Guards async detail renders so a stale one cannot overwrite a newer one. */
   let detailToken = 0;
+  /** Coalesces the burst of events fired by one wallpaper switch into one pass. */
+  let activeSyncScheduled = false;
   /** Rendered card ids that already exist in the personal collection. */
   let inCollectionIds = new Set();
   /** Guards async collection-membership refreshes. */
@@ -143,51 +182,45 @@ export function createManageGrid({
   /* ── Rendering ─────────────────────────────────────────────────────────── */
 
   /**
-   * Grid-only ordering. History / infinite sources append new images to the
-   * end of the store list, but the grid must surface the newest one first.
-   * Other sources keep their canonical order.
+   * Sắp xếp hình nền trong manage grid:
+   * 1. Ưu tiên các hình nền có tùy chỉnh lên đầu danh sách (từ nhiều tùy chỉnh nhất đến ít nhất).
+   * 2. Nếu cùng số lượng tùy chỉnh: giữ nguyên thứ tự cơ sở (ảnh mới nhất lên đầu với canGrow sources,
+   *    hoặc thứ tự chuẩn của nguồn).
    * @param {Array<Object>} items
    * @returns {Array<Object>}
    */
   function getGridItems(items) {
-    if (!dataControl.activeSource?.canGrow) return items;
-    const hasTimestamps = items.some((item) => Number(item?.addedAt) > 0);
-    if (!hasTimestamps) return [...items].reverse();
-    return [...items].sort(
-      (a, b) => (Number(b?.addedAt) || 0) - (Number(a?.addedAt) || 0),
+    const activeId = dataControl.activeCard?.id ?? null;
+    let baseList;
+    if (dataControl.activeSource?.canGrow) {
+      const hasTimestamps = items.some((item) => Number(item?.addedAt) > 0);
+      baseList = hasTimestamps
+        ? [...items].sort(
+            (a, b) => (Number(b?.addedAt) || 0) - (Number(a?.addedAt) || 0),
+          )
+        : [...items].reverse();
+    } else {
+      baseList = [...items];
+    }
+    return sortCardsByCustomizations(baseList, activeId);
+  }
+
+  /** True when the cards already drawn match the order computed for `items`. */
+  function gridMatchesItems() {
+    const display = getGridItems(
+      Array.isArray(dataControl.items) ? dataControl.items : [],
     );
+    const nodes = gridEl.children;
+    if (nodes.length !== display.length) return false;
+    for (let i = 0; i < display.length; i++) {
+      if (nodes[i]?.dataset?.id !== String(display[i].id)) return false;
+    }
+    return true;
   }
 
   const prefersReducedMotion = () =>
     typeof window !== "undefined" &&
     window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
-
-  /**
-   * FLIP animation for the grid.
-   * - A card that moved (a neighbour was added/removed) slides to its new slot.
-   * - New cards appear immediately without entrance animation for snappy rendering.
-   * Uses the Web Animations API so no inline styles/classes are left behind.
-   */
-  function animateCards(cardElements, previousRects) {
-    if (!previousRects || previousRects.size === 0) return;
-
-    cardElements.forEach((cardEl) => {
-      const prevRect = previousRects.get(cardEl.dataset.id);
-      if (!prevRect) return;
-
-      const nextRect = cardEl.getBoundingClientRect();
-      const dx = prevRect.left - nextRect.left;
-      const dy = prevRect.top - nextRect.top;
-      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
-      cardEl.animate(
-        [
-          { transform: `translate(${dx}px, ${dy}px)` },
-          { transform: "translate(0, 0)" },
-        ],
-        { duration: 300, easing: "cubic-bezier(0.2, 0, 0, 1)" },
-      );
-    });
-  }
 
   /** Fade the given cards out and resolve once the leave transition ends. */
   function animateCardsOut(ids) {
@@ -200,7 +233,7 @@ export function createManageGrid({
       found++;
     });
     if (found === 0 || prefersReducedMotion()) return Promise.resolve();
-    return new Promise((resolve) => setTimeout(resolve, 200));
+    return new Promise((resolve) => setTimeout(resolve, 250));
   }
 
   /** Undo a leave animation when the deletion did not go through. */
@@ -219,16 +252,6 @@ export function createManageGrid({
       : [];
     const displayItems = getGridItems(items);
     const activeId = dataControl.activeCard?.id ?? null;
-
-    // FLIP: remember where the still-visible cards sit before the rebuild, so
-    // they slide to their new slots instead of teleporting.
-    const useMotion = !prefersReducedMotion();
-    const previousRects = new Map();
-    if (useMotion && !gridEl.hidden) {
-      gridEl.querySelectorAll(".bg_coll_card").forEach((cardEl) => {
-        previousRects.set(cardEl.dataset.id, cardEl.getBoundingClientRect());
-      });
-    }
 
     cardsById.clear();
     // Membership is re-computed from the collection below; start clean so a
@@ -278,7 +301,6 @@ export function createManageGrid({
     const cardElements = displayItems.map((card) => buildCard(card, activeId));
     gridEl.replaceChildren(...cardElements);
     renderIcons(gridEl);
-    if (useMotion && previousRects.size > 0) animateCards(cardElements, previousRects);
     if (isSelectMode) refreshMultiSelectionUI();
     renderDetail();
   }
@@ -380,7 +402,14 @@ export function createManageGrid({
         : "",
     ].join("");
 
-    return `<span class="bg_coll_info_meta">${left}</span><span class="bg_coll_info_size">${escapeHtml(size)}</span>`;
+    const customs = getCardCustomizations(card, isActive);
+    const customsHtml = buildCustomizationIconsHtml(customs, {
+      containerClass: "bg_coll_info_customs",
+      itemClass: "bg_coll_info_custom_icon",
+      containerTitle: true,
+    });
+
+    return `<span class="bg_coll_info_meta">${left}</span><span class="bg_coll_info_right">${customsHtml}<span class="bg_coll_info_size">${escapeHtml(size)}</span></span>`;
   }
 
   function buildThumb(card) {
@@ -700,15 +729,34 @@ export function createManageGrid({
         ? String(dataControl.activeCard.id)
         : null;
 
-    const confirmed = await showConfirm(
-      t("sp.api.collection.bulk_delete_confirm_msg", { count }),
-      {
-        title: t("sp.api.collection.bulk_delete_confirm_title"),
-        okText: t("sp.api.collection.delete_btn"),
-        isDanger: true,
-        anchor: btnDeleteSelected,
-      },
-    );
+    const selectedCards = ids.map((id) => cardsById.get(id)).filter(Boolean);
+
+    const customizedCards = selectedCards.filter((c) => {
+      const isActive = activeId != null && String(c.id) === activeId;
+      return getCardCustomizations(c, isActive).length > 0;
+    });
+
+    const hasCustomizedCards = customizedCards.length > 0;
+
+    const msg = hasCustomizedCards
+      ? t(
+          "sp.api.collection.bulk_delete_customized_confirm_msg",
+          "Một hoặc nhiều hình nền hiện đang sử dụng các tùy chỉnh hình nền, bạn có chắc chắn muốn xóa không?",
+        )
+      : t("sp.api.collection.bulk_delete_confirm_msg", { count });
+
+    const thumbGrid = hasCustomizedCards
+      ? buildBulkDeleteThumbGrid(customizedCards)
+      : null;
+
+    const confirmed = await showConfirm(msg, {
+      title: t("sp.api.collection.bulk_delete_confirm_title"),
+      okText: t("sp.api.collection.delete_btn"),
+      isDanger: true,
+      anchor: btnDeleteSelected,
+      content: thumbGrid,
+      width: hasCustomizedCards ? "420px" : "380px",
+    });
     if (!confirmed) return;
 
     // One batched delete: a single DB write + one persisted list, mirroring
@@ -742,6 +790,52 @@ export function createManageGrid({
     }
   }
 
+  /**
+   * Builds a 3x3 thumbnail grid element previewing the selected customized wallpapers for deletion.
+   *
+   * @param {Array<Object>} cards
+   * @returns {HTMLElement}
+   */
+  function buildBulkDeleteThumbGrid(cards) {
+    const grid = document.createElement("div");
+    grid.className = "dialog_thumb_grid";
+
+    const maxSlots = 9;
+    const total = cards.length;
+    const showMore = total > maxSlots;
+    const displayCards = showMore
+      ? cards.slice(0, maxSlots - 1)
+      : cards.slice(0, maxSlots);
+
+    displayCards.forEach((card) => {
+      const item = document.createElement("div");
+      item.className = "dialog_thumb_item";
+
+      if (card.thumbnailUrl) {
+        const img = document.createElement("img");
+        img.src = card.thumbnailUrl;
+        img.alt = card.title || "";
+        img.loading = "lazy";
+        img.decoding = "async";
+        item.appendChild(img);
+      } else {
+        item.innerHTML = `<i data-icon="${isVideoCard(card) ? "videoBadge" : "imageBadge"}"></i>`;
+      }
+
+      grid.appendChild(item);
+    });
+
+    if (showMore) {
+      const moreItem = document.createElement("div");
+      moreItem.className = "dialog_thumb_item dialog_thumb_more";
+      const remaining = total - (maxSlots - 1);
+      moreItem.textContent = `+${remaining}`;
+      grid.appendChild(moreItem);
+    }
+
+    return grid;
+  }
+
   /* ── Selection & detail pane ──────────────────────────────────────────── */
 
   function selectCard(id) {
@@ -755,9 +849,24 @@ export function createManageGrid({
     renderDetail();
   }
 
+  /**
+   * Collapse the burst of events fired by a single wallpaper switch (`card:hard`
+   * followed by the renderer persisting five effect keys) into one in-place
+   * pass on the next microtask: repaint the applied markers/apply buttons and
+   * refresh the detail pane once, instead of rebuilding the grid several times.
+   */
+  function scheduleActiveSync() {
+    if (activeSyncScheduled) return;
+    activeSyncScheduled = true;
+    queueMicrotask(() => {
+      activeSyncScheduled = false;
+      syncActiveCards(dataControl.activeCard?.id ?? null);
+      renderDetail();
+    });
+  }
+
   async function renderDetail() {
     const token = ++detailToken;
-
     // Select-many mode has no preview: the pane keeps its space but is cleared.
     if (isSelectMode) {
       detailEl.setAttribute("aria-hidden", "true");
@@ -839,6 +948,27 @@ export function createManageGrid({
               value: source?.name || "",
             },
           ];
+
+    // Thêm dòng "Tùy chỉnh đang áp dụng" với các icon tương ứng
+    const activeId = dataControl.activeCard?.id ?? null;
+    const isActive = activeId != null && String(card.id) === String(activeId);
+    const customs = getCardCustomizations(card, isActive);
+
+    const customsValHtml =
+      customs.length > 0
+        ? buildCustomizationIconsHtml(customs, {
+            containerClass: "manage_detail_custom_icons",
+            itemClass: "manage_detail_custom_icon",
+          })
+        : `<span class="manage_detail_no_customs">${escapeHtml(
+            t("sp.meta.no_customizations", "Không có"),
+          )}</span>`;
+
+    rows.push({
+      label: t("sp.meta.applied_customizations", "Tùy chỉnh đang áp dụng"),
+      value: customsValHtml,
+      html: true,
+    });
 
     rows.forEach((item) => {
       if (!item || (!item.value && !item.html)) return;
@@ -942,18 +1072,22 @@ export function createManageGrid({
     }
 
     if (action.id === "remove") {
-      const confirmed = await showConfirm(
-        t(
-          "sp.api.collection.delete_msg",
-          "Bạn có chắc chắn muốn xóa hình nền này khỏi bộ sưu tập không?",
-        ),
-        {
-          title: t("sp.api.collection.delete_title", "Xác nhận xóa"),
-          okText: t("sp.api.collection.delete_btn", "Xóa"),
-          isDanger: true,
-          anchor: triggerBtn,
-        },
+      const isActive = String(dataControl.activeCard?.id) === String(card.id);
+      const customs = getCardCustomizations(card, isActive);
+      let msg = t(
+        "sp.api.collection.delete_msg",
+        "Bạn có chắc chắn muốn xóa hình nền này khỏi bộ sưu tập không?",
       );
+      if (customs.length > 0) {
+        const customNames = customs.map((c) => `• ${c.label}`).join("\n");
+        msg += `\n\n${t("sp.api.collection.delete_customizations_warning", "Hình nền này hiện đang sở hữu các tùy chỉnh sau:")}\n${customNames}`;
+      }
+      const confirmed = await showConfirm(msg, {
+        title: t("sp.api.collection.delete_title", "Xác nhận xóa"),
+        okText: t("sp.api.collection.delete_btn", "Xóa"),
+        isDanger: true,
+        anchor: triggerBtn,
+      });
       if (!confirmed) return;
     }
 
@@ -986,14 +1120,29 @@ export function createManageGrid({
   /* ── Lifecycle ────────────────────────────────────────────────────────── */
 
   const onItemsChanged = () => render();
-  // The wallpaper can also change from outside the grid (carousel settling,
-  // deletion safety-net). Repaint just the applied markers so the grid never
-  // disagrees with the desktop about which card is active.
-  const onActiveChanged = () =>
-    syncActiveCards(dataControl.activeCard?.id ?? null);
+  // The applied wallpaper or its effects can also change from outside the grid
+  // (carousel settling, the renderer persisting the new card's effects). Patch
+  // the already-drawn cards in place instead of rebuilding the grid: a rebuild
+  // replaces the hovered "Set as wallpaper" overlay (restarting its slide-in)
+  // and re-creates the detail pane several times for a single switch. Only fall
+  // back to a full render when the visual order actually changed.
+  const onActiveChanged = () => scheduleActiveSync();
+  const onEffectsChanged = () => {
+    if (!gridMatchesItems()) {
+      render();
+      return;
+    }
+    scheduleActiveSync();
+  };
+
+  const effectUnsubs = EFFECT_SETTING_KEYS.map((key) =>
+    subscribe(key, onEffectsChanged),
+  );
+
   dataControl.on("card:added", onItemsChanged);
   dataControl.on("card:deleted", onItemsChanged);
   dataControl.on("card:hard", onActiveChanged);
+  dataControl.on("card:effects_changed", onEffectsChanged);
 
   render();
 
@@ -1003,9 +1152,11 @@ export function createManageGrid({
     destroy() {
       // Unsubscribe only: the DOM must survive the panel's slide-out animation.
       // `performCloseSubmenu` clears `.submenu_body` once the motion is over.
+      effectUnsubs.forEach((unsub) => unsub());
       dataControl.off("card:added", onItemsChanged);
       dataControl.off("card:deleted", onItemsChanged);
       dataControl.off("card:hard", onActiveChanged);
+      dataControl.off("card:effects_changed", onEffectsChanged);
       dataControl.off("state:change", syncFetchState);
       cardsById.clear();
     },

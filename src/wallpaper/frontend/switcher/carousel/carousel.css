@@ -38,13 +38,15 @@
     /* <<== THỜI GIAN HẠ / THU VIỀN KHUNG NGẮM */
     --vf-settle-easing: cubic-bezier(0.34, 1.35, 0.64, 1);
     /* <<== EASING NẢY NHẸ (MECHANICAL SPRING) KHI KHÓA CHỐT KHUNG NGẮM */
-
+    --vf-transform-easing: var(--expo_out);
+    /* <<== EASING KHI KHUNG HẠ VỀ KÍCH THƯỚC NGHỈ: expo-out mượt, không nảy.
+       Lúc nở ra (đang lướt/settle) vẫn dùng spring ở biến `--vf-settle-easing`. */
     /* Nét đứt: tính theo `pathLength="1000"` của vòng SVG, không phải px. */
-    --vf-dash-length: 8;
+    --vf-dash-length: 4;
     /* <<== ĐỘ DÀI NÉT ĐỨT (có thể chỉnh tự do: 8, 10, 12, 16...) */
-    --vf-dash-gap: 5;
+    --vf-dash-gap: 4;
     /* <<== KHOẢNG CÁCH GIỮA CÁC NÉT ĐỨT (có thể chỉnh tự do: 6, 8, 10, 12...) */
-    --vf-dash-cycle: 120s;
+    --vf-dash-cycle: 200s;
     /* <<== TỐC ĐỘ CHẠY MỘT VÒNG: số giây chạy hết 1 vòng chu vi (nhỏ = nhanh, lớn = chậm) */
     --vf-morph-duration: 500ms;
 
@@ -132,7 +134,7 @@
     /* Fade in 0.5s với expo-out, transform chuyển đổi đàn hồi khi lướt và chốt thẻ */
     transition:
       opacity 0.5s var(--expo_out),
-      transform var(--vf-settle-duration) var(--vf-settle-easing),
+      transform var(--vf-settle-duration) var(--vf-transform-easing),
       border-color var(--vf-morph-duration) ease;
   }
 
@@ -197,6 +199,8 @@
   .wallpaper_switcher .carousel-viewfinder.is-moving,
   .wallpaper_switcher .carousel-viewfinder.is-settling {
     transform: translate(-50%, -50%) scale(var(--vf-active-scale));
+    /* Đang lướt/settle: nở ra bằng spring; lúc hạ về rest thì dùng expo-out. */
+    --vf-transform-easing: var(--vf-settle-easing);
   }
 
   .wallpaper_switcher .carousel-viewfinder.has-ring.is-moving,

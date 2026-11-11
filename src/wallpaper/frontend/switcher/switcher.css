@@ -215,6 +215,13 @@
     outline: none !important;
   }
 
+  /* Hold V also hides the "currently editing" thumbnail and its label, so the
+     only thing left on screen is the wallpaper itself. Layout stays put. */
+  .wallpaper_switcher_inner.wallpaper_preview_active
+    .wallpaper_customize_preview_block {
+    visibility: hidden;
+  }
+
   .wallpaper_manage_submenu_title,
   .wallpaper_customize_submenu_title {
     font-size: 15px;

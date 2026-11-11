@@ -1,5 +1,6 @@
 import { BaseSource } from "./BaseSource.js";
 import { SOURCE_ACTIONS } from "./sourceActions.js";
+import { sortCardsByCustomizations } from "../effects/effectStates.js";
 import {
   addBatchToCollection,
   getCollection,
@@ -190,12 +191,9 @@ export class CollectionSource extends BaseSource {
   }
 
   /**
-   * Collection order: videos first, then everything else.
-   *
-   * Uploads land at the end of the DB array, so a freshly uploaded video would
-   * otherwise sit far away from the top of the strip. Sorting here (the data
-   * layer) makes the carousel and the manage grid share one order. Within each
-   * group the original upload order is preserved.
+   * Thứ tự trong Collection:
+   * 1. Ưu tiên hình nền có tùy chỉnh lên đầu (từ nhiều tùy chỉnh nhất đến ít nhất).
+   * 2. Nếu cùng số lượng tùy chỉnh: video trước, sau đó đến các ảnh khác theo thứ tự thêm vào.
    * @param {Array<Object>} items
    * @returns {Array<Object>}
    */
@@ -208,7 +206,8 @@ export class CollectionSource extends BaseSource {
         item?.mediaType === "video" || Boolean(item?.type?.includes("video"));
       (isVideo ? videos : others).push(item);
     }
-    return [...videos, ...others];
+    const baseList = [...videos, ...others];
+    return sortCardsByCustomizations(baseList);
   }
 
   /**

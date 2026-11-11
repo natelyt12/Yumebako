@@ -133,6 +133,14 @@ export class WallpaperSwitcher {
       );
       this.syncEmptyState(dataControl.items.length === 0);
     });
+    dataControl.on("card:effects_changed", () => {
+      this.carousel?.syncItems(
+        this._toEngineItems(),
+        dataControl.currentIndex,
+        { silent: true, animate: false },
+      );
+      this.bar?.syncCounter();
+    });
     dataControl.on("card:added", ({ addedCards, allCards }) => {
       // Sync the carousel using syncItems so only genuinely fresh cards receive the enter animation
       const engineItems = this._toEngineItems();

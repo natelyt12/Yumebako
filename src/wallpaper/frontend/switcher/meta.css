@@ -182,7 +182,7 @@
   .wallpaper_switcher_meta_body .meta_details_list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
   }
 
   .wallpaper_switcher_meta_body .meta_stat_item {
@@ -207,22 +207,21 @@
     justify-content: space-between;
     align-items: baseline;
     gap: 12px;
-    font-size: 11.5px;
-    line-height: 1.45;
-    padding: 2px 0;
+    font-size: 13.5px;
+    line-height: 1.5;
   }
 
   .wallpaper_switcher_meta_body .meta_detail_row:not(:last-child) {
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    padding-bottom: 5px;
+    padding-bottom: 6px;
   }
 
   .wallpaper_switcher_meta_body .meta_label {
     color: var(--text-secondary);
     font-weight: 500;
-    font-size: 11px;
+    font-size: 13px;
     flex-shrink: 0;
-    min-width: 75px;
+    min-width: 85px;
     text-align: left;
   }
 
@@ -270,9 +269,9 @@
 
   .wallpaper_switcher_meta_body .meta_detail_row.is-stacked .meta_value {
     text-align: left;
-    font-size: 11px;
+    font-size: 12.5px;
     opacity: 0.88;
-    line-height: 1.4;
+    line-height: 1.45;
     white-space: normal;
     word-break: break-word;
   }

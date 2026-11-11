@@ -107,6 +107,52 @@
     white-space: pre-wrap;
   }
 
+  /* ── 3x3 Thumbnail Grid (e.g. bulk delete confirmation) ───────────────── */
+
+  .dialog_thumb_grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 14px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .dialog_thumb_item {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 6px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--glass-border-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  .dialog_thumb_item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .dialog_thumb_item svg,
+  .dialog_thumb_item i[data-icon] {
+    width: 20px;
+    height: 20px;
+    color: var(--text-muted);
+  }
+
+  .dialog_thumb_more {
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
   .dialog_actions {
     display: flex;
     flex-direction: row;

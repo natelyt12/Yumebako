@@ -1,110 +1,42 @@
 import {
-  getSettings,
-  getDefaultWallpaperEffects,
-} from "/src/core/storageHandler.js";
+  getEffectStates,
+  countCardCustomizations,
+  sortCardsByCustomizations,
+} from "../../backend/effects/effectStates.js";
+import { EFFECT_CATALOG } from "./catalog.js";
+import { t } from "/src/core/i18n.js";
+
+export { getEffectStates, countCardCustomizations, sortCardsByCustomizations };
 
 /**
- * Shared state helpers for the Customize panels.
+ * Returns a list of customizations currently applied to a wallpaper card that differ from defaults.
  *
- * - `getEffectStates()` tells which Customize tab currently has a non-default
- *   effect configuration, so the tab list can show a static indicator dot.
- * - `createSaveState()` tracks the value snapshot from the last save and keeps
- *   the panel's Save button disabled while the current values still match it.
+ * @param {Object} card
+ * @param {boolean} [isActive=false] - Whether this card is the currently active desktop wallpaper
+ * @returns {Array<{ id: string, icon: string, label: string }>}
  */
+export function getCardCustomizations(card, isActive = false) {
+  if (!card) return [];
+  // Prefer the card's own effect profile: it is the authoritative and immediate
+  // source, and it is already populated for the active card. Reading the global
+  // settings first would show the *previous* wallpaper's icons during a switch,
+  // until the renderer finishes persisting the new card's effects.
+  const effects = card.effects || card.raw?.effects;
+  const states = effects
+    ? getEffectStates(effects)
+    : isActive
+      ? getEffectStates()
+      : null;
 
-const FILTER_KEYS = ["brightness", "contrast", "saturate", "bloom", "blur"];
+  if (!states) return [];
 
-// `advanced` is a view preference (the section is always visible now) and
-// `enabled` is not used by the onload engine, so neither marks the tab.
-const ONLOAD_KEYS = [
-  "preset",
-  "zoom",
-  "rotate",
-  "blur",
-  "speed",
-  "overlay_speed",
-  "bg_easing",
-  "widget_immediate",
-];
-
-// `motions`, `scale`, `motionType`… are irrelevant for the dot: a Wavy tab only
-// counts as "added" when one of its two master switches is on.
-
-function sameValue(a, b) {
-  if (typeof a === "number" || typeof b === "number") {
-    const na = Number(a);
-    const nb = Number(b);
-    if (!Number.isFinite(na) && !Number.isFinite(nb)) return true;
-    return na === nb;
-  }
-  if (a && b && typeof a === "object") {
-    return JSON.stringify(a) === JSON.stringify(b);
-  }
-  return a === b;
-}
-
-function differs(source = {}, defaults = {}, keys) {
-  return keys.some((key) => !sameValue(source[key], defaults[key]));
-}
-
-function filtersAdded(settings, defaults) {
-  return differs(settings.wallpaperConfig || {}, defaults.filter, FILTER_KEYS);
-}
-
-function particlesAdded(settings) {
-  const particles = settings.particles || {};
-  // Only the two master switches matter; individual effects are irrelevant.
-  return particles.dynamicEnabled === true || particles.staticEnabled === true;
-}
-
-function onloadAdded(settings, defaults) {
-  return differs(settings.onload || {}, defaults.onload, ONLOAD_KEYS);
-}
-
-function wavyAdded(settings) {
-  const wavy = settings.wavy || {};
-  // Same rule as particles: only the Wavy / Parallax switches count.
-  return wavy.enabled === true || wavy.parallaxEnabled === true;
-}
-
-function arrangeAdded(settings, defaults) {
-  const position = settings.wallpaperPosition || {};
-  return differs(position, defaults.position, ["x", "y", "zoom", "mode"]);
-}
-
-/** Which Customize tabs currently hold a non-default ("added") effect. */
-export function getEffectStates(effects = null) {
-  const defaults = getDefaultWallpaperEffects();
-
-  // Card-level effects (`card.effects`) are what the renderer is *about to*
-  // write into the settings, but that write only happens once the new image has
-  // decoded. Reading the card directly lets the UI paint the right icons on the
-  // same frame the card settles, instead of flashing the previous set.
-  if (effects) {
-    return effectStatesFor(
-      {
-        wallpaperConfig: { ...defaults.filter, ...(effects.filter || {}) },
-        wallpaperPosition: { ...defaults.position, ...(effects.position || {}) },
-        wavy: { ...defaults.wavy, ...(effects.wavy || {}) },
-        particles: effects.particles || {},
-        onload: { ...defaults.onload, ...(effects.onload || {}) },
-      },
-      defaults,
-    );
-  }
-
-  return effectStatesFor(getSettings(), defaults);
-}
-
-/** @param {Object} settings @param {Object} defaults */
-function effectStatesFor(settings, defaults) {
-  return {
-    arrange: arrangeAdded(settings, defaults),
-    filters: filtersAdded(settings, defaults),
-    particles: particlesAdded(settings),
-    onload: onloadAdded(settings, defaults),
-    wavy: wavyAdded(settings),
-  };
+  // The catalog owns the display order, icon and labels; here we only keep the
+  // categories whose state is active.
+  return EFFECT_CATALOG.filter((def) => states[def.id]).map((def) => ({
+    id: def.id,
+    icon: def.icon,
+    label: t(def.labelKey, def.label),
+  }));
 }
 
 /** Structural comparison used for save snapshots. */

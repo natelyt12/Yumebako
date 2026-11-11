@@ -23,7 +23,8 @@ export function showConfirm(msg, options = {}) {
         okText = t("common.confirm", "Đồng ý"),
         cancelText = t("common.cancel", "Hủy"),
         isDanger = false,
-        width = "380px"
+        width = "380px",
+        content = null
     } = options;
 
     return new Promise((resolve) => {
@@ -53,6 +54,13 @@ export function showConfirm(msg, options = {}) {
                 <button id="dialog_ok_btn" class="btn"${isDanger ? ' data-variant="danger"' : ""}>${okText}</button>
             </div>
         `;
+
+        const bodyEl = card.querySelector(".dialog_body");
+        if (content instanceof HTMLElement) {
+            bodyEl?.appendChild(content);
+        } else if (typeof content === "string" && content) {
+            bodyEl?.insertAdjacentHTML("beforeend", content);
+        }
 
         container.appendChild(card);
         root.append(backdrop, container);
@@ -144,7 +152,8 @@ export function showAlert(msg, options = {}) {
     const {
         title = t("common.notice", "Thông báo"),
         okText = t("common.close", "Đóng"),
-        width = "380px"
+        width = "380px",
+        content = null
     } = options;
 
     return new Promise((resolve) => {
@@ -173,6 +182,13 @@ export function showAlert(msg, options = {}) {
                 <button id="dialog_ok_btn" class="btn">${okText}</button>
             </div>
         `;
+
+        const bodyEl = card.querySelector(".dialog_body");
+        if (content instanceof HTMLElement) {
+            bodyEl?.appendChild(content);
+        } else if (typeof content === "string" && content) {
+            bodyEl?.insertAdjacentHTML("beforeend", content);
+        }
 
         container.appendChild(card);
         root.append(backdrop, container);

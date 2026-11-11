@@ -6,32 +6,14 @@ import { createWavyPanel } from "./panels/wavy/index.js";
 
 export { openPositionEditorPopup } from "./panels/arrange/index.js";
 
-export const CUSTOMIZE_TABS = [
-  {
-    id: "filters",
-    icon: "filterSettings",
-    labelKey: "sp.wallpaper_customization.filters",
-    label: "Bộ lọc & màu sắc",
-  },
-  {
-    id: "particles",
-    icon: "particlesSettings",
-    labelKey: "sp.wallpaper_customization.particles_settings",
-    label: "Hiệu ứng nền",
-  },
-  {
-    id: "onload",
-    icon: "onloadSettings",
-    labelKey: "sp.wallpaper_customization.onload_settings",
-    label: "Hoạt ảnh mở trang",
-  },
-  {
-    id: "wavy",
-    icon: "wavySettings",
-    labelKey: "sp.wallpaper_customization.wavy_parallax",
-    label: "Wavy + Parallax",
-  },
-];
+// The effect catalog is the single source of truth for ids/icons/labels used by
+// the top-bar chips, the Customize tabs and every icon list in the switcher.
+export {
+  EFFECT_CATALOG,
+  EFFECT_IDS,
+  EFFECT_SETTING_KEYS,
+  CUSTOMIZE_TABS,
+} from "./catalog.js";
 
 const PANEL_FACTORIES = {
   filters: createFiltersPanel,
