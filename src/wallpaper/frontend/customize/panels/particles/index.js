@@ -383,10 +383,41 @@ export class EffectsEditorUI {
 
     specs.forEach((spec) => {
       const isColor = spec.type === "color";
+      const isToggle = spec.type === "toggle";
       const itemWrapper = document.createElement("div");
       itemWrapper.className = "flex_col gap_4 w_full";
 
-      if (isColor) {
+      if (isToggle) {
+        const toggle = createButton({
+          title: spec.label,
+          dataI18n: spec.dataI18n,
+          desc: spec.desc,
+          action: "toggle",
+          checked: Boolean(
+            effectData.config[spec.key] ?? spec.defaultValue ?? false,
+          ),
+        });
+        const input = toggle.querySelector('input[type="checkbox"]');
+        input.addEventListener("change", () => {
+          const val = input.checked;
+          effectData.config[spec.key] = val;
+          this.engine.updateEffectConfig(effectData.id, layer, {
+            [spec.key]: val,
+          });
+          this.isDirty = true;
+          setSubmenuDirty(true);
+        });
+        itemWrapper.appendChild(toggle);
+        // Reset-to-defaults writes through `.value`, like sliders and colors.
+        sliders[spec.key] = {
+          get value() {
+            return input.checked;
+          },
+          set value(next) {
+            input.checked = Boolean(next);
+          },
+        };
+      } else if (isColor) {
         const picker = createButton({
           icon: "colorPicker",
           title: spec.label,

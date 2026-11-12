@@ -75,6 +75,7 @@
     "particles.dust.count": "Mật độ bụi",
     "particles.dust.label": "Bụi lơ lửng",
     "particles.dust.opacity": "Độ mờ",
+    "particles.dust.reverse": "Đảo ngược chiều bay",
     "particles.dust.size": "Kích thước hạt",
     "particles.dust.speed": "Tốc độ bay",
     "particles.dust.tip_angle": "Độ nghiêng hướng gió: số âm thổi lệch trái, số dương thổi lệch phải.",

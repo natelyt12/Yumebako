@@ -75,6 +75,7 @@
     "particles.dust.count": "Dust Density",
     "particles.dust.label": "Floating Dust",
     "particles.dust.opacity": "Opacity",
+    "particles.dust.reverse": "Reverse flight direction",
     "particles.dust.size": "Particle Size",
     "particles.dust.speed": "Flying Speed",
     "particles.dust.tip_angle": "Wind drift: negative tilts left, positive tilts right.",

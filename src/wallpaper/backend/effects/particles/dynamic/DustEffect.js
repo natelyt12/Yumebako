@@ -158,6 +158,8 @@ export class DustEffect extends ParticleEffect {
         twinkle: 1.0,
         beam: 0.5,
         color: "#dce1e6",
+        // Flip the whole drift: motes fall and travel the opposite way.
+        reverse: false,
     };
 
     _cfg(key) {
@@ -246,6 +248,9 @@ export class DustEffect extends ParticleEffect {
         const speed = this._cfg("speed");
         const twinkle = this._cfg("twinkle");
         const targetWind = this._cfg("angle") / 10;
+        // Reversing flips only the vertical travel: motes sink instead of rise.
+        // The wind (horizontal) keeps its direction.
+        const dirY = this._cfg("reverse") === true ? -1 : 1;
 
         // Frame-rate independent step, normalized to 60fps (prevents 2x speed on 120Hz screens).
         const now = performance.now();
@@ -283,7 +288,7 @@ export class DustEffect extends ParticleEffect {
             p.vy += (ty - p.vy) * inertia;
 
             p.x += (p.vx * speed + this.currentWind * p.windSensitivity) * dt;
-            p.y += p.vy * speed * dt;
+            p.y += p.vy * speed * dirY * dt;
 
             p.twPhase += p.twSpeed * dt;
             if (p.glint > 0) {
@@ -380,13 +385,15 @@ export class DustEffect extends ParticleEffect {
 
     static getSettingsSpec() {
         return [
+            // Row 1: the direction toggle leads, the color button balances the row.
+            { key: "reverse", type: "toggle", dataI18n: "particles.dust.reverse", label: t("particles.dust.reverse"), defaultValue: DustEffect.DEFAULTS.reverse },
+            { key: "color", type: "color", dataI18n: "particles.dust.color", label: t("particles.dust.color") },
             { key: "count", dataI18n: "particles.dust.count", label: t("particles.dust.count"), min: 100, max: 2000, step: 20, unit: t("unit.particles"), dataI18nUnit: "unit.particles" },
             { key: "speed", dataI18n: "particles.dust.speed", label: t("particles.dust.speed"), min: 0.1, max: 5, step: 0.1, unit: "x" },
             { key: "size", dataI18n: "particles.dust.size", label: t("particles.dust.size"), min: 0.1, max: 3.0, step: 0.1, unit: "x" },
             { key: "opacity", dataI18n: "particles.dust.opacity", label: t("particles.dust.opacity"), min: 0.1, max: 2, step: 0.1, unit: "x" },
             { key: "angle", dataI18n: "particles.dust.angle", label: t("particles.dust.angle"), tooltipKey: "particles.dust.tip_angle", min: -10, max: 10, step: 1, unit: "°" },
             { key: "twinkle", dataI18n: "particles.dust.twinkle", label: t("particles.dust.twinkle"), tooltipKey: "particles.dust.tip_twinkle", min: 0, max: 2, step: 0.1, unit: "x", defaultValue: DustEffect.DEFAULTS.twinkle },
-            { key: "color", type: "color", dataI18n: "particles.dust.color", label: t("particles.dust.color") }
         ];
     }
 }
