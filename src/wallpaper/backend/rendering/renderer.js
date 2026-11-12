@@ -117,7 +117,10 @@ class WallpaperRenderer {
 
     // Áp dụng bộ hiệu ứng riêng của hình nền này trong lúc overlay đang che kín màn hình
     const effects = data.effects || getDefaultWallpaperEffects();
-    applyWallpaperFilters(effects.filter);
+    const isVideo = data.type === "video";
+    // Filter.js reads this to skip bloom on video wallpapers everywhere.
+    document.body.dataset.wallpaperType = isVideo ? "video" : "image";
+    applyWallpaperFilters(effects.filter, { isVideo });
     applyWallpaperPosition(effects.position);
 
     dataControl.isApplyingCardEffects = true;
@@ -136,7 +139,8 @@ class WallpaperRenderer {
           brightness: effects.filter?.brightness ?? 1,
           contrast: effects.filter?.contrast ?? 1,
           saturate: effects.filter?.saturate ?? 1,
-          bloom: effects.filter?.bloom ?? 0,
+          // Bloom is image-only: videos always run with it off.
+          bloom: isVideo ? 0 : effects.filter?.bloom ?? 0,
           blur: effects.filter?.blur ?? 0,
           mode: effects.position?.mode || currentConf.mode || "cover",
         },
@@ -158,8 +162,7 @@ class WallpaperRenderer {
 
       document.querySelectorAll(".video").forEach((v) => {
         v.style.display = "block";
-        const isBloom = v.parentElement?.classList.contains("bloom_container");
-        v.muted = isBloom || !soundEnabled;
+        v.muted = !soundEnabled;
         v.volume = volume;
         if (newBlobUrl) {
           v.src = newBlobUrl;
@@ -277,8 +280,7 @@ export function updateVideoAudio(config = getSettings().collectionConfig) {
   const soundEnabled = Boolean(config?.videoSound);
   const volume = Math.max(0, Math.min(1, config?.videoVolume ?? 1));
   document.querySelectorAll(".video").forEach((v) => {
-    const isBloom = v.parentElement?.classList.contains("bloom_container");
-    v.muted = isBloom || !soundEnabled;
+    v.muted = !soundEnabled;
     v.volume = volume;
   });
 }

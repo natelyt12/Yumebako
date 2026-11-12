@@ -227,7 +227,7 @@ export class BaseSource {
    * @returns {CardItem}
    */
   toCarouselItem(raw, overrides = {}) {
-    return {
+    const item = {
       id: String(raw?.id ?? ""),
       source: this.id,
       url: "",
@@ -248,6 +248,15 @@ export class BaseSource {
         : getDefaultWallpaperEffects(),
       ...overrides,
     };
+
+    // Bloom is image-only. Old profiles may still carry a value, so drop it for
+    // videos on the way in — the effect chips and the editor then read a clean
+    // profile instead of advertising an effect that is never rendered.
+    if (item.mediaType === "video" && item.effects?.filter) {
+      item.effects.filter.bloom = 0;
+    }
+
+    return item;
   }
 
   /** Create (and track) an object URL for a blob, or null if not a blob. */

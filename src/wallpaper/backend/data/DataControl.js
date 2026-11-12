@@ -1167,6 +1167,12 @@ export class DataControl {
       }
     }
 
+    // Bloom is image-only: a video profile never carries it, whichever surface
+    // pushed the filter values (settings subscription or the editor).
+    if (card.mediaType === "video" && card.effects.filter) {
+      card.effects.filter.bloom = 0;
+    }
+
     // The profile was mutated in place, so its cached state is stale. Drop it
     // before re-sorting, which reads every card's customization count.
     invalidateEffectStates(card.effects);

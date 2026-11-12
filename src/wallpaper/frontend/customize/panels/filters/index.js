@@ -60,9 +60,10 @@ const HEAVY_SPECS = [
  *
  * Live preview writes straight to the wallpaper media; only Save persists.
  *
+ * @param {{ isVideo?: boolean }} [options]
  * @returns {{ el: HTMLElement, isDirty: () => boolean, revert: () => void }}
  */
-export function createFiltersPanel() {
+export function createFiltersPanel({ isVideo = false } = {}) {
   const config = getSettings().wallpaperConfig || {};
 
   const template = document.createElement("template");
@@ -94,16 +95,20 @@ export function createFiltersPanel() {
 
   STANDARD_SPECS.forEach(renderSpec);
 
-  const heavyTitle = document.createElement("p");
-  heavyTitle.className = "wallpaper_filter_group_title";
-  heavyTitle.dataset.i18n = "sp.wallpaper_customization.heavy_effects";
-  heavyTitle.textContent = t(
-    "sp.wallpaper_customization.heavy_effects",
-    "Hiệu ứng nặng",
-  );
-  slidersHost.appendChild(heavyTitle);
+  // Bloom is a blurred copy of the media, which makes no sense for a playing
+  // video — videos get no bloom control at all.
+  if (!isVideo) {
+    const heavyTitle = document.createElement("p");
+    heavyTitle.className = "wallpaper_filter_group_title";
+    heavyTitle.dataset.i18n = "sp.wallpaper_customization.heavy_effects";
+    heavyTitle.textContent = t(
+      "sp.wallpaper_customization.heavy_effects",
+      "Hiệu ứng nặng",
+    );
+    slidersHost.appendChild(heavyTitle);
 
-  HEAVY_SPECS.forEach(renderSpec);
+    HEAVY_SPECS.forEach(renderSpec);
+  }
 
   const divider = document.createElement("div");
   divider.className = "section_divider";
@@ -148,11 +153,11 @@ export function createFiltersPanel() {
   const setPreview = () => {
     const config = readConfig();
     syncDirty(saveState.sync(config));
-    applyFilterConfig(config);
+    applyFilterConfig(config, { isVideo });
   };
 
   const revert = () => {
-    applyWallpaperFilters();
+    applyWallpaperFilters(undefined, { isVideo });
     syncDirty(false);
   };
 
@@ -168,6 +173,8 @@ export function createFiltersPanel() {
 
   saveBtn.addEventListener("click", () => {
     const config = readConfig();
+    // Videos never carry bloom, even if the shared settings had a value.
+    if (isVideo) config.bloom = 0;
     saveSettings({
       wallpaperConfig: {
         ...(getSettings().wallpaperConfig || {}),
@@ -177,7 +184,7 @@ export function createFiltersPanel() {
     saveState.markSaved(config);
     showNotification(t("common.saved_changes"), "success");
     syncDirty(false);
-    applyWallpaperFilters();
+    applyWallpaperFilters(undefined, { isVideo });
   });
 
   return { el, isDirty: () => isDirty, revert };

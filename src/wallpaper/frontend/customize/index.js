@@ -26,6 +26,11 @@ export function hasCustomizePanel(id) {
   return Boolean(PANEL_FACTORIES[id]);
 }
 
-export function createCustomizePanel(id) {
-  return PANEL_FACTORIES[id]?.() || null;
+/**
+ * @param {string} id - Panel id from `CUSTOMIZE_TABS`.
+ * @param {{ isVideo?: boolean }} [context] - Media facts the panel needs to
+ *   offer only the controls that make sense for the wallpaper being edited.
+ */
+export function createCustomizePanel(id, context = {}) {
+  return PANEL_FACTORIES[id]?.(context) || null;
 }

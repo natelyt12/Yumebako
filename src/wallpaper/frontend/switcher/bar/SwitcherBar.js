@@ -991,7 +991,9 @@ export class SwitcherBar {
     this._customizePanel = null;
     panelHost.replaceChildren();
 
-    const panel = createCustomizePanel(tabId);
+    const panel = createCustomizePanel(tabId, {
+      isVideo: this.dataControl.activeCard?.mediaType === "video",
+    });
     if (!panel) {
       const tabDef = CUSTOMIZE_TABS.find((t) => t.id === tabId);
       const placeholder = document.createElement("div");
