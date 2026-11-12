@@ -44,6 +44,7 @@ const STANDARD_SPECS = [
 ];
 
 // Everything under here is expensive to render/composite, hence the divider.
+// `imageOnly` entries are skipped for video wallpapers.
 const HEAVY_SPECS = [
   {
     id: "bloom",
@@ -52,6 +53,15 @@ const HEAVY_SPECS = [
     max: 100,
     step: 10,
     unit: "%",
+    imageOnly: true,
+  },
+  {
+    id: "rgbShift",
+    labelKey: "sp.wallpaper_customization.rgb_shift",
+    min: 0,
+    max: 20,
+    step: 1,
+    unit: "px",
   },
 ];
 
@@ -96,8 +106,11 @@ export function createFiltersPanel({ isVideo = false } = {}) {
   STANDARD_SPECS.forEach(renderSpec);
 
   // Bloom is a blurred copy of the media, which makes no sense for a playing
-  // video — videos get no bloom control at all.
-  if (!isVideo) {
+  // video — it gets no bloom control at all. RGB shift works on both media.
+  const heavySpecs = HEAVY_SPECS.filter(
+    (spec) => !(isVideo && spec.imageOnly),
+  );
+  if (heavySpecs.length > 0) {
     const heavyTitle = document.createElement("p");
     heavyTitle.className = "wallpaper_filter_group_title";
     heavyTitle.dataset.i18n = "sp.wallpaper_customization.heavy_effects";
@@ -107,7 +120,7 @@ export function createFiltersPanel({ isVideo = false } = {}) {
     );
     slidersHost.appendChild(heavyTitle);
 
-    HEAVY_SPECS.forEach(renderSpec);
+    heavySpecs.forEach(renderSpec);
   }
 
   const divider = document.createElement("div");

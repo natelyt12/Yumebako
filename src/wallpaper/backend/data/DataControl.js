@@ -217,6 +217,7 @@ export class DataControl {
           contrast: conf.contrast,
           saturate: conf.saturate,
           bloom: conf.bloom,
+          rgbShift: conf.rgbShift,
         },
       });
     });
@@ -1228,6 +1229,7 @@ export class DataControl {
           contrast: defaults.filter.contrast,
           saturate: defaults.filter.saturate,
           bloom: defaults.filter.bloom,
+          rgbShift: defaults.filter.rgbShift,
           blur: defaults.filter.blur,
         },
         wallpaperPosition: defaults.position,

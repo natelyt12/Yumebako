@@ -14,6 +14,7 @@ import { initDate, initClock } from "/src/core/time.js";
  * @property {number}      contrast            - CSS filter: contrast multiplier (1 = normal).
  * @property {number}      saturate            - CSS filter: saturate multiplier (1 = normal).
  * @property {number}      bloom               - Bloom intensity (0–1 range).
+ * @property {number}      rgbShift            - Chromatic aberration offset in px (0 = off).
  * @property {string}      mode                - Object-fit mode: "cover" | "contain" | "fill" | "none".
  */
 
@@ -152,7 +153,14 @@ const WALLPAPER_KEYS = [
 export function getDefaultWallpaperEffects() {
   return {
     position: { x: 50, y: 50, zoom: 1, mode: "cover" },
-    filter: { brightness: 1, blur: 0, contrast: 1, saturate: 1, bloom: 0 },
+    filter: {
+      brightness: 1,
+      blur: 0,
+      contrast: 1,
+      saturate: 1,
+      bloom: 0,
+      rgbShift: 0,
+    },
     wavy: {
       enabled: false,
       parallaxEnabled: false,
@@ -211,6 +219,7 @@ const defaultSettings = {
     contrast: 1,
     saturate: 1,
     bloom: 0,
+    rgbShift: 0,
     mode: "cover",
   },
   // Standalone Wallpaper Switcher (Alt + W) browsing state.

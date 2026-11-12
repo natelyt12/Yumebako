@@ -141,6 +141,7 @@ class WallpaperRenderer {
           saturate: effects.filter?.saturate ?? 1,
           // Bloom is image-only: videos always run with it off.
           bloom: isVideo ? 0 : effects.filter?.bloom ?? 0,
+          rgbShift: effects.filter?.rgbShift ?? 0,
           blur: effects.filter?.blur ?? 0,
           mode: effects.position?.mode || currentConf.mode || "cover",
         },

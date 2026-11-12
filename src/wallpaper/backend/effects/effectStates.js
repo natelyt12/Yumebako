@@ -3,7 +3,14 @@ import {
   getDefaultWallpaperEffects,
 } from "/src/core/storageHandler.js";
 
-const FILTER_KEYS = ["brightness", "contrast", "saturate", "bloom", "blur"];
+const FILTER_KEYS = [
+  "brightness",
+  "contrast",
+  "saturate",
+  "bloom",
+  "blur",
+  "rgbShift",
+];
 const ONLOAD_KEYS = [
   "preset",
   "zoom",

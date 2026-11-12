@@ -368,6 +368,7 @@
     "sp.wallpaper_customization.onload_settings": "Startup Animation",
     "sp.wallpaper_customization.parallax_settings_tooltip": "Wallpaper moves along with your cursor",
     "sp.wallpaper_customization.particles_settings": "Background Effects",
+    "sp.wallpaper_customization.rgb_shift": "RGB Shift",
     "sp.wallpaper_customization.saturate": "Saturation",
     "sp.wallpaper_customization.title": "Customize this wallpaper",
     "sp.wallpaper_customization.toggle_parallax": "Parallax Effect",

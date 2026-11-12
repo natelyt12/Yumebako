@@ -368,6 +368,7 @@
     "sp.wallpaper_customization.onload_settings": "Hoạt ảnh mở trang",
     "sp.wallpaper_customization.parallax_settings_tooltip": "Hình nền sẽ di chuyển theo hướng rê chuột của bạn để tạo cảm giác không gian đa chiều",
     "sp.wallpaper_customization.particles_settings": "Hiệu ứng nền",
+    "sp.wallpaper_customization.rgb_shift": "Độ lệch RGB",
     "sp.wallpaper_customization.saturate": "Độ bão hòa",
     "sp.wallpaper_customization.title": "Tùy chỉnh hình nền này",
     "sp.wallpaper_customization.toggle_parallax": "Hiệu ứng Parallax",
