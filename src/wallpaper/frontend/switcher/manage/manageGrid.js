@@ -230,6 +230,57 @@ export function createManageGrid({
     typeof window !== "undefined" &&
     window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
 
+  const GRID_MOTION_EASE = "cubic-bezier(0.2, 0, 0, 1)";
+  /** True once the grid has been painted, so its first paint stays static. */
+  let gridHasPainted = false;
+
+  /**
+   * Enter + FLIP animation for the grid.
+   * - A card that was not on screen rises/fades in (staggered for the first few).
+   * - A card that moved (a neighbour was added, removed or re-sorted) slides to
+   *   its new slot instead of teleporting.
+   * Uses the Web Animations API so no inline styles/classes are left behind.
+   *
+   * @param {HTMLElement[]} cardElements
+   * @param {Map<string, DOMRect>} previousRects
+   */
+  function animateCards(cardElements, previousRects) {
+    let enterIndex = 0;
+    cardElements.forEach((cardEl) => {
+      const prevRect = previousRects.get(cardEl.dataset.id);
+
+      if (!prevRect) {
+        const delay = Math.min(enterIndex++, 10) * 20;
+        cardEl.animate(
+          [
+            { opacity: 0, transform: "translateY(10px) scale(0.96)" },
+            { opacity: 1, transform: "translateY(0) scale(1)" },
+          ],
+          {
+            duration: 260,
+            delay,
+            easing: GRID_MOTION_EASE,
+            fill: "backwards",
+          },
+        );
+        return;
+      }
+
+      const nextRect = cardEl.getBoundingClientRect();
+      const dx = prevRect.left - nextRect.left;
+      const dy = prevRect.top - nextRect.top;
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+
+      cardEl.animate(
+        [
+          { transform: `translate(${dx}px, ${dy}px)` },
+          { transform: "translate(0, 0)" },
+        ],
+        { duration: 300, easing: GRID_MOTION_EASE },
+      );
+    });
+  }
+
   /** Fade the given cards out and resolve once the leave transition ends. */
   function animateCardsOut(ids) {
     const wanted = new Set(ids.map(String));
@@ -260,6 +311,17 @@ export function createManageGrid({
       : [];
     const displayItems = getGridItems(items);
     const activeId = dataControl.activeCard?.id ?? null;
+
+    // FLIP: remember where the still-visible cards sat before the rebuild, so
+    // they slide to their new slots instead of teleporting. Skipped on the very
+    // first paint, where there is nothing to move away from.
+    const useMotion = !prefersReducedMotion() && gridHasPainted;
+    const previousRects = new Map();
+    if (useMotion && !gridEl.hidden) {
+      gridEl.querySelectorAll(".bg_coll_card").forEach((cardEl) => {
+        previousRects.set(cardEl.dataset.id, cardEl.getBoundingClientRect());
+      });
+    }
 
     cardsById.clear();
     // Membership is re-computed from the collection below; start clean so a
@@ -299,6 +361,7 @@ export function createManageGrid({
       emptyEl.hidden = false;
       gridEl.hidden = true;
       gridEl.replaceChildren();
+      gridHasPainted = true;
       renderDetail();
       return;
     }
@@ -309,6 +372,8 @@ export function createManageGrid({
     const cardElements = displayItems.map((card) => buildCard(card, activeId));
     gridEl.replaceChildren(...cardElements);
     renderIcons(gridEl);
+    if (useMotion) animateCards(cardElements, previousRects);
+    gridHasPainted = true;
     if (isSelectMode) refreshMultiSelectionUI();
     renderDetail();
   }
@@ -652,6 +717,9 @@ export function createManageGrid({
 
   /* ── Collection membership (star marker + bulk add) ───────────────────── */
 
+  /** Cards that already had a star at the last marker pass (animation baseline). */
+  let paintedMarkIds = null;
+
   /**
    * Fetch the collection once, mark which rendered cards already live in it,
    * then repaint the captions so a star sits next to the applied check.
@@ -665,6 +733,7 @@ export function createManageGrid({
 
     if (!supportsAdd) {
       inCollectionIds = new Set();
+      paintedMarkIds = null;
       return;
     }
 
@@ -682,8 +751,34 @@ export function createManageGrid({
     cardsById.forEach((card, id) => {
       if (isCardInCollection(card, source, collection)) next.add(id);
     });
+
+    // Only stars that just appeared get the pop; the first pass has no
+    // baseline, so opening the grid stays calm.
+    const justMarked = paintedMarkIds
+      ? [...next].filter((id) => !paintedMarkIds.has(id))
+      : [];
     inCollectionIds = next;
+    paintedMarkIds = next;
     patchCardInfo();
+    animateCollectionMarks(justMarked);
+  }
+
+  /** One-shot pop on the stars that just appeared (card saved to collection). */
+  function animateCollectionMarks(ids) {
+    if (ids.length === 0 || prefersReducedMotion()) return;
+
+    const wanted = new Set(ids.map(String));
+    gridEl.querySelectorAll(".bg_coll_card").forEach((cardEl) => {
+      if (!wanted.has(cardEl.dataset.id)) return;
+      const star = cardEl.querySelector(".bg_coll_info_star");
+      if (!star) return;
+      star.classList.add("is-just-added");
+      star.addEventListener(
+        "animationend",
+        () => star.classList.remove("is-just-added"),
+        { once: true },
+      );
+    });
   }
 
   /** Repaint every caption from the current active + stored state. */
