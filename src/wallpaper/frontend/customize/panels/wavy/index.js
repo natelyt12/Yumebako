@@ -3,7 +3,9 @@ import "./style.css";
 import panelTemplateHtml from "./template.html?raw";
 import {
   confirmReset,
+  createButton,
   createSlider,
+  Drawer,
   initButtons,
   setDropdownValue,
   setSubmenuDirty,
@@ -22,9 +24,6 @@ import {
   getWavyController,
 } from "../../../../backend/effects/motion/WavyEngine.js";
 import { createSaveState } from "../../state.js";
-
-/** Motion spec groups that move the wallpaper along an axis. */
-const AXIS_GROUP_IDS = new Set(["x", "y", "rot"]);
 
 /** Random value inside a spec's range, snapped to its step. */
 function randomInRange(min, max, step) {
@@ -88,7 +87,9 @@ export function createWavyPanel() {
     parallaxEnabled: savedWavy().parallaxEnabled === true,
     motionType: startConfig.motionType || DEFAULT_MOTION,
     scale: Number(startConfig.scale) || sharedDefaults.scale,
-    advanced: startConfig.advanced === true,
+    // The advanced stack always lives in its own drawer now, so the flag that
+    // used to gate it is permanently on (same contract as the onload panel).
+    advanced: true,
     motions: cloneData(startConfig.motions),
     parallaxAmplitude: Number(
       startConfig.parallaxAmplitude ?? sharedDefaults.parallaxAmplitude ?? -30,
@@ -164,18 +165,22 @@ export function createWavyPanel() {
     "wavy_panel_enabled",
   );
 
-  const advancedToggle = toggleRow(
-    "wavy.advanced_settings",
-    null,
-    "wavy_panel_advanced",
-  );
+  // The advanced controls live in a drawer, opened by a plain centred button.
+  const advancedBtn = createButton({
+    icon: "particlesSettings",
+    title: t("wavy.advanced_settings", "Cài đặt nâng cao"),
+    dataI18n: "wavy.advanced_settings",
+    onClick: () => getAdvancedDrawer().open(),
+  });
+  advancedBtn.classList.add("wavy_advanced_btn");
 
   const motionSelect = document.createElement("select");
   motionSelect.className = "native_select";
   motionSelect.id = "wavy_panel_motion_type";
 
+  // Two-column grid, exactly like the background-effect drawers.
   const motionSliders = document.createElement("div");
-  motionSliders.className = "wallpaper_wavy_slider_list";
+  motionSliders.className = "ui_drawer_grid_2col";
 
   const motionTooltip = document.createElement("span");
   motionTooltip.className = "tooltip";
@@ -184,21 +189,71 @@ export function createWavyPanel() {
 
   const randomBtn = document.createElement("button");
   randomBtn.type = "button";
-  randomBtn.className = "btn w_full";
+  randomBtn.className = "btn flex_1";
   randomBtn.dataset.i18n = "wavy.btn_random";
   randomBtn.textContent = t("wavy.btn_random", "Ngẫu nhiên");
 
-  const advancedSection = document.createElement("div");
-  advancedSection.className = "wallpaper_wavy_advanced";
-  advancedSection.append(motionSliders, motionTooltip, randomBtn);
+  /** Lazily built drawer that hosts the advanced motion parameters. */
+  let advancedDrawer = null;
+
+  function getAdvancedDrawer() {
+    if (advancedDrawer) return advancedDrawer;
+
+    const host =
+      el.closest(".wallpaper_switcher_inner") ||
+      document.querySelector(".wallpaper_switcher_inner") ||
+      document.body;
+
+    advancedDrawer = new Drawer({
+      container: host,
+      title: t("wavy.advanced_settings", "Cài đặt nâng cao"),
+      width: "720px",
+      placement: "right",
+      triggerBtn: advancedBtn,
+    });
+
+    const body = document.createElement("div");
+    body.className = "wallpaper_wavy_advanced";
+    body.append(motionTooltip, motionSliders);
+
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "btn flex_1";
+    closeBtn.textContent = t("common.close", "Đóng");
+    closeBtn.addEventListener("click", () => advancedDrawer.close());
+
+    // Back to the generator's own defaults, without touching parallax/scale
+    // (those live in the panel, not in this drawer).
+    const defaultBtn = document.createElement("button");
+    defaultBtn.type = "button";
+    defaultBtn.className = "btn flex_1";
+    defaultBtn.textContent = t("wavy.btn_default", "Mặc định");
+    defaultBtn.addEventListener("click", () => {
+      const { MotionClass, stored } = activeMotion();
+      Object.entries(MotionClass.DEFAULTS || {}).forEach(([key, value]) => {
+        stored[key] = value;
+        if (motionSliderMap[key]) motionSliderMap[key].value = value;
+      });
+      wavy?.reseed();
+      applyLivePreview();
+    });
+
+    const footerRow = document.createElement("div");
+    footerRow.style.cssText = "display:flex;gap:12px;width:100%";
+    footerRow.append(defaultBtn, randomBtn, closeBtn);
+
+    advancedDrawer.setBody(body);
+    advancedDrawer.setFooter(footerRow);
+
+    return advancedDrawer;
+  }
 
   const wavyContent = document.createElement("div");
   wavyContent.className = "wallpaper_wavy_content";
   wavyContent.append(
     sectionTitle("wavy.motion_type_label", "Kiểu chuyển động"),
     motionSelect,
-    advancedToggle.label,
-    advancedSection,
+    advancedBtn,
   );
 
   // ── Structure: Side-by-side Sections ─────────────────────────────────────
@@ -362,55 +417,33 @@ export function createWavyPanel() {
 
     const { MotionClass, stored } = activeMotion();
     const resolved = resolveMotionConfig(working.motionType, stored);
+    const motionDefaults = MotionClass.DEFAULTS || {};
 
-    const groups = [];
+    // One cell per parameter: the drawer is the 2-column grid, so pairs land
+    // side by side in spec order (amplitude/speed, rotation, spring…).
     MotionClass.getSettingsSpec().forEach((spec) => {
-      const groupId = spec.group || spec.key;
-      const current = groups[groups.length - 1];
-      if (!current || current.id !== groupId) {
-        groups.push({ id: groupId, specs: [spec] });
-      } else {
-        current.specs.push(spec);
-      }
-    });
-
-    const axisColumn = document.createElement("div");
-    axisColumn.className = "wallpaper_slider_col";
-    const shapeColumn = document.createElement("div");
-    shapeColumn.className = "wallpaper_slider_col";
-
-    groups.forEach((group) => {
-      const groupEl = document.createElement("div");
-      groupEl.className = "wavy_control_group";
-
-      group.specs.forEach((spec) => {
-        const { item, slider } = sliderItem(
-          {
-            label: spec.label,
-            dataI18n: spec.dataI18n,
-            min: spec.min,
-            max: spec.max,
-            step: spec.step,
-            value: resolved[spec.key] ?? spec.defaultValue,
-            defaultValue: spec.defaultValue,
-            unit: spec.unit,
-            onChange: (value) => {
-              stored[spec.key] = value;
-              applyLivePreview();
-            },
+      const { item, slider } = sliderItem(
+        {
+          label: spec.label,
+          dataI18n: spec.dataI18n,
+          min: spec.min,
+          max: spec.max,
+          step: spec.step,
+          value: resolved[spec.key] ?? motionDefaults[spec.key],
+          // The generator owns the true defaults; without them the reset
+          // button has nothing meaningful to go back to.
+          defaultValue: motionDefaults[spec.key] ?? resolved[spec.key],
+          unit: spec.unit,
+          onChange: (value) => {
+            stored[spec.key] = value;
+            applyLivePreview();
           },
-          spec.tooltipKey,
-        );
-        motionSliderMap[spec.key] = slider;
-        groupEl.appendChild(item);
-      });
-
-      const column = AXIS_GROUP_IDS.has(group.id) ? axisColumn : shapeColumn;
-      column.appendChild(groupEl);
+        },
+        spec.tooltipKey,
+      );
+      motionSliderMap[spec.key] = slider;
+      motionSliders.appendChild(item);
     });
-
-    motionSliders.appendChild(axisColumn);
-    if (shapeColumn.childElementCount) motionSliders.appendChild(shapeColumn);
   };
 
   const renderParallaxSliders = () => {
@@ -476,9 +509,7 @@ export function createWavyPanel() {
   const syncControls = () => {
     wavyEnabledToggle.input.checked = working.enabled;
     parallaxEnabledToggle.input.checked = working.parallaxEnabled;
-    advancedToggle.input.checked = working.advanced;
     setDropdownValue(motionSelect, working.motionType);
-    advancedSection.classList.toggle("hidden", !working.advanced);
     applyEnabledVisibility();
   };
 
@@ -528,7 +559,7 @@ export function createWavyPanel() {
     working.parallaxEnabled = savedWavy().parallaxEnabled === true;
     working.motionType = startConfig.motionType || DEFAULT_MOTION;
     working.scale = Number(startConfig.scale) || sharedDefaults.scale;
-    working.advanced = startConfig.advanced === true;
+    working.advanced = true;
     working.motions = cloneData(startConfig.motions);
     working.parallaxAmplitude = Number(
       startConfig.parallaxAmplitude ?? sharedDefaults.parallaxAmplitude ?? -30,
@@ -601,21 +632,6 @@ export function createWavyPanel() {
     });
   });
 
-  advancedToggle.input.addEventListener("change", () => {
-    working.advanced = advancedToggle.input.checked;
-    advancedSection.classList.toggle("hidden", !working.advanced);
-
-    startConfig.advanced = working.advanced;
-    wavy?.updateConfig({ advanced: working.advanced });
-    const wavyData = savedWavy();
-    saveSettings({
-      wavy: {
-        ...wavyData,
-        config: { ...(wavyData.config || {}), advanced: working.advanced },
-      },
-    });
-  });
-
   motionSelect.addEventListener("change", (e) => {
     working.motionType = e.target.value || DEFAULT_MOTION;
     renderMotionSliders();
@@ -667,5 +683,13 @@ export function createWavyPanel() {
   saveState.markSaved(snapshot());
   syncDirty(false);
 
-  return { el, isDirty: () => isDirty, revert };
+  return {
+    el,
+    isDirty: () => isDirty,
+    revert,
+    dispose() {
+      advancedDrawer?.destroy?.();
+      advancedDrawer = null;
+    },
+  };
 }

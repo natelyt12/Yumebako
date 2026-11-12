@@ -29,6 +29,17 @@
     min-width: 0;
   }
 
+  /* Advanced-settings opener: a normal button, centred like an action button. */
+  .wallpaper_wavy_content .wavy_advanced_btn {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .wallpaper_wavy_content .wavy_advanced_btn .btn_body {
+    align-items: center;
+    text-align: center;
+  }
+
   /* Too narrow for two columns (Settings fallback, small viewports): stack
      them back into a single column. */
   @media (max-width: 1024px) {
