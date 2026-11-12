@@ -102,7 +102,7 @@ export function openPositionEditorPopup(options = {}) {
     dataI18n: "bg_editor.pos_x_label",
     min: 0,
     max: 100,
-    step: 0.001,
+    step: 0.01,
     value: parseFloat(currentState.x ?? DEFAULT_STATE.x),
     defaultValue: DEFAULT_STATE.x,
     unit: "%",
@@ -117,7 +117,7 @@ export function openPositionEditorPopup(options = {}) {
     dataI18n: "bg_editor.pos_y_label",
     min: 0,
     max: 100,
-    step: 0.001,
+    step: 0.01,
     value: parseFloat(currentState.y ?? DEFAULT_STATE.y),
     defaultValue: DEFAULT_STATE.y,
     unit: "%",
@@ -241,8 +241,8 @@ export function openPositionEditorPopup(options = {}) {
       nextY = clampPercent(originY - (dyPx * 100) / overflowY);
     }
 
-    currentState.x = parseFloat(nextX.toFixed(3));
-    currentState.y = parseFloat(nextY.toFixed(3));
+    currentState.x = parseFloat(nextX.toFixed(2));
+    currentState.y = parseFloat(nextY.toFixed(2));
 
     sliderX.value = currentState.x;
     sliderY.value = currentState.y;
@@ -352,8 +352,8 @@ export function openPositionEditorPopup(options = {}) {
   // 10. Apply & Save action
   hud.querySelector("#hud_btn_apply")?.addEventListener("click", () => {
     const finalState = {
-      x: parseFloat(currentState.x.toFixed(3)),
-      y: parseFloat(currentState.y.toFixed(3)),
+      x: parseFloat(currentState.x.toFixed(2)),
+      y: parseFloat(currentState.y.toFixed(2)),
       zoom: parseFloat(currentState.zoom.toFixed(4)),
       mode: currentState.mode || "cover",
     };

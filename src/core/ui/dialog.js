@@ -106,6 +106,12 @@ export function showConfirm(msg, options = {}) {
         initButtons(card);
         renderIcons(card);
 
+        // Commit the hidden state (opacity 0 / scale .92) before `.visible`
+        // lands. Without this flush the browser never sees the starting style
+        // when the dialog is inserted and shown in the same frame (first open),
+        // so the entrance transition is skipped and the card just pops in.
+        void root.offsetWidth;
+
         requestAnimationFrame(() => {
             root.classList.add("visible");
             const defaultBtn = isDanger
@@ -227,6 +233,9 @@ export function showAlert(msg, options = {}) {
         translateDOM(card);
         initButtons(card);
         renderIcons(card);
+
+        // Same entrance-transition flush as `showConfirm` above.
+        void root.offsetWidth;
 
         requestAnimationFrame(() => {
             root.classList.add("visible");

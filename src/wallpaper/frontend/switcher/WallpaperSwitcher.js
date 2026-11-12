@@ -606,12 +606,10 @@ export class WallpaperSwitcher {
       if (document.body.classList.contains("wallpaper_position_editing"))
         return;
 
-      const inner = this.container?.querySelector(".wallpaper_switcher_inner");
-      if (
-        inner?.classList.contains("submenu_active") ||
-        this.container?.classList.contains("submenu_active")
-      ) {
-        if (e.key === "Escape") {
+      if (this.hasActiveSubmenu()) {
+        // Esc only backs out of the submenu; Alt+W and the carousel keys must
+        // not tear down the switcher underneath it.
+        if (e.key === "Escape" || e.key === "Esc") {
           e.preventDefault();
           attemptCloseSubmenu();
         }
@@ -682,14 +680,23 @@ export class WallpaperSwitcher {
     });
   }
 
+  /**
+   * True while the manage/customize submenu owns the switcher view. Alt+W and
+   * Esc must then act on the submenu instead of the carousel underneath it.
+   * @returns {boolean}
+   */
+  hasActiveSubmenu() {
+    const inner = this.container?.querySelector(".wallpaper_switcher_inner");
+    return Boolean(
+      inner?.classList.contains("submenu_active") ||
+        this.container?.classList.contains("submenu_active"),
+    );
+  }
+
   close() {
     if (!this.isOpen) return;
     this.isOpen = false;
-    const inner = this.container?.querySelector(".wallpaper_switcher_inner");
-    if (
-      inner?.classList.contains("submenu_active") ||
-      this.container?.classList.contains("submenu_active")
-    ) {
+    if (this.hasActiveSubmenu()) {
       closeSubmenu(true);
     }
     this.bar?.closeSidebar?.();

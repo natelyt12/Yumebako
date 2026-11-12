@@ -135,11 +135,6 @@
     color: var(--text-primary);
   }
 
-  .effect_card_controls .effect_btn_edit.active {
-    opacity: 1;
-    color: #ffffff;
-  }
-
   /* Delete Button - màu đỏ sẵn, giữ nguyên mã màu khi hover chỉ tăng opacity lên 1 */
   .effect_card_controls .effect_btn_delete {
     color: #f87171;

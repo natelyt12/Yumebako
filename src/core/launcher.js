@@ -97,6 +97,9 @@ export async function start() {
   document.addEventListener("keydown", (e) => {
     if (e.altKey && e.code === "KeyW") {
       e.preventDefault();
+      // While the manage/customize submenu is open, Alt+W must not tear the
+      // carousel down: Esc (or the submenu's close button) backs out first.
+      if (wallpaperSwitcher.hasActiveSubmenu()) return;
       wallpaperSwitcher.toggle();
       return;
     }

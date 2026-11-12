@@ -17,8 +17,10 @@ import { confirmReset } from "./dialog.js";
  * @param {number} options.min - Minimum value
  * @param {number} options.max - Maximum value
  * @param {number} options.step - Increment step
- * @param {number} options.value - Initial value
- * @param {number} options.defaultValue - Default value to reset to
+ * @param {number} [options.value] - Initial value (defaults to `min`)
+ * @param {number} [options.defaultValue] - Value the reset button restores
+ *   (defaults to the initial value, so reset never lands on an arbitrary
+ *   number that the track then clamps to its max)
  * @param {string} options.unit - Unit to display next to the number input (e.g. "%", "px", "deg", "s", "x")
  * @param {string} [options.dataI18n] - i18n translation key for the label
  * @param {string} [options.dataI18nUnit] - i18n translation key for the unit
@@ -33,8 +35,8 @@ export function createSlider({
   min = 0,
   max = 100,
   step = 1,
-  value = 50,
-  defaultValue = 50,
+  value = undefined,
+  defaultValue = undefined,
   unit = "",
   dataI18nUnit = null,
   disabled = false,
@@ -47,14 +49,17 @@ export function createSlider({
     Number.isFinite(parseFloat(step)) && parseFloat(step) > 0
       ? parseFloat(step)
       : 1;
-  const defaultVal =
-    defaultValue !== undefined && Number.isFinite(parseFloat(defaultValue))
-      ? parseFloat(defaultValue)
-      : minVal;
   const initialRawVal =
     value !== undefined && Number.isFinite(parseFloat(value))
       ? parseFloat(value)
-      : defaultVal;
+      : minVal;
+  // Without an explicit reset target the slider returns to the value it opened
+  // with. The old `50` placeholder clamped to the track's max on narrow ranges
+  // (e.g. 0.1…4), which read as "reset jumps to the maximum".
+  const defaultVal =
+    defaultValue !== undefined && Number.isFinite(parseFloat(defaultValue))
+      ? parseFloat(defaultValue)
+      : initialRawVal;
 
   const getDecimals = (n) => {
     const str = String(n);
