@@ -4,9 +4,11 @@ import {
   setSubmenuDirty,
   showNotification,
   createSlider,
+  createButton,
   initButtons,
   confirmReset,
   showConfirm,
+  Drawer,
 } from "/src/core/ui.js";
 import { t, translateDOM } from "/src/core/i18n.js";
 import { getSettings, saveSettings } from "/src/core/storageHandler.js";
@@ -34,6 +36,8 @@ export class EffectsEditorUI {
     this.columnLists = {};
     this.saveBtn = null;
     this.savedSnapshot = null;
+    this.drawer = null;
+    this.activeEffectId = null;
 
     // Every `isDirty = true` assignment refreshes the Save button, so it stays
     // disabled while the working state still matches the last save.
@@ -107,10 +111,23 @@ export class EffectsEditorUI {
       btnSave.addEventListener("click", () => this._handleSave());
     }
 
+    const panelEl = this.clone.firstElementChild;
+
+    // Pre-mount the drawer off-screen so the initial slide-in animation is never skipped
+    requestAnimationFrame(() => {
+      const host =
+        panelEl?.closest?.(".wallpaper_switcher_inner") ||
+        document.querySelector(".wallpaper_switcher_inner");
+      if (host) {
+        this._getDrawer(host);
+      }
+    });
+
     return {
-      el: this.clone.firstElementChild,
+      el: panelEl,
       isDirty: () => this.isDirty,
       revert: () => {
+        this.drawer?.close();
         if (!this.isDirty) return;
         const savedData = getSettings().particles || {
           enabled: true,
@@ -159,19 +176,27 @@ export class EffectsEditorUI {
       layer === "dynamic"
         ? "particles.toggle_dynamic"
         : "particles.toggle_static";
-    toggleTitle.textContent = t(toggleTitle.dataset.i18n);
+    toggleTitle.textContent =
+      layer === "dynamic"
+        ? t("particles.toggle_dynamic")
+        : t("particles.toggle_static");
 
-    const toggleSubtitle = document.createElement("span");
-    toggleSubtitle.className = "btn_desc";
-    toggleSubtitle.dataset.i18n =
+    const toggleDesc = document.createElement("span");
+    toggleDesc.className = "btn_desc";
+    toggleDesc.dataset.i18n =
       layer === "dynamic"
         ? "particles.toggle_dynamic_subtitle"
         : "particles.toggle_static_subtitle";
-    toggleSubtitle.textContent = t(toggleSubtitle.dataset.i18n);
-    toggleBody.append(toggleTitle, toggleSubtitle);
+    toggleDesc.textContent =
+      layer === "dynamic"
+        ? t("particles.toggle_dynamic_subtitle")
+        : t("particles.toggle_static_subtitle");
+
+    toggleBody.append(toggleTitle, toggleDesc);
 
     const masterToggleInput = document.createElement("input");
     masterToggleInput.type = "checkbox";
+    masterToggleInput.className = "master_toggle_input";
     masterToggleInput.checked = this.workingState[`${layer}Enabled`] !== false;
 
     masterToggleLabel.append(toggleBody, masterToggleInput);
@@ -183,19 +208,25 @@ export class EffectsEditorUI {
 
     const addArea = this._buildAddArea(layer, list);
 
-    masterToggleInput.onchange = (e) => {
-      const newState = e.target.checked;
-      this.workingState[`${layer}Enabled`] = newState;
+    masterToggleInput.onchange = () => {
+      const isEnabled = masterToggleInput.checked;
+      this.workingState[`${layer}Enabled`] = isEnabled;
       this.isDirty = true;
       setSubmenuDirty(true);
-      if (newState) {
+
+      if (isEnabled) {
         list.style.opacity = "1";
         list.style.pointerEvents = "auto";
         addArea.style.opacity = "1";
         addArea.style.pointerEvents = "auto";
         (this.workingState[layer] || []).forEach((effect) => {
           if (effect.enabled !== false) {
-            this.engine.addEffect(effect.id, layer, effect.type, effect.config);
+            this.engine.addEffect(
+              effect.id,
+              layer,
+              effect.type,
+              effect.config,
+            );
           }
         });
       } else {
@@ -206,6 +237,9 @@ export class EffectsEditorUI {
         (this.workingState[layer] || []).forEach((effect) => {
           this.engine.removeEffect(effect.id, layer);
         });
+        if (this.drawer?.isOpen) {
+          this.drawer.close();
+        }
       }
     };
 
@@ -221,6 +255,7 @@ export class EffectsEditorUI {
 
     return col;
   }
+
   _buildAddArea(layer, list) {
     const area = document.createElement("div");
     area.className = "dropdown_wrapper";
@@ -271,16 +306,192 @@ export class EffectsEditorUI {
     return area;
   }
 
+  /**
+   * Lazily initializes or resolves the Drawer instance.
+   * @param {HTMLElement} [anchorElement]
+   * @returns {Drawer}
+   * @private
+   */
+  _getDrawer(anchorElement) {
+    const host =
+      anchorElement?.closest?.(".wallpaper_switcher_inner") ||
+      document.querySelector(".wallpaper_switcher_inner") ||
+      document.body;
+
+    if (!this.drawer) {
+      this.drawer = new Drawer({
+        container: host,
+        title: "",
+        width: "720px",
+        placement: "right",
+        onClose: () => {
+          this.activeEffectId = null;
+          this.clone
+            ?.querySelectorAll?.(".effect_btn_edit.active")
+            ?.forEach((b) => b.classList.remove("active"));
+        },
+      });
+    } else if (this.drawer.container !== host && host) {
+      this.drawer.container = host;
+      host.appendChild(this.drawer.overlayEl);
+      host.appendChild(this.drawer.drawerEl);
+    }
+
+    return this.drawer;
+  }
+
+  /**
+   * Opens the reusable Drawer with a 2-column grid layout for tweaking effect parameters.
+   * @param {Object} effectData
+   * @param {"dynamic"|"static"} layer
+   * @param {HTMLElement} triggerBtn
+   * @private
+   */
+  _openEffectDrawer(effectData, layer, triggerBtn) {
+    const drawer = this._getDrawer(triggerBtn);
+
+    // If currently open for the exact same effect, toggle close
+    if (drawer.isOpen && this.activeEffectId === effectData.id) {
+      drawer.close();
+      return;
+    }
+
+    this.activeEffectId = effectData.id;
+    drawer.triggerBtn = triggerBtn;
+
+    // Refresh active state on buttons
+    document
+      .querySelectorAll(".effect_btn_edit.active")
+      .forEach((b) => b.classList.remove("active"));
+    triggerBtn?.classList.add("active");
+
+    // Title: e.g. "Tùy chỉnh hiệu ứng — Bụi lơ lửng"
+    const effectName =
+      t(`particles.${effectData.type}.label`) || effectData.type;
+    const title = `${t("particles.effect_settings", "Tùy chỉnh hiệu ứng")} — ${effectName}`;
+    drawer.setTitle(title);
+
+    // Dynamic width: 720px with 2-column grid
+    drawer.setWidth("720px");
+
+    const grid = document.createElement("div");
+    grid.className = "ui_drawer_grid_2col";
+
+    const EffectClass = ALL_EFFECTS[effectData.type];
+    const specs = EffectClass?.getSettingsSpec() || [];
+    const sliders = {};
+
+    specs.forEach((spec) => {
+      const isColor = spec.type === "color";
+      const itemWrapper = document.createElement("div");
+      itemWrapper.className = "flex_col gap_4 w_full";
+
+      if (isColor) {
+        const picker = createButton({
+          icon: "colorPicker",
+          title: spec.label,
+          dataI18n: spec.dataI18n,
+          action: "color",
+          value: effectData.config[spec.key] ?? EffectClass.DEFAULTS?.[spec.key],
+          onChange: (val) => {
+            effectData.config[spec.key] = val;
+            this.engine.updateEffectConfig(effectData.id, layer, {
+              [spec.key]: val,
+            });
+            this.isDirty = true;
+            setSubmenuDirty(true);
+          },
+        });
+        renderIcons(picker);
+        itemWrapper.appendChild(picker);
+        sliders[spec.key] = picker;
+      } else {
+        const initialVal = effectData.config[spec.key] ?? spec.defaultValue;
+        const sliderComponent = createSlider({
+          label: spec.label,
+          dataI18n: spec.dataI18n,
+          dataI18nUnit: spec.dataI18nUnit,
+          min: spec.min,
+          max: spec.max,
+          step: spec.step,
+          value: initialVal,
+          defaultValue: spec.defaultValue ?? EffectClass.DEFAULTS?.[spec.key],
+          unit: spec.unit,
+          onChange: (val) => {
+            effectData.config[spec.key] = val;
+            this.engine.updateEffectConfig(effectData.id, layer, {
+              [spec.key]: val,
+            });
+            this.isDirty = true;
+            setSubmenuDirty(true);
+          },
+        });
+        itemWrapper.appendChild(sliderComponent);
+        sliders[spec.key] = sliderComponent;
+      }
+
+      if (spec.tooltipKey || spec.tooltip) {
+        const tooltip = document.createElement("span");
+        tooltip.className = "tooltip";
+        if (spec.tooltipKey) {
+          tooltip.dataset.i18n = spec.tooltipKey;
+          tooltip.textContent = t(spec.tooltipKey);
+        } else {
+          tooltip.textContent = spec.tooltip;
+        }
+        itemWrapper.appendChild(tooltip);
+      }
+
+      grid.appendChild(itemWrapper);
+    });
+
+    drawer.setBody(grid);
+
+    // Footer actions: Reset to defaults & Close
+    const footerRow = document.createElement("div");
+    footerRow.style.display = "flex";
+    footerRow.style.justifyContent = "space-between";
+    footerRow.style.alignItems = "center";
+    footerRow.style.gap = "12px";
+
+    const btnResetEffect = document.createElement("button");
+    btnResetEffect.type = "button";
+    btnResetEffect.className = "btn";
+    btnResetEffect.innerHTML = `<span class="btn_title">${t("particles.btn_reset_effect", "Đặt lại mặc định")}</span>`;
+    btnResetEffect.onclick = async () => {
+      if (!(await confirmReset())) return;
+      const defaults = { ...(EffectClass.DEFAULTS || {}) };
+
+      for (const [key, val] of Object.entries(defaults)) {
+        if (sliders[key]) {
+          sliders[key].value = val;
+        }
+        effectData.config[key] = val;
+      }
+      this.engine.updateEffectConfig(effectData.id, layer, defaults);
+      this.isDirty = true;
+      setSubmenuDirty(true);
+      showNotification(t("particles.reset_success"), "success");
+    };
+
+    const btnDone = document.createElement("button");
+    btnDone.type = "button";
+    btnDone.className = "btn";
+    btnDone.innerHTML = `<span class="btn_title">${t("common.close", "Đóng")}</span>`;
+    btnDone.onclick = () => drawer.close();
+
+    footerRow.append(btnResetEffect, btnDone);
+    drawer.setFooter(footerRow);
+
+    drawer.open();
+  }
+
   _buildEffectCard(effectData, layer) {
     const card = document.createElement("div");
-    card.className = "effect_card";
+    card.className = "btn effect_card";
     if (effectData.enabled === false) {
       card.classList.add("effect_disabled");
     }
-
-    // Header row
-    const header = document.createElement("div");
-    header.className = "effect_card_header";
 
     const nameEl = document.createElement("span");
     nameEl.className = "effect_card_name";
@@ -300,72 +511,7 @@ export class EffectsEditorUI {
       return b;
     };
 
-    // Inline Drawer for Sliders
-    const drawer = document.createElement("div");
-    drawer.className = "effect_card_drawer";
-
-    const drawerContent = document.createElement("div");
-    drawerContent.className = "effect_card_drawer_content";
-
-    const EffectClass = ALL_EFFECTS[effectData.type];
-    const specs = EffectClass?.getSettingsSpec() || [];
-
-    const sliders = {};
-    specs.forEach((spec) => {
-      const initialVal = effectData.config[spec.key] ?? spec.defaultValue;
-      const sliderComponent = createSlider({
-        label: spec.label,
-        dataI18n: spec.dataI18n,
-        dataI18nUnit: spec.dataI18nUnit,
-        min: spec.min,
-        max: spec.max,
-        step: spec.step,
-        value: initialVal,
-        defaultValue: spec.defaultValue ?? EffectClass.DEFAULTS?.[spec.key],
-        unit: spec.unit,
-        onChange: (val) => {
-          effectData.config[spec.key] = val;
-          this.engine.updateEffectConfig(effectData.id, layer, {
-            [spec.key]: val,
-          });
-          this.isDirty = true;
-          setSubmenuDirty(true);
-        },
-      });
-      drawerContent.appendChild(sliderComponent);
-      sliders[spec.key] = sliderComponent;
-    });
-
-    // Action row inside drawer: Reset to Defaults
-    const drawerActions = document.createElement("div");
-    drawerActions.style.display = "flex";
-    drawerActions.style.justifyContent = "flex-end";
-    drawerActions.style.marginTop = "4px";
-
-    const btnResetEffect = document.createElement("button");
-    btnResetEffect.textContent = t("particles.btn_reset_effect");
-    btnResetEffect.onclick = async (e) => {
-      e.stopPropagation();
-      if (!(await confirmReset())) return;
-      const defaults = { ...(EffectClass.DEFAULTS || {}) };
-
-      for (const [key, val] of Object.entries(defaults)) {
-        if (sliders[key]) {
-          sliders[key].value = val;
-        }
-        effectData.config[key] = val;
-      }
-      this.engine.updateEffectConfig(effectData.id, layer, defaults);
-      this.isDirty = true;
-      setSubmenuDirty(true);
-      showNotification(t("particles.reset_success"), "success");
-    };
-
-    drawerActions.appendChild(btnResetEffect);
-    drawerContent.appendChild(drawerActions);
-    drawer.appendChild(drawerContent);
-
-    // Action buttons: Delete, then Edit (Pencil), then Checkbox Toggle on the far right
+    // Action buttons: Delete, Edit (Pencil), Checkbox Toggle
     const btnDelete = makeBtn(Icons.particleDelete, async () => {
       const confirmed = await showConfirm(
         t("particles.delete_confirm_msg") ||
@@ -379,6 +525,10 @@ export class EffectsEditorUI {
       );
       if (!confirmed) return;
 
+      if (this.activeEffectId === effectData.id) {
+        this.drawer?.close();
+      }
+
       const arr = this.workingState[layer];
       const idx = arr.findIndex((e) => e.id === effectData.id);
       if (idx >= 0) arr.splice(idx, 1);
@@ -391,12 +541,7 @@ export class EffectsEditorUI {
     btnDelete.title = t("common.delete") || "Xóa";
 
     const btnEdit = makeBtn(Icons.particleEdit, () => {
-      const isOpen = drawer.classList.toggle("open");
-      if (isOpen) {
-        btnEdit.classList.add("active");
-      } else {
-        btnEdit.classList.remove("active");
-      }
+      this._openEffectDrawer(effectData, layer, btnEdit);
     });
     btnEdit.className = "effect_btn_edit";
     btnEdit.title = t("common.edit") || "Chỉnh sửa";
@@ -439,12 +584,20 @@ export class EffectsEditorUI {
       } else {
         this.engine.removeEffect(effectData.id, layer);
         card.classList.add("effect_disabled");
+        if (this.activeEffectId === effectData.id) {
+          this.drawer?.close();
+        }
       }
     };
 
+    // Clicking anywhere on the card opens the effect drawer
+    card.addEventListener("click", (e) => {
+      if (e.target.closest("button, label, input")) return;
+      this._openEffectDrawer(effectData, layer, btnEdit);
+    });
+
     controls.append(btnDelete, btnEdit, toggleLabel);
-    header.append(nameEl, controls);
-    card.append(header, drawer);
+    card.append(nameEl, controls);
 
     return card;
   }
@@ -494,6 +647,7 @@ export class EffectsEditorUI {
   }
 
   _handleReset() {
+    this.drawer?.close();
     this.engine.stopAll();
     this.workingState.dynamic = [];
     this.workingState.static = [];
@@ -504,6 +658,7 @@ export class EffectsEditorUI {
   }
 
   _handleSave() {
+    this.drawer?.close();
     const current = getSettings().particles || { enabled: true };
     current.dynamic = this.workingState.dynamic;
     current.static = this.workingState.static;

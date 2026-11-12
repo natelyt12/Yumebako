@@ -99,6 +99,7 @@ export const Icons = {
   resetSettings: withSize(arrowCounterClockwiseIcon, 32),
   arrangeWallpaper: withSize(arrowsOutCardinalIcon, 18),
   filterSettings: withSize(paletteIcon, 18),
+  colorPicker: withSize(paletteIcon, 18),
   wavySettings: withSize(wavesIcon, 18),
   parallaxSettings: withSize(arrowsOutCardinalIcon, 18),
   particlesSettings: withSize(sparkleIcon, 18),

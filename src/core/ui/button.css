@@ -51,6 +51,14 @@
   .btn > i[data-icon]:first-child,
   .btn > svg:first-child {
     flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+  }
+
+  .btn > i[data-icon]:first-child > svg {
+    width: 18px;
+    height: 18px;
+    display: block;
   }
 
   /* Align icon with the top title line when a description is present */
@@ -219,6 +227,59 @@
   .btn[data-action="toggle"]:hover input:checked + .ts-track {
     background-color: #f0f0f5;
     border-color: #f0f0f5;
+  }
+
+  /* --- Color picker bar ---
+     `<label class="btn" data-action="color">` wrapping a hidden native
+     `<input type="color">`: clicking anywhere on the bar opens the system picker.
+     The input stays laid out over the bar (not display:none) so the native
+     popup anchors to the button. */
+  .btn[data-action="color"] {
+    position: relative;
+    cursor: pointer;
+  }
+
+  .btn[data-action="color"] > input[type="color"] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .btn_color_trail {
+    margin-left: auto;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn_color_hex {
+    font-size: 0.85em;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    transition: color 0.2s var(--ease_out);
+  }
+
+  .btn_color_swatch {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background-color: var(--btn-color-value, #ffffff);
+    border: 1.5px solid rgba(255, 255, 255, 0.4);
+    box-shadow: inset 0 0 0 1.5px rgba(0, 0, 0, 0.2);
+    transition: border-color 0.2s var(--ease_out);
+  }
+
+  .btn[data-action="color"]:hover .btn_color_hex {
+    color: var(--text-primary);
+  }
+
+  .btn[data-action="color"]:hover .btn_color_swatch {
+    border-color: rgba(255, 255, 255, 0.8);
   }
 
   /* Danger variant (replaces the legacy `.danger_btn` / `.btn_warning`). */

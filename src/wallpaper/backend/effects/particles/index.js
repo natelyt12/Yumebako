@@ -6,9 +6,7 @@ export { SnowEffect } from "./dynamic/SnowEffect.js";
 export { RainEffect } from "./dynamic/RainEffect.js";
 export { DustEffect } from "./dynamic/DustEffect.js";
 export { PetalsEffect } from "./dynamic/PetalsEffect.js";
-export { FirefliesEffect } from "./dynamic/FirefliesEffect.js";
 
-export { NoiseEffect } from "./static/NoiseEffect.js";
 export { VignetteEffect } from "./static/VignetteEffect.js";
 export { CinematicEffect } from "./static/CinematicEffect.js";
 

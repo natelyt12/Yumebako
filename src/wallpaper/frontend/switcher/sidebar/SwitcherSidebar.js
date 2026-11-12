@@ -1,6 +1,7 @@
 import "./switcher_sidebar.css";
 import { t } from "/src/core/i18n.js";
 import { renderIcons } from "/src/core/icon.js";
+import { Drawer } from "/src/core/ui.js";
 import { createWallhavenSidebar } from "./WallhavenSidebar.js";
 import { createCollectionSidebar } from "./CollectionSidebar.js";
 import { createBingSidebar } from "./BingSidebar.js";
@@ -11,6 +12,7 @@ import { createPicreSidebar } from "./PicreSidebar.js";
  * SwitcherSidebar.js
  * ---------------------------------------------------------------------------
  * Coordinates the full-height drawer panel inside WallpaperSwitcher.
+ * Powered by the generic Drawer UI primitive.
  * Mounts and switches between provider configuration views (Wallhaven,
  * Collection, Bing, Picre), managing open/close state, title, and key listeners.
  */
@@ -43,8 +45,27 @@ export class SwitcherSidebar {
 
     this.views = new Map();
     this.currentSourceId = null;
-    this._isOpen = false;
-    this._onKeyDown = this._onKeyDown.bind(this);
+
+    this.drawer = new Drawer({
+      container: this.container,
+      element: this.sidebarEl,
+      overlayElement: this.overlayEl,
+      triggerBtn: this.settingsBtn,
+      width: "380px",
+      placement: "left",
+      onOpen: () => {
+        if (this.currentSourceId) {
+          const view = this.views.get(this.currentSourceId);
+          view?.onOpen?.();
+        }
+      },
+      onClose: () => {
+        if (this.currentSourceId) {
+          const view = this.views.get(this.currentSourceId);
+          view?.onClose?.();
+        }
+      },
+    });
   }
 
   init() {
@@ -83,15 +104,11 @@ export class SwitcherSidebar {
       }
     }
 
-    // Bind events: the header close button and the invisible overlay both close the drawer
-    this.closeBtn?.addEventListener("click", () => this.close());
-    this.overlayEl?.addEventListener("click", () => this.close());
-
     renderIcons(this.sidebarEl);
   }
 
   get isOpen() {
-    return this._isOpen;
+    return this.drawer.isOpen;
   }
 
   /**
@@ -142,50 +159,18 @@ export class SwitcherSidebar {
     const titleText = t("wallpaper_switcher.extra_settings", {
       source: sourceName,
     });
-    if (this.titleEl) {
-      this.titleEl.textContent = titleText;
-    }
+    this.drawer.setTitle(titleText);
 
-    // Open state
-    this._isOpen = true;
-    this.sidebarEl.removeAttribute("inert");
-    this.sidebarEl.classList.add("is-open");
-    this.sidebarEl.removeAttribute("aria-hidden");
-    this.overlayEl?.classList.add("is-open");
-
-    // Sync view state
-    view.onOpen?.();
-
-    // Listen for Escape
-    document.addEventListener("keydown", this._onKeyDown);
+    // Open through Drawer primitive
+    this.drawer.open();
   }
 
   close() {
-    if (!this._isOpen) return;
-
-    this._isOpen = false;
-
-    // Chromium refuses to apply aria-hidden while a descendant still owns
-    // focus (and logs an accessibility warning). Put focus back on the trigger
-    // before hiding / inerting the drawer.
-    this._restoreFocus();
-
-    this.sidebarEl?.classList.remove("is-open");
-    this.sidebarEl?.setAttribute("aria-hidden", "true");
-    // `inert` also removes the closed panel from the tab order and from AT.
-    this.sidebarEl?.setAttribute("inert", "");
-    this.overlayEl?.classList.remove("is-open");
-
-    if (this.currentSourceId) {
-      const view = this.views.get(this.currentSourceId);
-      view?.onClose?.();
-    }
-
-    document.removeEventListener("keydown", this._onKeyDown);
+    this.drawer.close();
   }
 
   toggle(sourceId = this.dataControl.activeSourceId) {
-    if (this._isOpen) {
+    if (this.drawer.isOpen) {
       if (this.currentSourceId === sourceId) {
         this.close();
       } else {
@@ -193,26 +178,6 @@ export class SwitcherSidebar {
       }
     } else {
       this.open(sourceId);
-    }
-  }
-
-  _restoreFocus() {
-    if (!this.sidebarEl?.contains(document.activeElement)) return;
-
-    this.settingsBtn?.focus({ preventScroll: true });
-
-    // The trigger can be hidden for some sources; never leave focus trapped in
-    // a panel that is about to become aria-hidden.
-    if (this.sidebarEl.contains(document.activeElement)) {
-      document.activeElement.blur();
-    }
-  }
-
-  _onKeyDown(e) {
-    if (e.key === "Escape" && this._isOpen) {
-      e.preventDefault();
-      e.stopPropagation();
-      this.close();
     }
   }
 }

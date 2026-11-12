@@ -83,6 +83,23 @@
     transition: transform 0.8s var(--expo_out);
   }
 
+  /* Support hold-V preview mode: hide sidebar glass background & borders */
+  .wallpaper_preview_active .wallpaper_switcher_sidebar,
+  .wallpaper_switcher_sidebar.wallpaper_preview_active {
+    box-shadow: none !important;
+    border-color: transparent !important;
+  }
+
+  .wallpaper_preview_active .wallpaper_switcher_sidebar::before,
+  .wallpaper_switcher_sidebar.wallpaper_preview_active::before {
+    opacity: 0 !important;
+  }
+
+  .wallpaper_preview_active .wallpaper_switcher_sidebar_header,
+  .wallpaper_preview_active .wallpaper_switcher_sidebar_footer {
+    border-color: transparent !important;
+  }
+
   /* Header: title on the left, close X on the right, both vertically centred.
      Horizontal inset matches the body/footer (20px) so the drawer reads evenly. */
   .wallpaper_switcher_sidebar_header {

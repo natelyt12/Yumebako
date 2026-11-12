@@ -23,8 +23,8 @@
 
 ### 💫 Dynamic Effects & Animations
 - **Wavy Animation & Parallax:** The wallpaper sways and moves along with your cursor, creating a 3D depth effect.
-- **Particle System:** Add realistic dynamic effects such as Rain, Snow, Fireflies, Falling Petals, Dust, and Technology Nodes.
-- **Static Effects:** Cinematic frame, TV Noise, and Vignette.
+- **Particle System:** Add realistic dynamic effects such as Rain, Snow, Falling Petals, Dust, and Technology Nodes.
+- **Static Effects:** Cinematic frame and Vignette.
 - **Startup Animations:** Choose how the page appears when opened (Cinematic, Gentle, Sleepy, Nature, etc.).
 
 ### 🧩 Screen Widgets 🚧 *(Work In Progress)*
