@@ -237,6 +237,59 @@
     opacity: 0.45;
   }
 
+  /* ── Collection sort priority list (drag to reorder) ──────────────────── */
+  .coll_sort_order {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* Each row is a plain `.btn`, so hover/active come straight from the shared
+     button component; only the drag affordance and inner layout live here. */
+  .coll_sort_row {
+    justify-content: flex-start;
+    text-align: left;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+  }
+
+  .coll_sort_row:focus-visible {
+    outline: 1px solid rgba(255, 255, 255, 0.5);
+    outline-offset: 2px;
+  }
+
+  /* The grabbed row rides above its siblings while it follows the pointer. */
+  .coll_sort_row.is-dragging {
+    position: relative;
+    z-index: 2;
+    cursor: grabbing;
+    transition: none;
+  }
+
+  .coll_sort_grip {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: var(--text-muted);
+  }
+
+  .coll_sort_grip svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+  }
+
+  .coll_sort_label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   /* Footer slot: source forms mount their action row here, outside the
      scrolling body. Keeping it out of the scroll area pins the buttons to the
      bottom without stacking an extra tinted layer behind them, so they keep the

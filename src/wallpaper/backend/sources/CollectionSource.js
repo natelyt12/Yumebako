@@ -13,6 +13,7 @@ import { wallpaperRenderer } from "/src/wallpaper/backend/rendering/renderer.js"
 import {
   getSettings,
   getDefaultWallpaperEffects,
+  DEFAULT_COLLECTION_SOURCE_ORDER,
 } from "/src/core/storageHandler.js";
 import { showNotification } from "/src/core/ui.js";
 import {
@@ -35,6 +36,45 @@ import { withUnsplashUtm } from "./api/unsplashAPI.js";
 const FALLBACK_THUMB = "/image/fallback.jpg";
 const VIDEO_HARD_LIMIT = 500 * 1024 * 1024;
 const VIDEO_WARN_LIMIT = 100 * 1024 * 1024;
+
+/** Ordering modes offered by the Collection source settings. */
+const SORT_MODES = new Set(["effects", "video", "date", "source"]);
+
+/** True when the collection entry holds a video. */
+function isVideoItem(item) {
+  return item?.mediaType === "video" || Boolean(item?.type?.includes("video"));
+}
+
+/**
+ * Upload date of a collection item, in ms.
+ *
+ * Newer records embed the save timestamp in their id (`<ms>_<rand>`), which is
+ * the only date older records ever had; `metadata.addedAt` wins when present.
+ * Items with no date at all sort as 0 so they never masquerade as the newest.
+ */
+function itemAddedAt(item) {
+  const meta = item?.metadata || item?.raw?.metadata || {};
+  const idStamp = Number(String(item?.id ?? "").split("_")[0]);
+  const candidates = [
+    Number(meta.addedAt),
+    Number.isFinite(idStamp) ? idStamp : NaN,
+    Number(item?.raw?.addedAt),
+    Number(item?.addedAt),
+  ];
+  const stamp = candidates.find((value) => Number.isFinite(value) && value > 0);
+  return stamp ?? 0;
+}
+
+/** Group id used by `sortMode: "source"`; local uploads belong to `collection`. */
+function itemGroupId(item) {
+  const provider = String(
+    item?.metadata?.provider || item?.raw?.metadata?.provider || "",
+  ).toLowerCase();
+  if (!provider || provider === "local" || provider === "collection") {
+    return "collection";
+  }
+  return provider;
+}
 
 /** Open a native file picker and resolve with the chosen files (empty on cancel). */
 function pickMediaFiles() {
@@ -191,23 +231,74 @@ export class CollectionSource extends BaseSource {
   }
 
   /**
-   * Thứ tự trong Collection:
-   * 1. Ưu tiên hình nền có tùy chỉnh lên đầu (từ nhiều tùy chỉnh nhất đến ít nhất).
-   * 2. Nếu cùng số lượng tùy chỉnh: video trước, sau đó đến các ảnh khác theo thứ tự thêm vào.
+   * Thứ tự trong Collection, theo `collectionConfig.sortMode`:
+   * - `effects` (mặc định): nhiều tùy chỉnh nhất lên đầu; cùng số lượng thì video trước ảnh.
+   * - `video`: video (nhiều → ít tùy chỉnh), rồi ảnh (nhiều → ít tùy chỉnh).
+   * - `date`: theo ngày thêm vào; `sortOldestFirst` đảo thành cũ nhất trước.
+   * - `source`: gom nhóm theo thứ tự ưu tiên `sourceOrder`, trong nhóm sort theo hiệu ứng.
    * @param {Array<Object>} items
    * @returns {Array<Object>}
    */
   sortItems(items) {
     if (!Array.isArray(items)) return [];
-    const videos = [];
-    const others = [];
-    for (const item of items) {
-      const isVideo =
-        item?.mediaType === "video" || Boolean(item?.type?.includes("video"));
-      (isVideo ? videos : others).push(item);
+
+    const cfg = getSettings().collectionConfig || {};
+    const mode = SORT_MODES.has(cfg.sortMode) ? cfg.sortMode : "effects";
+
+    if (mode === "date") {
+      const oldestFirst = cfg.sortOldestFirst === true;
+      return [...items].sort((a, b) =>
+        oldestFirst
+          ? itemAddedAt(a) - itemAddedAt(b)
+          : itemAddedAt(b) - itemAddedAt(a),
+      );
     }
-    const baseList = [...videos, ...others];
-    return sortCardsByCustomizations(baseList);
+
+    if (mode === "source") {
+      const order =
+        Array.isArray(cfg.sourceOrder) && cfg.sourceOrder.length > 0
+          ? cfg.sourceOrder
+          : DEFAULT_COLLECTION_SOURCE_ORDER;
+
+      /** @type {Map<string, Array<Object>>} */
+      const buckets = new Map();
+      for (const item of items) {
+        const group = itemGroupId(item);
+        if (!buckets.has(group)) buckets.set(group, []);
+        buckets.get(group).push(item);
+      }
+
+      const ordered = [];
+      for (const group of order) {
+        const bucket = buckets.get(group);
+        if (!bucket) continue;
+        // Inside a group the default effect ordering still applies.
+        ordered.push(...sortCardsByCustomizations(bucket));
+        buckets.delete(group);
+      }
+
+      // Providers outside the five defaults keep their effect order, last.
+      const rest = [];
+      buckets.forEach((bucket) => rest.push(...bucket));
+      return [...ordered, ...sortCardsByCustomizations(rest)];
+    }
+
+    const videos = [];
+    const images = [];
+    for (const item of items) {
+      (isVideoItem(item) ? videos : images).push(item);
+    }
+
+    if (mode === "video") {
+      return [
+        ...sortCardsByCustomizations(videos),
+        ...sortCardsByCustomizations(images),
+      ];
+    }
+
+    // `effects`: most customized first; on equal counts the stable sort keeps
+    // the videos-then-images base order.
+    return sortCardsByCustomizations([...videos, ...images]);
   }
 
   /**
@@ -343,6 +434,13 @@ export class CollectionSource extends BaseSource {
       width: metadata.width || 0,
       height: metadata.height || 0,
       size: metadata.size || 0,
+      // `toCarouselItem` defaults this to "now"; a saved record keeps the date
+      // it was actually added so the date sort is meaningful.
+      addedAt:
+        Number(metadata.addedAt) ||
+        Number(String(raw.id).split("_")[0]) ||
+        Number(raw.addedAt) ||
+        Date.now(),
       raw,
     });
   }

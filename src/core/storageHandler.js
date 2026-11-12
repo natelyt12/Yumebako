@@ -128,7 +128,7 @@ import { initDate, initClock } from "/src/core/time.js";
  * @property {string}            language           - Locale id (e.g. "en", "vi").
  * @property {{query:string, categories:Object, resolution:string, sorting:string, topRange:string}} wallhavenConfig - Wallhaven search parameters.
  * @property {BingConfig}        bingConfig         - Bing wallpaper provider parameters.
- * @property {{videoSound:boolean, videoVolume:number}} collectionConfig - Collection wallpaper settings (video audio, volume).
+ * @property {{videoSound:boolean, videoVolume:number, sortMode:"effects"|"video"|"date"|"source", sortOldestFirst:boolean, sourceOrder:string[]}} collectionConfig - Collection wallpaper settings (video audio, volume, ordering).
  * @property {UnsplashConfig}    unsplashConfig     - Unsplash provider parameters.
  * @property {boolean}           debugI18n          - Highlight missing i18n keys.
  * @property {boolean}           hideToggleButton   - Hide the settings toggle button.
@@ -184,6 +184,19 @@ export function getDefaultWallpaperEffects() {
     },
   };
 }
+
+/**
+ * Default group priority for the Collection "sort by source" mode. The user can
+ * reorder it in the Collection source settings; anything outside this list is
+ * grouped last.
+ */
+export const DEFAULT_COLLECTION_SOURCE_ORDER = [
+  "collection",
+  "bing",
+  "unsplash",
+  "wallhaven",
+  "picre",
+];
 
 // Add new settings keys here when introducing new modules.
 const defaultSettings = {
@@ -259,6 +272,12 @@ const defaultSettings = {
   collectionConfig: {
     videoSound: false,
     videoVolume: 1,
+    /** @type {"effects"|"video"|"date"|"source"} */
+    sortMode: "effects",
+    /** Only used by `sortMode: "date"`: true keeps the oldest first. */
+    sortOldestFirst: false,
+    /** Group priority used by `sortMode: "source"`. */
+    sourceOrder: [...DEFAULT_COLLECTION_SOURCE_ORDER],
   },
   unsplashConfig: {
     query: "",

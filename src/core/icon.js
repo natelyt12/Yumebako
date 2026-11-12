@@ -38,6 +38,7 @@ import starFillIcon from "@phosphor-icons/core/assets/fill/star-fill.svg?raw";
 import cameraIcon from "@phosphor-icons/core/assets/regular/camera.svg?raw";
 import pencilSimpleIcon from "@phosphor-icons/core/assets/regular/pencil-simple.svg?raw";
 import prohibitIcon from "@phosphor-icons/core/assets/regular/prohibit.svg?raw";
+import dragHandleIcon from "@phosphor-icons/core/assets/regular/dots-six-vertical.svg?raw";
 
 function withSize(svg, size = 24, style = "") {
   return svg.replace(
@@ -51,6 +52,7 @@ export const Icons = {
   particleX: withSize(xIcon, 14),
   plus: withSize(plusIcon, 16),
   prohibit: withSize(prohibitIcon, 16),
+dragHandle: withSize(dragHandleIcon, 16),
   close: withSize(xIcon),
   settings: withSize(gearIcon),
   chevronDown: withSize(caretDownIcon),

@@ -191,6 +191,14 @@ export function createManageGrid({
    */
   function getGridItems(items) {
     const activeId = dataControl.activeCard?.id ?? null;
+
+    // Collection ordering is owned by its settings (sort mode): DataControl has
+    // already applied it to `items`, so the grid mirrors the carousel instead
+    // of inventing a second order.
+    if (dataControl.activeSourceId === "collection") {
+      return [...items];
+    }
+
     let baseList;
     if (dataControl.activeSource?.canGrow) {
       const hasTimestamps = items.some((item) => Number(item?.addedAt) > 0);
@@ -1141,6 +1149,8 @@ export function createManageGrid({
 
   dataControl.on("card:added", onItemsChanged);
   dataControl.on("card:deleted", onItemsChanged);
+  // Ordering settings (Collection sort mode) re-emit the loaded window.
+  dataControl.on("cards:loaded", onItemsChanged);
   dataControl.on("card:hard", onActiveChanged);
   dataControl.on("card:effects_changed", onEffectsChanged);
 
@@ -1155,6 +1165,7 @@ export function createManageGrid({
       effectUnsubs.forEach((unsub) => unsub());
       dataControl.off("card:added", onItemsChanged);
       dataControl.off("card:deleted", onItemsChanged);
+      dataControl.off("cards:loaded", onItemsChanged);
       dataControl.off("card:hard", onActiveChanged);
       dataControl.off("card:effects_changed", onEffectsChanged);
       dataControl.off("state:change", syncFetchState);

@@ -1145,7 +1145,12 @@ export class DataControl {
   }
 
   /**
-   * Tự động sắp xếp lại `this.items` theo số lượng tùy chỉnh giảm dần.
+   * Sắp xếp lại `this.items` theo thứ tự của nguồn hiện hành.
+   *
+   * Collection tự quyết định thứ tự (sort mode trong cài đặt nguồn), nên phải
+   * hỏi chính nó thay vì luôn xếp theo số tùy chỉnh — nếu không, mỗi lần lưu
+   * hiệu ứng sẽ kéo thứ tự về "effects" và phá chế độ người dùng đã chọn.
+   * Các nguồn khác giữ nguyên quy tắc cũ: nhiều tùy chỉnh lên đầu.
    * Cập nhật `this.currentIndex` tương ứng với vị trí mới của thẻ đang active.
    */
   sortCurrentItems() {
@@ -1153,7 +1158,11 @@ export class DataControl {
     const currentCard = this.activeCard;
     const activeId = currentCard?.id ?? null;
 
-    this.items = sortCardsByCustomizations(this.items, activeId);
+    this.items =
+      this.activeSourceId === "collection" &&
+      typeof this.activeSource?.sortItems === "function"
+        ? this.activeSource.sortItems(this.items)
+        : sortCardsByCustomizations(this.items, activeId);
 
     if (currentCard) {
       const nextIndex = this.items.findIndex(
@@ -1175,6 +1184,40 @@ export class DataControl {
         }
       }
     }
+  }
+
+  /**
+   * Re-apply the active source's ordering to the window (used after the
+   * Collection sort settings change) without re-reading the store.
+   * @returns {Promise<void>}
+   */
+  async sortActiveItems() {
+    if (!Array.isArray(this.items) || this.items.length <= 1) return;
+
+    const cursorId = this.activeCard?.id ?? null;
+    this.sortCurrentItems();
+
+    if (this.activeSourceId) {
+      await this._persistCards(this.activeSourceId, this.items);
+    }
+
+    if (cursorId != null) {
+      const next = this.items.findIndex(
+        (item) => String(item.id) === String(cursorId),
+      );
+      if (next >= 0) {
+        this.currentIndex = next;
+        this.softIndex = next;
+      }
+    }
+
+    this._notifyState();
+    this.emit("cards:loaded", {
+      sourceId: this.activeSourceId,
+      items: this.items,
+      selectedIndex: this.currentIndex,
+      source: this.activeSource,
+    });
   }
 
   async _persistCards(sourceId, cards) {
