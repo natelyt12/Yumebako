@@ -104,7 +104,7 @@ export class BasePreset {
         group: "bg",
         label: t("onload_anim.speed_label"),
         dataI18n: "onload_anim.speed_label",
-        min: 0.5,
+        min: 0,
         max: 5,
         step: 0.5,
         unit: "s",
@@ -134,7 +134,7 @@ export class BasePreset {
 // PRESETS
 // ===========================================================================
 
-/** Default preset: a gentle zoom-in with a light blur fade. */
+/** Default preset: a gentle zoom-in that settles without a blur fade. */
 export class ZoomInLightPreset extends BasePreset {
   static ID = "zoom_in_light";
   static LABEL_KEY = "onload_anim.zoom_in_light_preset";
@@ -142,9 +142,23 @@ export class ZoomInLightPreset extends BasePreset {
     ...SHARED_DEFAULTS,
     zoom: 1.2,
     rotate: 0,
-    blur: 10,
+    blur: 0,
     speed: 3,
     overlay_speed: 1,
+  };
+}
+
+/** Instant preset: no transform and no fade — the wallpaper is simply there. */
+export class InstantPreset extends BasePreset {
+  static ID = "instant";
+  static LABEL_KEY = "onload_anim.instant_preset";
+  static DEFAULTS = {
+    ...SHARED_DEFAULTS,
+    zoom: 1,
+    rotate: 0,
+    blur: 0,
+    speed: 0,
+    overlay_speed: 0.5,
   };
 }
 
@@ -206,7 +220,7 @@ export class CustomPreset extends BasePreset {
     ...SHARED_DEFAULTS,
     zoom: 1.2,
     rotate: 0,
-    blur: 10,
+    blur: 0,
     speed: 3,
     overlay_speed: 1,
   };
@@ -219,6 +233,7 @@ export class CustomPreset extends BasePreset {
 /** Maps a preset id to its implementation. */
 export const PRESET_REGISTRY = {
   [ZoomInLightPreset.ID]: ZoomInLightPreset,
+  [InstantPreset.ID]: InstantPreset,
   [ZoomInHeavyPreset.ID]: ZoomInHeavyPreset,
   [SleepyPreset.ID]: SleepyPreset,
   [NaturePreset.ID]: NaturePreset,
@@ -231,6 +246,7 @@ export const PRESET_REGISTRY = {
  */
 export const PRESET_ORDER = [
   ZoomInLightPreset.ID,
+  InstantPreset.ID,
   ZoomInHeavyPreset.ID,
   SleepyPreset.ID,
   NaturePreset.ID,

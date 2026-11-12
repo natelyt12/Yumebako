@@ -184,7 +184,7 @@ export function getDefaultWallpaperEffects() {
       preset: "zoom_in_light",
       zoom: 1.2,
       rotate: 0,
-      blur: 10,
+      blur: 0,
       speed: 3,
       overlay_speed: 1,
       bg_easing: "expo_out",
@@ -255,7 +255,7 @@ const defaultSettings = {
     preset: "zoom_in_light",
     zoom: 1.2,
     rotate: 0,
-    blur: 10,
+    blur: 0,
     speed: 3,
     overlay_speed: 1,
     // Easing id resolved to a CSS var(--token) at play time. See src/wallpaper/backend/effects/onload/easing.js.
