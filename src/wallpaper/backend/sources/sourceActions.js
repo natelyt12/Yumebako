@@ -69,7 +69,7 @@ function hasSourcePage(card) {
 }
 
 /** Tìm bản ghi tương ứng trong bộ sưu tập (nếu có). */
-function findCollectionEntry(card, source, collection) {
+export function findCollectionEntry(card, source, collection) {
   if (!Array.isArray(collection) || collection.length === 0 || !card)
     return null;
 
@@ -155,6 +155,13 @@ async function toggleCollection(card, context) {
   const existing = findCollectionEntry(card, source, collection);
 
   if (existing) {
+    // Dropping the saved copy also drops its customizations, so it goes
+    // through the same warning the Collection delete action shows. The guard
+    // lives in the UI layer; without it (headless calls) we remove directly.
+    if (typeof context.confirmRemove === "function") {
+      const confirmed = await context.confirmRemove(card, existing);
+      if (!confirmed) return;
+    }
     await removeFromCollection(existing.id);
     showNotification(
       t("sp.api.collection.remove_success", "Đã xóa khỏi bộ sưu tập"),

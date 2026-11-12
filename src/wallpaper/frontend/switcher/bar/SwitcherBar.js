@@ -160,6 +160,8 @@ export class SwitcherBar {
       this.syncMetaInfo(card);
       this.renderActions(card);
       this._setTopEffectsVisible(Boolean(card), card);
+      // Membership decides whether this card can be customized here.
+      void this.syncCustomizeAvailability(card);
     });
     this.dataControl.on("source:change", ({ sourceId }) => {
       this.closeSidebar();
@@ -182,6 +184,13 @@ export class SwitcherBar {
   }
 
   _bindEvents() {
+    // Collection membership decides whether the active card can be customized,
+    // and it changes from several places (star toggle, manage grid, delete).
+    // The DB announces every write, so one listener keeps the chip honest.
+    window.addEventListener("wallpaper-collection-updated", () => {
+      void this.syncCustomizeAvailability();
+    });
+
     // Manage Wallpapers button (left slot): opens fullscreen submenu sliding upwards
     this.manageBtn?.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -789,9 +798,9 @@ export class SwitcherBar {
 
   /**
    * Enable/disable the top-bar "Customize this wallpaper" button. Effects are
-   * written back onto the active Collection item, so outside Collection there
-   * is nothing to customize: the button stops opening the panel, swaps to a
-   * "no entry" icon and explains itself in its tooltip / aria-label.
+   * written back onto the wallpaper's Collection record, so a card that has no
+   * saved copy has nothing to customize: the button stops opening the panel,
+   * swaps to a "no entry" icon and explains itself in its tooltip / aria-label.
    * @param {boolean} available
    * @private
    */
@@ -835,6 +844,47 @@ export class SwitcherBar {
     btn.querySelector("svg, i[data-icon]")?.remove();
     btn.insertAdjacentHTML("afterbegin", `<i data-icon="${name}"></i>`);
     renderIcons(btn);
+  }
+
+  /**
+   * Resolve whether the active card may be customized right now: every
+   * Collection card, plus any card from another source that already owns a
+   * saved copy (so a wallpaper added to the collection can be edited without
+   * leaving the source it was found in).
+   *
+   * @param {Object|null} [card=this.dataControl.activeCard]
+   * @param {string} [sourceId=this.dataControl.activeSourceId]
+   */
+  async syncCustomizeAvailability(
+    card = this.dataControl.activeCard,
+    sourceId = this.dataControl.activeSourceId,
+  ) {
+    if (sourceId === "collection") {
+      this._setCustomizeAvailable(true);
+      return;
+    }
+    if (!card) {
+      this._setCustomizeAvailable(false);
+      return;
+    }
+
+    const cardId = String(card.id);
+    let available = false;
+    try {
+      available = await this.dataControl.isCardInCollection(card);
+    } catch (err) {
+      console.error("[SwitcherBar] Failed to resolve collection membership:", err);
+    }
+
+    // The strip may have moved on while the collection was being read.
+    const current = this.dataControl.activeCard;
+    if (
+      String(current?.id) !== cardId ||
+      this.dataControl.activeSourceId !== sourceId
+    ) {
+      return;
+    }
+    this._setCustomizeAvailable(available);
   }
 
   syncTopBarEffects(card = null) {
@@ -1368,6 +1418,10 @@ export class SwitcherBar {
       source,
       dataControl: this.dataControl,
       switcher: this.switcher,
+      // Un-saving a card destroys its collection copy (and any customizations
+      // stored on it), so the UI confirms first — same dialog as the delete action.
+      confirmRemove: (target, entry) =>
+        this._confirmCollectionDelete(target, triggerBtn, entry?.effects),
     };
 
     try {
@@ -1377,9 +1431,12 @@ export class SwitcherBar {
         await this._handleDeleteCard(card, false, triggerBtn);
       } else if (typeof action.run === "function") {
         await action.run(card, context);
-        // Sau khi thêm vào BST, cập nhật lại trạng thái nút
+        // Sau khi thêm/xóa khỏi BST, cập nhật lại trạng thái nút
         if (action.id === "add") {
           this.renderActions(card);
+          // A card that just entered the collection can be customized from the
+          // source it was found in; one just removed can no longer be.
+          void this.syncCustomizeAvailability(card);
         }
       }
     } catch (err) {
@@ -1391,6 +1448,42 @@ export class SwitcherBar {
   }
 
   /**
+   * Ask before dropping a saved wallpaper (and every customization it owns).
+   * Shared by the Collection delete action and by un-saving a card from the
+   * source it was added from.
+   *
+   * @param {Object} card
+   * @param {HTMLElement|null} [triggerBtn=null] - Anchor for the dialog.
+   * @param {Object|null} [effects=null] - Authoritative profile when the saved
+   *   record (not the browsed card) owns the customizations.
+   * @returns {Promise<boolean>}
+   * @private
+   */
+  async _confirmCollectionDelete(card, triggerBtn = null, effects = null) {
+    const isActive =
+      String(this.dataControl.activeCard?.id) === String(card?.id);
+    const profile = effects ? { ...card, effects } : card;
+    const customs = getCardCustomizations(profile, isActive);
+
+    let msg = t(
+      "sp.api.collection.delete_msg",
+      "Bạn có chắc chắn muốn xóa hình nền này khỏi bộ sưu tập?",
+    );
+    if (customs.length > 0) {
+      const customNames = customs.map((c) => `• ${c.label}`).join("\n");
+      msg += `\n\n${t("sp.api.collection.delete_customizations_warning", "Hình nền này hiện đang sở hữu các tùy chỉnh sau:")}\n${customNames}`;
+    }
+
+    return showConfirm(msg, {
+      title: t("sp.api.collection.delete_title", "Xác nhận xóa"),
+      okText: t("sp.api.collection.delete_btn", "Xóa"),
+      isDanger: true,
+      anchor: triggerBtn || this.actionsContainer,
+      placement: "top-right",
+    });
+  }
+
+  /**
    * Xóa / Gỡ thẻ khỏi danh sách thông qua DataControl.
    * @param {Object} card
    * @param {boolean} isPermanent - true: xóa vĩnh viễn khỏi Collection, false: gỡ khỏi carousel
@@ -1398,24 +1491,7 @@ export class SwitcherBar {
    */
   async _handleDeleteCard(card, isPermanent, triggerBtn = null) {
     if (isPermanent) {
-      const isActive =
-        String(this.dataControl.activeCard?.id) === String(card?.id);
-      const customs = getCardCustomizations(card, isActive);
-      let msg = t(
-        "sp.api.collection.delete_msg",
-        "Bạn có chắc chắn muốn xóa hình nền này khỏi bộ sưu tập?",
-      );
-      if (customs.length > 0) {
-        const customNames = customs.map((c) => `• ${c.label}`).join("\n");
-        msg += `\n\n${t("sp.api.collection.delete_customizations_warning", "Hình nền này hiện đang sở hữu các tùy chỉnh sau:")}\n${customNames}`;
-      }
-      const confirmed = await showConfirm(msg, {
-        title: t("sp.api.collection.delete_title", "Xác nhận xóa"),
-        okText: t("sp.api.collection.delete_btn", "Xóa"),
-        isDanger: true,
-        anchor: triggerBtn || this.actionsContainer,
-        placement: "top-right",
-      });
+      const confirmed = await this._confirmCollectionDelete(card, triggerBtn);
       if (!confirmed) return;
     }
 
@@ -1513,10 +1589,20 @@ export class SwitcherBar {
       }
     }
 
-    // Wallpaper customization is written back onto the active Collection item,
-    // so every other source gets the button in its disabled, self-explaining
-    // state instead of a dead click.
-    this._setCustomizeAvailable(isCollection);
+    // Customizations are written back onto the card's Collection record: the
+    // Collection is always editable, other sources as soon as their card has a
+    // saved copy (membership is async, so the button settles right after).
+    if (isCollection) {
+      this._setCustomizeAvailable(true);
+    } else {
+      const activeCard = this.dataControl.activeCard;
+      const sameSource =
+        !activeCard?.source || activeCard.source === id;
+      void this.syncCustomizeAvailability(
+        sameSource ? activeCard : null,
+        id,
+      );
+    }
     if (this.fetchBtn) {
       this._setButtonVisible(this.fetchBtn, canGrow, immediate);
       const labelSpan = this.fetchBtn.querySelector("span");

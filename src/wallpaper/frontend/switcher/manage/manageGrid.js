@@ -1063,6 +1063,36 @@ export function createManageGrid({
     return row;
   }
 
+  /**
+   * Ask before dropping a saved wallpaper (and every customization it owns).
+   * @param {Object} card
+   * @param {HTMLElement|null} [triggerBtn=null]
+   * @param {Object|null} [effects=null] - Authoritative profile when the saved
+   *   record (not the browsed card) owns the customizations.
+   * @returns {Promise<boolean>}
+   */
+  async function confirmCollectionRemoval(card, triggerBtn = null, effects = null) {
+    const isActive = String(dataControl.activeCard?.id) === String(card?.id);
+    const profile = effects ? { ...card, effects } : card;
+    const customs = getCardCustomizations(profile, isActive);
+
+    let msg = t(
+      "sp.api.collection.delete_msg",
+      "Bạn có chắc chắn muốn xóa hình nền này khỏi bộ sưu tập?",
+    );
+    if (customs.length > 0) {
+      const customNames = customs.map((c) => `• ${c.label}`).join("\n");
+      msg += `\n\n${t("sp.api.collection.delete_customizations_warning", "Hình nền này hiện đang sở hữu các tùy chỉnh sau:")}\n${customNames}`;
+    }
+
+    return showConfirm(msg, {
+      title: t("sp.api.collection.delete_title", "Xác nhận xóa"),
+      okText: t("sp.api.collection.delete_btn", "Xóa"),
+      isDanger: true,
+      anchor: triggerBtn,
+    });
+  }
+
   async function runDetailAction(action, card, triggerBtn) {
     const isDelete =
       action.id === "remove" || action.id === "removeFromCarousel";
@@ -1072,6 +1102,10 @@ export function createManageGrid({
         await action.run(card, {
           source: dataControl.activeSource,
           dataControl,
+          // Un-saving destroys the collection copy and any customizations it
+          // owns, so it asks first — same dialog as the delete action.
+          confirmRemove: (target, entry) =>
+            confirmCollectionRemoval(target, triggerBtn, entry?.effects),
         });
       } catch (err) {
         console.error(`[ManageGrid] Action [${action.id}] failed:`, err);
@@ -1080,22 +1114,7 @@ export function createManageGrid({
     }
 
     if (action.id === "remove") {
-      const isActive = String(dataControl.activeCard?.id) === String(card.id);
-      const customs = getCardCustomizations(card, isActive);
-      let msg = t(
-        "sp.api.collection.delete_msg",
-        "Bạn có chắc chắn muốn xóa hình nền này khỏi bộ sưu tập không?",
-      );
-      if (customs.length > 0) {
-        const customNames = customs.map((c) => `• ${c.label}`).join("\n");
-        msg += `\n\n${t("sp.api.collection.delete_customizations_warning", "Hình nền này hiện đang sở hữu các tùy chỉnh sau:")}\n${customNames}`;
-      }
-      const confirmed = await showConfirm(msg, {
-        title: t("sp.api.collection.delete_title", "Xác nhận xóa"),
-        okText: t("sp.api.collection.delete_btn", "Xóa"),
-        isDanger: true,
-        anchor: triggerBtn,
-      });
+      const confirmed = await confirmCollectionRemoval(card, triggerBtn);
       if (!confirmed) return;
     }
 

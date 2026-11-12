@@ -3,7 +3,11 @@ import { getFromStore, saveToStore } from "/src/core/db.js";
 import { runMediaGC } from "./mediaGC.js";
 import { describeFetchError } from "./errors.js";
 import { t } from "/src/core/i18n.js";
-import { updateCollectionItemEffects } from "../sources/api/collectionDb.js";
+import {
+  getCollection,
+  updateCollectionItemEffects,
+} from "../sources/api/collectionDb.js";
+import { findCollectionEntry } from "../sources/sourceActions.js";
 import {
   sortCardsByCustomizations,
   invalidateEffectStates,
@@ -1081,6 +1085,69 @@ export class DataControl {
   /* ── Private Helpers ───────────────────────────────────────────────────── */
 
   /**
+   * The collection entry that holds a saved copy of `card`, if any. Collection
+   * cards are their own entry; remote cards are matched by their source page.
+   *
+   * @param {CardItem} card
+   * @returns {Promise<Object|null>}
+   */
+  async findCollectionEntryFor(card) {
+    if (!card) return null;
+
+    try {
+      const collection = await getCollection();
+      if (this.activeSourceId === "collection") {
+        return (
+          collection.find((it) => String(it.id) === String(card.id)) || null
+        );
+      }
+      return findCollectionEntry(card, this.activeSource, collection);
+    } catch (err) {
+      console.error("[DataControl] Failed to read collection:", err);
+      return null;
+    }
+  }
+
+  /**
+   * Whether `card` currently has a copy in the personal collection.
+   *
+   * @param {CardItem} card
+   * @returns {Promise<boolean>}
+   */
+  async isCardInCollection(card) {
+    if (!card) return false;
+    if (this.activeSourceId === "collection") return true;
+    return Boolean(await this.findCollectionEntryFor(card));
+  }
+
+  /**
+   * Mirror a card's effect profile onto its saved collection copy.
+   *
+   * A wallpaper customized while browsing the source it came from must land on
+   * the collection record too, otherwise the collection shows the same image
+   * with default effects.
+   *
+   * @param {CardItem} card
+   */
+  async _syncCollectionEffects(card) {
+    if (!card?.effects) return;
+
+    try {
+      if (this.activeSourceId === "collection") {
+        await updateCollectionItemEffects(card.id, card.effects);
+        return;
+      }
+      const entry = await this.findCollectionEntryFor(card);
+      if (entry) await updateCollectionItemEffects(entry.id, card.effects);
+    } catch (err) {
+      console.error(
+        "[DataControl] Error syncing collection item effects:",
+        err,
+      );
+    }
+  }
+
+  /**
    * Cập nhật bộ hiệu ứng riêng của thẻ đang hoạt động (active card).
    * @param {Object} partialEffects
    */
@@ -1111,16 +1178,7 @@ export class DataControl {
       await this._persistCards(this.activeSourceId, this.items);
     }
 
-    if (this.activeSourceId === "collection") {
-      try {
-        await updateCollectionItemEffects(card.id, card.effects);
-      } catch (err) {
-        console.error(
-          "[DataControl] Error syncing collection item effects:",
-          err,
-        );
-      }
-    }
+    await this._syncCollectionEffects(card);
 
     this.emit("card:effects_changed", {
       card,
@@ -1150,16 +1208,7 @@ export class DataControl {
       await this._persistCards(this.activeSourceId, this.items);
     }
 
-    if (this.activeSourceId === "collection") {
-      try {
-        await updateCollectionItemEffects(card.id, card.effects);
-      } catch (err) {
-        console.error(
-          "[DataControl] Error syncing collection item effects:",
-          err,
-        );
-      }
-    }
+    await this._syncCollectionEffects(card);
 
     // Ghi giá trị mặc định vào settings. Guard để các subscriber của chính
     // DataControl không ghi ngược lại thẻ (và sắp xếp lại) lần nữa.
