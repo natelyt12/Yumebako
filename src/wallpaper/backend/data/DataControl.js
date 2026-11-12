@@ -94,7 +94,7 @@ function uniqueCards(cards) {
  * @property {CardItem[]}      items           - Shallow copy of the cards array.
  * @property {boolean}         canGrow         - Whether fetchMore() is available.
  * @property {boolean}         hasExtraSettings - Whether the source has its own settings panel.
- * @property {number}          maxCards        - Max cards capacity for this source (e.g. 50 or Infinity).
+ * @property {number}          maxCards        - Max cards capacity for this source (e.g. 20 or Infinity).
  */
 
 /**
@@ -431,6 +431,19 @@ export class DataControl {
       }
     }
 
+    // A saved feed may outgrow a lowered cap (50 → 20): drop the oldest cards
+    // now so the strip and the counter agree on the very first open, not only
+    // after the next fetch. The cursor keeps following its card.
+    const cursorId = this.items[resolvedIndex]?.id ?? null;
+    if (await this._trimToCap(sourceId)) {
+      if (cursorId != null) {
+        const found = this.items.findIndex(
+          (item) => String(item.id) === String(cursorId),
+        );
+        if (found >= 0) resolvedIndex = found;
+      }
+    }
+
     this.currentIndex = Math.max(
       0,
       Math.min(resolvedIndex, Math.max(0, this.items.length - 1)),
@@ -553,6 +566,47 @@ export class DataControl {
     }
 
     return pruneIndex;
+  }
+
+  /**
+   * Trim the active source's window down to `maxCards` (oldest first).
+   *
+   * `requestMore` only enforces the cap while appending, so a list saved under
+   * a higher cap would never shrink. This runs on load so the stored feed and
+   * the counter match the current limit. Same rule as the FIFO there: the card
+   * applied to the desktop is never pruned.
+   *
+   * @param {string} sourceId
+   * @returns {Promise<boolean>} true when at least one card was dropped.
+   * @private
+   */
+  async _trimToCap(sourceId) {
+    const cap = Number(this.activeSource?.maxCards);
+    if (!Number.isFinite(cap) || this.items.length <= cap) return false;
+
+    let pruned = 0;
+    while (this.items.length > cap) {
+      const pruneIndex = this.getPruneCandidateIndex();
+      if (
+        pruneIndex === null ||
+        pruneIndex < 0 ||
+        pruneIndex >= this.items.length
+      ) {
+        break;
+      }
+
+      const [candidate] = this.items.splice(pruneIndex, 1);
+      if (typeof this.activeSource?.deleteItem === "function") {
+        await this.activeSource.deleteItem(candidate);
+      }
+      pruned++;
+    }
+
+    if (pruned === 0) return false;
+
+    await this._persistCards(sourceId, this.items);
+    this._scheduleMediaGC();
+    return true;
   }
 
   /**
