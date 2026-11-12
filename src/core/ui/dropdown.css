@@ -86,12 +86,23 @@
     display: flex;
     align-items: center;
     pointer-events: none;
+    perspective: 400px;
   }
 
-  .btn[data-action="dropdown"] > .sbsctsvg svg {
+  .btn[data-action="dropdown"] > .sbsctsvg svg,
+  .btn > .sbsctsvg svg {
     width: 18px;
     height: 18px;
     opacity: 0.7;
+    transform-style: preserve-3d;
+    transition: transform 0.4s var(--expo_out), opacity 0.2s ease;
+  }
+
+  .btn[data-action="dropdown"].btn_active > .sbsctsvg svg,
+  .btn.btn_active > .sbsctsvg svg,
+  .dropdown_wrapper:has(.dropdown.opening) > .btn > .sbsctsvg svg {
+    transform: rotateX(180deg);
+    opacity: 1;
   }
 
   /* Optional leading icon inside a trigger (e.g. the "Add effect" action menu). */
