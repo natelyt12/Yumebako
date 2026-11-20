@@ -408,7 +408,15 @@ export function initSubToggle() {
         }
     });
 
+    // Prevent mouse focus on the trigger button so scrollable containers don't
+    // focus-scroll on mousedown and trigger closeAllDropdowns() before `click`.
     document.addEventListener("mousedown", (event) => {
+        if (event.target.closest?.(".btn[data-action='dropdown']")) {
+            event.preventDefault();
+        }
+    });
+
+    document.addEventListener("click", (event) => {
         const target = event.target;
         const isClickInsideDropdown = target.closest(".dropdown_wrapper") || target.closest(".dropdown");
 

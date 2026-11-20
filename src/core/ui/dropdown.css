@@ -214,7 +214,7 @@
   }
 
   .dropdown .dropdown_item:hover {
-    background-color: var(--button-hov);
+    background-color: var(--glass-highlight);
   }
 
   .dropdown .dropdown_item:active {
@@ -227,14 +227,11 @@
     position: relative;
   }
 
-  /* Selected row: a subtle lift, dimmer than hover so hover still reads as the
-   active state. Uses --input-bg-focus (0.12) between base (0.08) and hover (0.14). */
-  .dropdown_item[data-selected="true"] {
-    background-color: var(--input-bg-focus);
-  }
-
+  /* Selected row: stronger than hover (--glass-highlight, 0.06) so the active
+   item stands out clearly. */
+  .dropdown_item[data-selected="true"],
   .dropdown_item[data-selected="true"]:hover {
-    background-color: var(--button-hov);
+    background-color: var(--input-bg-focus);
   }
 
   /* Checkmark marks the selected row, pinned to the right edge. Masked SVG so it
