@@ -173,6 +173,26 @@
       box-shadow 0.15s var(--smooth);
   }
 
+  .custom_slider_track_container.is-animating .slider_fill {
+    transition:
+      width 0.35s var(--expo_out),
+      background-color 0.2s var(--smooth);
+  }
+
+  .custom_slider_track_container.is-animating .slider_rail {
+    transition:
+      left 0.35s var(--expo_out),
+      width 0.35s var(--expo_out),
+      background-color 0.2s var(--smooth);
+  }
+
+  .custom_slider_track_container.is-animating .slider_thumb {
+    transition:
+      left 0.35s var(--expo_out),
+      transform 0.15s var(--smooth),
+      box-shadow 0.15s var(--smooth);
+  }
+
   .custom_slider_track_container:hover .slider_fill {
     background-color: #ffffff;
   }

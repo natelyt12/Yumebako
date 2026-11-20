@@ -41,9 +41,27 @@ function createWavyController(element, initialConfig = null) {
     ...(initialConfig || {}),
     motions: cloneData(initialConfig?.motions ?? DEFAULT_CONFIG.motions),
   };
+  const TOGGLE_TRANSITION_MS = 800;
+
   let animationId = null;
   let lastTimestamp = null;
   let isActive = false;
+  let hasStopped = false;
+  let entryStartTime = null;
+  let stopTransitionTimer = null;
+  let stopTransitionHandler = null;
+
+  function clearStopTransition() {
+    if (stopTransitionTimer) {
+      clearTimeout(stopTransitionTimer);
+      stopTransitionTimer = null;
+    }
+    if (stopTransitionHandler) {
+      element.removeEventListener("transitionend", stopTransitionHandler);
+      stopTransitionHandler = null;
+    }
+    element.style.transition = "";
+  }
 
   // Motion sampler (see MotionEngine.js). Rebuilt only when the motion type or
   // the seed changes; plain parameter edits are swapped in place so the
@@ -122,13 +140,27 @@ function createWavyController(element, initialConfig = null) {
     const parallaxX = mouseX * parallaxAmp;
     const parallaxY = mouseY * (parallaxAmp * 0.65);
 
-    const totalX = x + parallaxX;
-    const totalY = y + parallaxY;
+    let blend = 1;
+    if (entryStartTime !== null) {
+      const progress = Math.min(
+        1,
+        Math.max(0, (timestamp - entryStartTime) / TOGGLE_TRANSITION_MS),
+      );
+      blend = progress >= 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+      if (progress >= 1) {
+        entryStartTime = null;
+      }
+    }
+
+    const totalX = (x + parallaxX) * blend;
+    const totalY = (y + parallaxY) * blend;
+    const currentRot = rot * blend;
+    const currentScale = 1 + (config.scale - 1) * blend;
 
     element.style.transform = `
             translate(calc(-50% + ${totalX}px), calc(-50% + ${totalY}px)) 
-            rotate(${rot}deg) 
-            scale(${config.scale})
+            rotate(${currentRot}deg) 
+            scale(${currentScale})
         `;
 
     if (isActive) {
@@ -138,19 +170,44 @@ function createWavyController(element, initialConfig = null) {
 
   function start() {
     if (isActive) return;
+    clearStopTransition();
     isActive = true;
     lastTimestamp = null;
+    entryStartTime = hasStopped ? performance.now() : null;
+    hasStopped = false;
     if (sampler) sampler.reset();
     animationId = requestAnimationFrame(animate);
   }
 
   function stop(resetPosition = true) {
+    const wasActive = isActive;
     isActive = false;
+    hasStopped = true;
+    entryStartTime = null;
     if (animationId) {
       cancelAnimationFrame(animationId);
       animationId = null;
     }
+    if (!wasActive) {
+      if (resetPosition && !stopTransitionTimer) {
+        element.style.transform = "translate(-50%, -50%) scale(1) rotate(0deg)";
+      }
+      return;
+    }
+    clearStopTransition();
     if (resetPosition) {
+      element.style.transition = `transform ${TOGGLE_TRANSITION_MS}ms var(--expo_out, cubic-bezier(0.16, 1, 0.3, 1))`;
+      void element.offsetWidth;
+      stopTransitionHandler = (event) => {
+        if (event.target === element && event.propertyName === "transform") {
+          clearStopTransition();
+        }
+      };
+      element.addEventListener("transitionend", stopTransitionHandler);
+      stopTransitionTimer = setTimeout(
+        clearStopTransition,
+        TOGGLE_TRANSITION_MS + 60,
+      );
       element.style.transform = "translate(-50%, -50%) scale(1) rotate(0deg)";
     }
   }

@@ -494,6 +494,8 @@
     "wavy.tip_octaves": "Detail level: higher stacks more small ripples on top of each other, so the motion looks more natural.",
     "wavy.tip_persistence": "Wobble: higher makes those small ripples stronger so the image looks shakier; lower is smoother and calmer.",
     "wavy.tip_stiffness": "Responsiveness: higher makes the image react faster and more decisively; lower is slower and softer.",
+    "wavy.toggle_unsaved_msg": "You have unsaved changes. Save them before toggling this setting?",
+    "wavy.toggle_unsaved_title": "Unsaved changes",
     "wavy.wavy_section_label": "Wavy Motion",
     "wavy.window_title": "Wavy Animation"
 }

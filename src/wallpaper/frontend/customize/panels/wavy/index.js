@@ -9,6 +9,7 @@ import {
   initButtons,
   setDropdownValue,
   setSubmenuDirty,
+  showConfirm,
   showNotification,
 } from "/src/core/ui.js";
 import { t } from "/src/core/i18n.js";
@@ -362,8 +363,7 @@ export function createWavyPanel() {
     }
   };
 
-  const applyLivePreview = () => {
-    if (isInitializing.value) return;
+  const syncEngineFromWorking = () => {
     wavy?.updateConfig({
       enabled: working.enabled,
       parallaxEnabled: working.parallaxEnabled,
@@ -379,6 +379,11 @@ export function createWavyPanel() {
     } else {
       wavy?.stop();
     }
+  };
+
+  const applyLivePreview = () => {
+    if (isInitializing.value) return;
+    syncEngineFromWorking();
     markDirty();
   };
 
@@ -536,16 +541,6 @@ export function createWavyPanel() {
   };
 
   const save = () => {
-    wavy?.updateConfig({
-      enabled: working.enabled,
-      parallaxEnabled: working.parallaxEnabled,
-      motionType: working.motionType,
-      scale: working.scale,
-      advanced: working.advanced,
-      motions: working.motions,
-      parallaxAmplitude: working.parallaxAmplitude,
-      parallaxInertia: working.parallaxInertia,
-    });
     persistConfig();
     startConfig = cloneData(wavy?.getConfig() ?? working);
     saveState.markSaved(snapshot());
@@ -568,21 +563,7 @@ export function createWavyPanel() {
       startConfig.parallaxInertia ?? sharedDefaults.parallaxInertia ?? 0.03,
     );
 
-    wavy?.updateConfig({
-      enabled: working.enabled,
-      parallaxEnabled: working.parallaxEnabled,
-      motionType: working.motionType,
-      scale: working.scale,
-      advanced: working.advanced,
-      motions: working.motions,
-      parallaxAmplitude: working.parallaxAmplitude,
-      parallaxInertia: working.parallaxInertia,
-    });
-    if (working.enabled || working.parallaxEnabled) {
-      ensureStarted();
-    } else {
-      wavy?.stop();
-    }
+    syncEngineFromWorking();
 
     isInitializing.value = true;
     renderAll();
@@ -602,34 +583,41 @@ export function createWavyPanel() {
     motionSelect.appendChild(opt);
   });
 
-  wavyEnabledToggle.input.addEventListener("change", () => {
-    working.enabled = wavyEnabledToggle.input.checked;
-    applyEnabledVisibility();
+  const handleToggleChange = async (key, toggleInput) => {
+    const checked = toggleInput.checked;
 
-    wavy?.updateConfig({ enabled: working.enabled });
-    if (working.enabled || working.parallaxEnabled) {
-      ensureStarted();
-    } else {
-      wavy?.stop();
+    if (isDirty) {
+      const confirmed = await showConfirm(t("wavy.toggle_unsaved_msg"), {
+        title: t("wavy.toggle_unsaved_title"),
+        okText: t("wavy.btn_save"),
+        cancelText: t("common.cancel"),
+        anchor: toggleInput.closest("label") || toggleInput,
+      });
+
+      if (!confirmed) {
+        toggleInput.checked = !checked;
+        return;
+      }
+
+      working[key] = checked;
+      applyEnabledVisibility();
+      save();
+      return;
     }
 
-    saveSettings({ wavy: { ...savedWavy(), enabled: working.enabled } });
+    working[key] = checked;
+    applyEnabledVisibility();
+    saveSettings({ wavy: { ...savedWavy(), [key]: checked } });
+    saveState.markSaved(snapshot());
+    syncDirty(false);
+  };
+
+  wavyEnabledToggle.input.addEventListener("change", () => {
+    handleToggleChange("enabled", wavyEnabledToggle.input);
   });
 
   parallaxEnabledToggle.input.addEventListener("change", () => {
-    working.parallaxEnabled = parallaxEnabledToggle.input.checked;
-    applyEnabledVisibility();
-
-    wavy?.updateConfig({ parallaxEnabled: working.parallaxEnabled });
-    if (working.enabled || working.parallaxEnabled) {
-      ensureStarted();
-    } else {
-      wavy?.stop();
-    }
-
-    saveSettings({
-      wavy: { ...savedWavy(), parallaxEnabled: working.parallaxEnabled },
-    });
+    handleToggleChange("parallaxEnabled", parallaxEnabledToggle.input);
   });
 
   motionSelect.addEventListener("change", (e) => {

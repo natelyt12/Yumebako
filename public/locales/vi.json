@@ -494,6 +494,8 @@
     "wavy.tip_octaves": "Độ chi tiết: số càng lớn thì chuyển động càng nhiều gợn nhỏ chồng lên nhau, nhìn càng tự nhiên.",
     "wavy.tip_persistence": "Độ rung: số càng lớn thì các gợn nhỏ càng rõ nên ảnh nhìn càng rung; số nhỏ thì mượt và êm hơn.",
     "wavy.tip_stiffness": "Độ nhanh nhạy: số càng lớn thì ảnh càng phản ứng nhanh và dứt khoát; số nhỏ thì chậm rãi, mềm mại.",
+    "wavy.toggle_unsaved_msg": "Bạn có thay đổi chưa lưu. Lưu các thay đổi trước khi bật/tắt mục này?",
+    "wavy.toggle_unsaved_title": "Thay đổi chưa lưu",
     "wavy.wavy_section_label": "Sóng động (Wavy)",
     "wavy.window_title": "Wavy Animation"
 }

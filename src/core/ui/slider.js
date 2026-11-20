@@ -172,6 +172,16 @@ export function createSlider({
   sliderRow.append(decBtn, trackContainer, incBtn);
   wrapper.append(header, sliderRow);
 
+  let animTimer = null;
+
+  const clearAnimation = () => {
+    if (animTimer) {
+      clearTimeout(animTimer);
+      animTimer = null;
+    }
+    trackContainer.classList.remove("is-animating");
+  };
+
   /** Repaint the progress fill and the thumb position. */
   const paint = () => {
     const span = maxVal - minVal || 1;
@@ -191,7 +201,7 @@ export function createSlider({
 
   const setValue = (
     val,
-    { trigger = true, commit = false, force = false } = {},
+    { trigger = true, commit = false, force = false, animate = true } = {},
   ) => {
     // External syncs (`setValueNoAnim`) must land even while disabled, so the
     // control is already correct when it gets enabled again.
@@ -201,6 +211,15 @@ export function createSlider({
 
     numericVal = roundToStep(numericVal);
     const changed = numericVal !== currentValue;
+
+    if (animate && changed) {
+      clearAnimation();
+      trackContainer.classList.add("is-animating");
+      void trackContainer.offsetWidth;
+      animTimer = setTimeout(clearAnimation, 360);
+    } else if (!animate) {
+      clearAnimation();
+    }
 
     currentValue = numericVal;
     if (range.value !== String(numericVal)) range.value = numericVal;
@@ -214,6 +233,7 @@ export function createSlider({
   // Native drag / click / keyboard movement.
   range.addEventListener("input", () => {
     if (isDisabled) return;
+    clearAnimation();
     const numericVal = roundToStep(parseFloat(range.value));
     const changed = numericVal !== currentValue;
     currentValue = numericVal;
@@ -270,7 +290,7 @@ export function createSlider({
 
   Object.defineProperty(wrapper, "value", {
     get: () => currentValue,
-    set: (val) => setValue(val, { trigger: false }),
+    set: (val) => setValue(val, { trigger: false, animate: true }),
     configurable: true,
   });
 
@@ -282,7 +302,7 @@ export function createSlider({
 
   wrapper.setDisabled = setDisabled;
   wrapper.setValueNoAnim = (val) =>
-    setValue(val, { trigger: false, force: true });
+    setValue(val, { trigger: false, force: true, animate: false });
 
   return wrapper;
 }
