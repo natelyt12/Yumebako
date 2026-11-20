@@ -16,7 +16,6 @@ import {
 } from "../../../backend/sources/sourceActions.js";
 import {
   getCardCustomizations,
-  sortCardsByCustomizations,
 } from "../../customize/state.js";
 import { EFFECT_SETTING_KEYS } from "../../customize/catalog.js";
 
@@ -182,35 +181,13 @@ export function createManageGrid({
   /* ── Rendering ─────────────────────────────────────────────────────────── */
 
   /**
-   * Sắp xếp hình nền trong manage grid:
-   * 1. Ưu tiên các hình nền có tùy chỉnh lên đầu danh sách (từ nhiều tùy chỉnh nhất đến ít nhất).
-   * 2. Nếu cùng số lượng tùy chỉnh: giữ nguyên thứ tự cơ sở (ảnh mới nhất lên đầu với canGrow sources,
-   *    hoặc thứ tự chuẩn của nguồn).
+   * Giữ nguyên thứ tự từ `DataControl` (chỉ Collection có sort theo cài đặt
+   * nguồn, các nguồn khác không áp dụng bất kỳ sort nào).
    * @param {Array<Object>} items
    * @returns {Array<Object>}
    */
   function getGridItems(items) {
-    const activeId = dataControl.activeCard?.id ?? null;
-
-    // Collection ordering is owned by its settings (sort mode): DataControl has
-    // already applied it to `items`, so the grid mirrors the carousel instead
-    // of inventing a second order.
-    if (dataControl.activeSourceId === "collection") {
-      return [...items];
-    }
-
-    let baseList;
-    if (dataControl.activeSource?.canGrow) {
-      const hasTimestamps = items.some((item) => Number(item?.addedAt) > 0);
-      baseList = hasTimestamps
-        ? [...items].sort(
-            (a, b) => (Number(b?.addedAt) || 0) - (Number(a?.addedAt) || 0),
-          )
-        : [...items].reverse();
-    } else {
-      baseList = [...items];
-    }
-    return sortCardsByCustomizations(baseList, activeId);
+    return [...items];
   }
 
   /** True when the cards already drawn match the order computed for `items`. */

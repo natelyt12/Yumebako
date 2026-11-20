@@ -313,9 +313,14 @@ export class CarouselEngine {
 
   /* ── Điều hướng ────────────────────────────────────────────────────────── */
 
-  /** Cuộn mượt tới thẻ `index` (đã kẹp biên). */
-  scrollToCard(index) {
-    this._animateTo(this._clamp(index));
+  /**
+   * Cuộn mượt tới thẻ `index` (đã kẹp biên).
+   * @param {number} index
+   * @param {Object} [options]
+   * @param {boolean} [options.skipCommitDelay=false] - Chốt cứng ngay khi cuộn tới nơi, bỏ qua độ trễ quét viền.
+   */
+  scrollToCard(index, { skipCommitDelay = false } = {}) {
+    this._animateTo(this._clamp(index), { skipCommitDelay });
   }
 
   /** Đi thêm `delta` thẻ so với đích gần nhất đang nhắm tới. */
@@ -730,7 +735,10 @@ export class CarouselEngine {
    * @param {number|null} [options.velocity=null] - Vận tốc đầu (bậc/giây), dùng khi nhả kéo.
    * @param {number|null} [options.sinceMs=null] - Mốc đồng hồ của lò xo bắt đầu; bỏ trống thì nối tiếp đồng hồ của cú đang chạy.
    */
-  _animateTo(target, { force = false, velocity = null, sinceMs = null } = {}) {
+  _animateTo(
+    target,
+    { force = false, velocity = null, sinceMs = null, skipCommitDelay = false } = {},
+  ) {
     if (this.isDeleting || this.count === 0) return;
 
     const next = this._clamp(target);
@@ -760,6 +768,7 @@ export class CarouselEngine {
       // nhảy bù một mạch. `sinceMs` là cú nhả kéo: lò xo ra đời ngay tại đó, nên
       // đồng hồ tính từ đó chứ không phải từ frame sau.
       lastMs: sinceMs ?? this._anim?.lastMs ?? null,
+      skipCommitDelay: Boolean(skipCommitDelay),
     };
     this._cancelAnimation();
     this._animId = requestAnimationFrame(this._tick);
@@ -819,8 +828,8 @@ export class CarouselEngine {
     this._renderAt(anim.target);
 
     // Đứng yên chưa đủ để chốt: còn một vệt quét viền phải chạy hết (xem
-    // `_beginCommit`), rồi mới báo hard-select.
-    this._beginCommit();
+    // `_beginCommit`), trừ khi caller yêu cầu bỏ qua độ trễ này.
+    this._beginCommit({ immediate: anim.skipCommitDelay });
   };
 
   /** Tần số góc của lò xo, suy từ `duration` — xem `SPRING_OMEGA`. */
@@ -1196,7 +1205,7 @@ export class CarouselEngine {
    * `_setSettled(true)` — chính là lúc viền hạ xuống — rồi mới báo hard-select,
    * nên bên nhận chỉ thấy "đã chốt" khi viền đã liền và về đúng mép thẻ.
    */
-  _beginCommit() {
+  _beginCommit({ immediate = false } = {}) {
     if (this.isSettled || this._commitId !== null) return;
     this._syncViewfinderRing();
 
@@ -1205,6 +1214,10 @@ export class CarouselEngine {
       this._setSettled(true);
       this._notifyHard();
     };
+    if (immediate) {
+      finish();
+      return;
+    }
     const sweepMs = this._vfDuration("--vf-sweep-duration");
 
     this.viewfinder?.classList.add("is-settling");

@@ -176,7 +176,7 @@ export class WallpaperSwitcher {
         // Chỉ khi carousel đang hiển thị: lấy ảnh mới từ lưới quản lý không được
         // đổi hình nền desktop sau lưng người dùng.
         const nextIndex = dataControl.currentIndex + 1;
-        this.carousel.scrollToCard(nextIndex);
+        this.carousel.scrollToCard(nextIndex, { skipCommitDelay: true });
         this.syncEmptyState(false);
       } else {
         this.syncEmptyState(false);

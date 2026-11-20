@@ -8,10 +8,7 @@ import {
   updateCollectionItemEffects,
 } from "../sources/api/collectionDb.js";
 import { findCollectionEntry } from "../sources/sourceActions.js";
-import {
-  sortCardsByCustomizations,
-  invalidateEffectStates,
-} from "../effects/effectStates.js";
+import { invalidateEffectStates } from "../effects/effectStates.js";
 import { applyWallpaperFilters } from "../rendering/filter.js";
 import { applyWallpaperPosition } from "../rendering/position.js";
 import {
@@ -1258,22 +1255,21 @@ export class DataControl {
   /**
    * Sắp xếp lại `this.items` theo thứ tự của nguồn hiện hành.
    *
-   * Collection tự quyết định thứ tự (sort mode trong cài đặt nguồn), nên phải
-   * hỏi chính nó thay vì luôn xếp theo số tùy chỉnh — nếu không, mỗi lần lưu
-   * hiệu ứng sẽ kéo thứ tự về "effects" và phá chế độ người dùng đã chọn.
-   * Các nguồn khác giữ nguyên quy tắc cũ: nhiều tùy chỉnh lên đầu.
+   * Chỉ Collection mới áp dụng sắp xếp (theo sort mode trong cài đặt nguồn);
+   * các nguồn khác không áp dụng bất kỳ sort nào và giữ nguyên thứ tự gốc.
    * Cập nhật `this.currentIndex` tương ứng với vị trí mới của thẻ đang active.
    */
   sortCurrentItems() {
     if (!Array.isArray(this.items) || this.items.length <= 1) return;
-    const currentCard = this.activeCard;
-    const activeId = currentCard?.id ?? null;
+    if (
+      this.activeSourceId !== "collection" ||
+      typeof this.activeSource?.sortItems !== "function"
+    ) {
+      return;
+    }
 
-    this.items =
-      this.activeSourceId === "collection" &&
-      typeof this.activeSource?.sortItems === "function"
-        ? this.activeSource.sortItems(this.items)
-        : sortCardsByCustomizations(this.items, activeId);
+    const currentCard = this.activeCard;
+    this.items = this.activeSource.sortItems(this.items);
 
     if (currentCard) {
       const nextIndex = this.items.findIndex(
