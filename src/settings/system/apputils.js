@@ -171,8 +171,12 @@ function initToggleButtonOpacity() {
     const target = actionButtons || settingToggleBtn;
     const isDim = getSettings().hideToggleButton === true;
 
-    if (target && isDim) {
-        target.classList.add("toggle_hidden");
+    if (target) {
+        target.classList.toggle("toggle_hidden", isDim);
+        if (target.classList.contains("preload")) {
+            void target.offsetWidth;
+            target.classList.remove("preload");
+        }
     }
 
     const toggleOpacityBox = document.getElementById("toggle_button_opacity");

@@ -186,10 +186,10 @@ function createTrackerDOM() {
             width: 265px;
             height: auto;
             max-height: calc(100vh - 24px);
-            background: rgba(10, 10, 16, 0.9);
+            background: rgba(14, 14, 14, 0.92);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.14);
             border-radius: 8px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
             display: flex;
@@ -198,9 +198,10 @@ function createTrackerDOM() {
             font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
             font-size: 10.5px;
             line-height: 1.2;
-            color: #e6e6ea;
+            color: #e5e5e5;
             overflow: hidden;
             box-sizing: border-box;
+            -webkit-user-select: none;
             user-select: none;
         }
         #idb_tracker_overlay * {
@@ -238,6 +239,7 @@ function createTrackerDOM() {
             padding: 1px 5px;
             font-size: 9.5px;
             transition: all 0.12s ease;
+            width: auto;
             height: 17px;
             display: inline-flex;
             align-items: center;
@@ -268,6 +270,7 @@ function createTrackerDOM() {
             color: #777;
             font-size: 10px;
             font-weight: 500;
+            width: auto;
             height: 18px;
             transition: all 0.12s ease;
         }
@@ -285,6 +288,8 @@ function createTrackerDOM() {
             font-size: 9.5px;
             height: 18px;
             outline: none;
+            -webkit-user-select: text;
+            user-select: text;
         }
         .idb_search:focus {
             border-color: rgba(255, 255, 255, 0.25);
@@ -328,7 +333,7 @@ function createTrackerDOM() {
         .idb_item_key {
             font-size: 10.5px;
             font-weight: 500;
-            color: #58a6ff;
+            color: #f0f0f0;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -364,17 +369,19 @@ function createTrackerDOM() {
             max-width: calc(100vw - 295px);
             height: auto;
             max-height: calc(100vh - 24px);
-            background: rgba(12, 12, 18, 0.96);
+            background: rgba(14, 14, 14, 0.96);
             backdrop-filter: blur(14px);
             -webkit-backdrop-filter: blur(14px);
-            border: 1px solid rgba(88, 166, 255, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.18);
             border-radius: 8px;
             box-shadow: 0 12px 36px rgba(0, 0, 0, 0.75);
             padding: 6px 8px;
             font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
             font-size: 10px;
             line-height: 1.35;
-            color: #a5d6ff;
+            color: #d4d4d4;
+            -webkit-user-select: none;
+            user-select: none;
             z-index: 100001;
             pointer-events: auto;
             display: none;
@@ -399,7 +406,7 @@ function createTrackerDOM() {
         .idb_tooltip_title {
             font-size: 10px;
             font-weight: 600;
-            color: #58a6ff;
+            color: #ffffff;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -417,8 +424,14 @@ function createTrackerDOM() {
         .idb_tooltip_pin {
             background: none;
             border: none;
+            color: rgba(255, 255, 255, 0.75);
             font-size: 10px;
-            padding: 0 2px;
+            width: 18px;
+            height: 18px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             opacity: 0.75;
             transition: opacity 0.15s, transform 0.15s;
             line-height: 1;
@@ -433,7 +446,8 @@ function createTrackerDOM() {
             overflow-y: auto;
             overflow-x: auto;
             white-space: pre;
-            user-select: text;
+            -webkit-user-select: none;
+            user-select: none;
             padding-right: 2px;
         }
 
@@ -453,10 +467,10 @@ function createTrackerDOM() {
             pointer-events: auto;
             width: 360px;
             height: 300px;
-            background: rgba(10, 10, 16, 0.94);
+            background: rgba(14, 14, 14, 0.94);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(88, 166, 255, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.18);
             border-radius: 8px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65);
             padding: 6px 8px;
@@ -466,8 +480,9 @@ function createTrackerDOM() {
             font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
             font-size: 10px;
             line-height: 1.35;
-            color: #a5d6ff;
-            user-select: text;
+            color: #d4d4d4;
+            -webkit-user-select: none;
+            user-select: none;
             overflow: hidden;
             animation: idb_pin_in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
@@ -495,7 +510,7 @@ function createTrackerDOM() {
         .idb_pinned_title {
             font-size: 10px;
             font-weight: 600;
-            color: #58a6ff;
+            color: #ffffff;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -516,8 +531,10 @@ function createTrackerDOM() {
         .idb_pinned_close {
             background: none;
             border: none;
-            color: #777;
-            padding: 0 2px;
+            color: #888;
+            width: 18px;
+            height: 18px;
+            padding: 0;
             font-size: 10px;
             line-height: 1;
             border-radius: 3px;
@@ -526,8 +543,8 @@ function createTrackerDOM() {
             justify-content: center;
         }
         .idb_pinned_close:hover {
-            color: #ff7b72;
-            background: rgba(248, 81, 73, 0.25);
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.16);
         }
         .idb_pinned_content {
             flex: 1 1 auto;
@@ -535,6 +552,8 @@ function createTrackerDOM() {
             overflow-y: auto;
             overflow-x: auto;
             white-space: pre;
+            -webkit-user-select: none;
+            user-select: none;
             padding-right: 2px;
         }
 
@@ -558,7 +577,7 @@ function createTrackerDOM() {
   trackerContainer.id = "idb_tracker_overlay";
   trackerContainer.innerHTML = `
         <div class="idb_head" id="idb_drag_handle">
-            <span class="idb_title">⚡ BakoDB Live</span>
+            <span class="idb_title">◆ BakoDB Live</span>
             <div class="idb_head_actions">
                 <button class="idb_btn" id="idb_btn_refresh">↻</button>
                 <button class="idb_btn" id="idb_btn_close">✕</button>
@@ -576,7 +595,7 @@ function createTrackerDOM() {
         </div>
         <div class="idb_footer">
             <label style="display:flex;align-items:center;gap:3px;">
-                <input type="checkbox" id="idb_check_auto" checked style="margin:0;transform:scale(0.85);" />
+                <input type="checkbox" id="idb_check_auto" checked style="margin:0;transform:scale(0.85);accent-color:#d4d4d4;" />
                 <span>Tự động (1.5s)</span>
             </label>
             <span id="idb_status_summary">0 mục</span>
@@ -666,7 +685,7 @@ function showTooltip(key, val) {
             <span class="idb_tooltip_title" title="${key}">${key}</span>
             <div class="idb_tooltip_actions">
                 <span class="idb_tooltip_badge">${summary}</span>
-                <button class="idb_tooltip_pin" id="idb_btn_pin">${isPinned ? "📌" : "📍"}</button>
+                <button class="idb_tooltip_pin" id="idb_btn_pin">${isPinned ? "■" : "□"}</button>
             </div>
         </div>
         <div class="idb_tooltip_content">${escapeHtml(contentText)}</div>
@@ -725,7 +744,7 @@ function createPinnedCard(key, storeName, val) {
   cardEl.className = "idb_pinned_card";
   cardEl.innerHTML = `
         <div class="idb_pinned_header">
-            <span class="idb_pinned_title" title="${key}">📌 ${key}</span>
+            <span class="idb_pinned_title" title="${key}">■ ${key}</span>
             <div class="idb_pinned_actions">
                 <span class="idb_pinned_badge">${summary}</span>
                 <button class="idb_pinned_close">✕</button>
@@ -889,6 +908,6 @@ async function refreshData() {
     bodyEl.replaceChildren(fragment);
   } catch (err) {
     console.error("IDB Tracker error:", err);
-    bodyEl.innerHTML = `<div class="idb_empty" style="color:#ff7b72;">Lỗi: ${err.message || err}</div>`;
+    bodyEl.innerHTML = `<div class="idb_empty" style="color:#d4d4d4;">Lỗi: ${err.message || err}</div>`;
   }
 }

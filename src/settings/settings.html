@@ -37,7 +37,7 @@
       <div class="nav_item" data-tab="info" data-tooltip-i18n="sp.sb.info">
         <i data-icon="sidebar_info"></i>
       </div>
-      <div class="nav_item" data-tab="debug" data-tooltip-i18n="sp.sb.debug">
+      <div class="nav_item hidden" data-tab="debug" data-tooltip-i18n="sp.sb.debug">
         <i data-icon="sidebar_debug"></i>
       </div>
     </div>
@@ -290,7 +290,7 @@
 
       <!-- Info -->
       <div id="setting_info">
-        <p class="app_name">Yumebako <span>v1</span></p>
+        <p class="app_name">Yumebako <span id="app_version_trigger">v1</span></p>
         <p class="app_desc" data-i18n="sp.credit.app_description">
           Trang khởi đầu cá nhân hóa tối giản với đa dạng tiện ích và hình nền.
         </p>
@@ -329,77 +329,86 @@
     </div>
 
     <div class="tab_content" id="tab-debug">
-      <!-- IndexedDB Live Tracker -->
-      <p class="setting_title">Theo dõi IndexedDB (Realtime)</p>
+      <!-- Developer / Debug Mode Toggle -->
       <label class="btn" data-action="toggle">
         <div class="btn_body">
-          <span class="btn_title">Bảng theo dõi IndexedDB</span>
+          <span class="btn_title">Developer mode</span>
+          <span class="btn_desc">Show the Debug tab in Settings</span>
+        </div>
+        <input type="checkbox" id="debug_mode_toggle" />
+      </label>
+
+      <!-- IndexedDB Live Tracker -->
+      <p class="setting_title">IndexedDB Tracker (Realtime)</p>
+      <label class="btn" data-action="toggle">
+        <div class="btn_body">
+          <span class="btn_title">IndexedDB Live Tracker</span>
           <span class="btn_desc"
-            >Bật bảng nổi theo dõi appData và mediaData theo thời gian
-            thực</span
+            >Show a floating panel to monitor appData and mediaData in
+            realtime</span
           >
         </div>
         <input type="checkbox" id="debug_idb_tracker" />
       </label>
 
       <!-- Carousel Test Suites -->
-      <p class="setting_title">Kiểm thử Carousel</p>
+      <p class="setting_title">Carousel Tests</p>
       <button id="debug_btn_carousel_jitter" class="btn" type="button">
-        <span>Kiểm thử rung lắc Carousel (Jitter Harness)</span>
+        <span>Carousel Jitter Harness</span>
       </button>
       <button id="debug_btn_carousel_perf" class="btn" type="button">
-        <span>Kiểm thử hiệu năng Carousel (Performance)</span>
+        <span>Carousel Performance Test</span>
       </button>
 
       <!-- i18n Debug -->
-      <p class="setting_title">Kiểm thử i18n</p>
+      <p class="setting_title">i18n Debug</p>
       <label class="btn" data-action="toggle">
-        <span>Bỏ qua dịch ngôn ngữ (Hiện mã khóa)</span>
+        <span>Bypass translations (Show raw keys)</span>
         <input type="checkbox" id="debug_i18n" />
       </label>
 
       <!-- Dialog Test -->
-      <p class="setting_title">Kiểm thử Hộp thoại (Dialog)</p>
-      <button id="test_dialog_confirm" class="btn">Hộp thoại xác nhận</button>
-      <button id="test_dialog_danger" class="btn">Hộp thoại nguy hiểm</button>
-      <button id="test_dialog_alert" class="btn">Hộp thoại thông báo</button>
+      <p class="setting_title">Dialog Tests</p>
+      <button id="test_dialog_confirm" class="btn">Confirm Dialog</button>
+      <button id="test_dialog_danger" class="btn">Danger Dialog</button>
+      <button id="test_dialog_alert" class="btn">Alert Dialog</button>
 
       <!-- showNotification -->
-      <p class="setting_title">Kiểm thử Thông báo (Notification)</p>
-      <button id="test_notif_info" class="btn">Thông tin</button>
-      <button id="test_notif_success" class="btn">Thành công</button>
-      <button id="test_notif_error" class="btn">Lỗi</button>
-      <button id="test_notif_warning" class="btn">Cảnh báo</button>
+      <p class="setting_title">Notification Tests</p>
+      <button id="test_notif_info" class="btn">Info</button>
+      <button id="test_notif_success" class="btn">Success</button>
+      <button id="test_notif_error" class="btn">Error</button>
+      <button id="test_notif_warning" class="btn">Warning</button>
 
       <!-- Sidebar Submenu -->
-      <p class="setting_title">Kiểm thử Menu phụ (Sidebar Submenu)</p>
+      <p class="setting_title">Sidebar Submenu Tests</p>
       <input
         type="text"
         id="test_submenu_width"
-        placeholder="Độ rộng (vd: 400px hoặc 350)"
+        placeholder="Width (e.g. 400px or 350)"
         autocomplete="off"
       />
       <button class="btn" data-action="submenu" id="test_sidebar_submenu">
-        Kiểm thử Menu phụ
+        Test Submenu
       </button>
       <button
         class="btn"
         data-action="submenu"
         id="test_sidebar_submenu_fullscreen"
       >
-        Kiểm thử Menu phụ toàn màn hình (100vw)
+        Test Fullscreen Submenu (100vw)
       </button>
 
       <!-- Dropdown Test -->
-      <p class="setting_title">Kiểm thử Menu thả xuống (Dropdown)</p>
+      <p class="setting_title">Dropdown Tests</p>
       <span style="font-size: 0.82em; color: var(--text-muted)"
-        >Menu tùy biến (tự nâng cấp từ &lt;select&gt;):</span
+        >Custom dropdown (upgraded from &lt;select&gt;):</span
       >
       <select id="test_custom_dropdown" class="native_select">
-        <option value="opt1">Tùy chọn 1</option>
-        <option value="opt2">Tùy chọn 2</option>
-        <option value="opt3">Tùy chọn 3</option>
-        <option value="opt4">Tùy chọn 4</option>
+        <option value="opt1">Option 1</option>
+        <option value="opt2">Option 2</option>
+        <option value="opt3">Option 3</option>
+        <option value="opt4">Option 4</option>
       </select>
     </div>
     <!-- end #tab-debug -->

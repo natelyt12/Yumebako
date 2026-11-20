@@ -99,6 +99,11 @@
       right 0.8s var(--expo_out);
   }
 
+  #action_buttons.preload {
+    opacity: 0;
+    transition: none !important;
+  }
+
   #action_buttons.setting_toggle_btn_opened,
   #action_buttons.wallpaper_switcher_opened {
     opacity: 0 !important;

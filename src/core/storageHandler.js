@@ -131,6 +131,7 @@ import { initDate, initClock } from "/src/core/time.js";
  * @property {BingConfig}        bingConfig         - Bing wallpaper provider parameters.
  * @property {{videoSound:boolean, videoVolume:number, sortMode:"effects"|"video"|"date"|"source", sortOldestFirst:boolean, sourceOrder:string[]}} collectionConfig - Collection wallpaper settings (video audio, volume, ordering).
  * @property {UnsplashConfig}    unsplashConfig     - Unsplash provider parameters.
+ * @property {boolean}           debugMode          - Show the Developer / Debug settings tab.
  * @property {boolean}           debugI18n          - Highlight missing i18n keys.
  * @property {boolean}           hideToggleButton   - Hide the settings toggle button.
  * @property {WidgetsConfig}     widgets            - Widget layer configuration.
@@ -293,6 +294,7 @@ const defaultSettings = {
     topic: "all",
     orientation: "landscape",
   },
+  debugMode: false,
   debugI18n: false,
   debugIdbTracker: false,
   hideToggleButton: false,
