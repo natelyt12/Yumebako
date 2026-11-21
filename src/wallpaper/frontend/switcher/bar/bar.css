@@ -82,29 +82,23 @@
       visibility 0s linear 0.2s;
   }
 
-  /* Chips sit in their own row after the "+".
-     No `gap` on purpose: a gap is a dead strip the pointer has to cross, and
-     because the pill re-centres every frame, a label snapping shut on the way
-     out and the next one snapping open on the way in made the whole row jitter.
-     Each chip already keeps 7px of air around its 14px icon, so the row still
-     reads as separated chips.
-
-     The 5px next to the "+" lives on this row (not on the button) so an empty
-     row leaves no stray notch inside the pill. */
+  /* Chips sit in their own row after the "+". */
   .wallpaper_top_effect_list {
     display: inline-flex;
     align-items: center;
+    gap: 2px;
     min-width: 0;
   }
 
   .wallpaper_top_effect_add + .wallpaper_top_effect_list:not(:empty) {
-    margin-left: 5px;
+    margin-left: 4px;
   }
 
   /* "Customize this wallpaper" — a brighter pill pinned before the chips, with
      the same metrics as them (28px cell, 28px tall).
-     Same morph too: the icon cell is fixed, the label track opens from `0fr` to
-     `1fr`, so hovering grows the circle into a labelled pill.
+     When no effect chips are present (and the card is customizable), it stays
+     expanded inline to show its label; otherwise it rests as a 28px icon
+     circle and reveals its label via the shared floating tooltip below.
 
      Deliberately a <div role="button">, exactly like the chips beside it: a real
      <button> would inherit the shared field chrome from core/ui/button.css
@@ -129,18 +123,14 @@
     white-space: nowrap;
     user-select: none;
     outline: none;
-    transition:
-      grid-template-columns 0.36s var(--expo_out),
-      background-color 0.2s var(--ease_out);
+    transition: background-color 0.2s var(--ease_out);
   }
 
   /* Nothing to read out: the "+" is the only control left, so it keeps its
-     label open instead of hiding it behind a hover, and rests with no fill —
+     label open instead of hiding it behind a tooltip, and rests with no fill —
      with no chips beside it, a lit pill would be the only thing in the bar.
      Hovering then lights it back up with the exact fill it has when chips are
-     present. A disabled button never lights up (see below).
-     `:not(.is-disabled)` is what keeps a disabled button icon-only: it must
-     never open by itself. */
+     present. A disabled button never opens by itself. */
   .wallpaper_switcher_top_center:has(.wallpaper_top_effect_list:empty)
     .wallpaper_top_effect_add:not(.is-disabled) {
     grid-template-columns: 28px minmax(0, 1fr);
@@ -162,7 +152,7 @@
 
   .wallpaper_top_effect_add:hover,
   .wallpaper_top_effect_add:focus-visible {
-    grid-template-columns: 28px minmax(0, 1fr);
+    background: rgba(255, 255, 255, 0.22);
   }
 
   .wallpaper_top_effect_add svg {
@@ -188,22 +178,19 @@
     opacity: 0;
     pointer-events: none;
     user-select: none;
-    transition: opacity 0.18s var(--ease_out);
   }
 
-  .wallpaper_top_effect_add:hover .wallpaper_top_effect_text,
-  .wallpaper_top_effect_add:focus-visible .wallpaper_top_effect_text {
-    opacity: 1;
-    transition: opacity 0.2s var(--ease_out);
-  }
-
-  /* Disabled (any source but Collection): a "no entry" icon, transparent fill
-     and a "not allowed" cursor. Everything else behaves like the enabled state —
-     hovering still opens the label so the reason is readable; only the click is
-     refused (see the guard on the button handlers). */
+  /* Disabled (any source but Collection): a "no entry" icon, transparent fill.
+     Hovering shows the reason in the floating tooltip; clicking is refused. */
   .wallpaper_switcher_top_center .wallpaper_top_effect_add.is-disabled {
     background: transparent;
     cursor: default;
+  }
+
+  .wallpaper_switcher_top_center .wallpaper_top_effect_add.is-disabled:hover,
+  .wallpaper_switcher_top_center
+    .wallpaper_top_effect_add.is-disabled:focus-visible {
+    background: rgba(255, 255, 255, 0.1);
   }
 
   /* While the panel is open the plus turns into a cross (click closes it). */
@@ -211,18 +198,15 @@
     transform: rotate(45deg);
   }
 
-  /* An icon cell that is always 28px wide plus a label track that opens from
-     `0fr` to `1fr`. Grid track interpolation is what makes the width grow
-     smoothly — animating `width` towards `max-content` (the previous approach)
-     is not interpolable, so the pill used to snap to its full width and only
-     the text revealed, which read as a tooltip rather than a layout morph. */
+  /* Fixed 28px circular effect badge; label is shown in the gliding floating
+     tooltip below the bar instead of morphing the pill width. */
   .wallpaper_top_effect_tab {
     position: relative;
     flex: 0 0 auto;
-    display: inline-grid;
-    grid-auto-flow: column;
-    grid-template-columns: 28px minmax(0, 0fr);
+    display: inline-flex;
     align-items: center;
+    justify-content: center;
+    width: 28px;
     height: 28px;
     padding: 0;
     margin: 0;
@@ -233,33 +217,21 @@
     color: #ffffff;
     box-sizing: border-box;
     cursor: pointer;
-    overflow: hidden;
-    white-space: nowrap;
     user-select: none;
     outline: none;
     transition:
-      grid-template-columns 0.36s var(--expo_out),
-      background-color 0.2s var(--ease_out);
+      background-color 0.2s var(--ease_out),
+      transform 0.15s var(--smooth);
   }
 
   .wallpaper_top_effect_tab:hover,
   .wallpaper_top_effect_tab:focus-visible {
-    grid-template-columns: 28px minmax(0, 1fr);
     background-color: rgba(255, 255, 255, 0.16);
   }
 
   .wallpaper_top_effect_tab:active {
     background-color: rgba(255, 255, 255, 0.22);
-  }
-
-  /* `renderIcons()` swaps `<i data-icon>` for a bare `<svg width="14">`.
-     As a replaced element the svg ignores `justify-self: stretch`, so it used
-     to sit at the *start* of the 28px icon track — every icon 7px left of its
-     own cell, and the whole row left-shifted inside the pill by a full icon
-     gap. Centre it explicitly instead. */
-  .wallpaper_top_effect_tab > svg,
-  .wallpaper_top_effect_tab > i[data-icon] {
-    justify-self: center;
+    transform: scale(0.92);
   }
 
   .wallpaper_top_effect_tab i[data-icon] {
@@ -282,29 +254,87 @@
     fill: currentColor;
   }
 
-  /* The label is a grid item in its own (animating) track, so it is clipped by
-     the track itself and never needs `max-width` stunts. Its right padding is
-     constant: a zero-width track hides it entirely when collapsed. */
-  .wallpaper_top_effect_tab .wallpaper_top_effect_text {
-    display: block;
-    min-width: 0;
-    padding-right: 12px;
-    overflow: hidden;
-    white-space: nowrap;
-    font-size: 12px;
-    font-weight: 500;
-    line-height: 28px;
-    color: #ffffff;
+  /* Singleton floating tooltip gliding horizontally across top effect badges */
+  .top_effect_floating_tooltip {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    width: auto;
+    height: 32px;
+    box-sizing: border-box;
+    transform: translateX(-50%) scale(0.9);
+    transform-origin: top center;
     opacity: 0;
     pointer-events: none;
-    user-select: none;
-    transition: opacity 0.18s var(--ease_out);
+    background-color: var(--bg-panel);
+    -webkit-backdrop-filter: blur(12px) saturate(180%) brightness(1.06);
+    backdrop-filter: blur(12px) saturate(180%) brightness(1.06);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow:
+      0 4px 16px rgba(0, 0, 0, 0.35),
+      0 0 1px rgba(0, 0, 0, 0.5);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 0 14px;
+    border-radius: 50px;
+    white-space: nowrap;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    will-change: left, width, transform, opacity;
+    transition:
+      opacity 0.15s var(--smooth),
+      transform 0.15s var(--smooth);
   }
 
-  .wallpaper_top_effect_tab:hover .wallpaper_top_effect_text,
-  .wallpaper_top_effect_tab:focus-visible .wallpaper_top_effect_text {
+  .top_effect_floating_tooltip.visible {
     opacity: 1;
-    transition: opacity 0.2s var(--ease_out);
+    transform: translateX(-50%) scale(1);
+    transition:
+      opacity 0.18s var(--cubic_out),
+      transform 0.22s cubic-bezier(0.34, 1.35, 0.64, 1);
+  }
+
+  .wallpaper_switcher_top_center.is-hidden .top_effect_floating_tooltip {
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  .top_effect_tooltip_text {
+    display: inline-block;
+    white-space: nowrap;
+    transition:
+      opacity 0.12s var(--smooth),
+      transform 0.12s var(--smooth);
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .top_effect_tooltip_text.fade_out {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+
+  .top_effect_tooltip_text.fade_in_prep {
+    transition: none !important;
+    opacity: 0;
+    transform: translateY(3px);
+  }
+
+  .top_effect_tooltip_measure {
+    position: absolute;
+    top: 0;
+    left: 0;
+    visibility: hidden;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    font-size: inherit;
+    font-weight: inherit;
+    font-family: inherit;
   }
 
   /* Source settings trigger: icon button sitting just left of the source tabs. */

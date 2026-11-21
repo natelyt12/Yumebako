@@ -90,6 +90,16 @@ export class SwitcherBar {
       "#wallpaper_switcher_top_center",
     );
     this.topEffectsEl = container.querySelector("#wallpaper_top_effect_list");
+    this.topEffectTooltipEl = container.querySelector(
+      "#top_effect_floating_tooltip",
+    );
+    this.topEffectTooltipTextEl = container.querySelector(
+      "#top_effect_tooltip_text",
+    );
+    this.topEffectTooltipMeasureEl = container.querySelector(
+      "#top_effect_tooltip_measure",
+    );
+    this._hideTopEffectTooltip = null;
     this.manageBtn = container.querySelector("#wallpaper_manage_btn");
     this.customizeBtn = container.querySelector("#wallpaper_customize_btn");
     this.fetchBtn = container.querySelector("#wallpaper_fetch_btn");
@@ -142,6 +152,7 @@ export class SwitcherBar {
     }
 
     this._bindEvents();
+    this._initTopEffectFloatingTooltip();
     this.renderTabs();
     this.bindTopBarEffects();
     this.syncState(this.dataControl.getState(), true);
@@ -824,6 +835,7 @@ export class SwitcherBar {
 
     const label = btn.querySelector(".wallpaper_top_effect_text");
     if (label && label.textContent !== text) label.textContent = text;
+    if (btn.dataset.tooltip !== text) btn.dataset.tooltip = text;
 
     this._setCustomizeIcon(available ? "plus" : "prohibit");
   }
@@ -897,19 +909,20 @@ export class SwitcherBar {
     this._topEffectsSignature = signature;
 
     this.topEffectsEl.innerHTML = activeDefs
-      .map(
-        (def) => `
+      .map((def) => {
+        const label = escapeHtml(t(def.labelKey, def.label));
+        return `
         <div
           class="wallpaper_top_effect_tab"
           role="button"
           tabindex="0"
           data-effect-id="${def.id}"
+          data-tooltip="${label}"
         >
           <i data-icon="${def.icon}"></i>
-          <span class="wallpaper_top_effect_text">${escapeHtml(t(def.labelKey, def.label))}</span>
         </div>
-      `,
-      )
+      `;
+      })
       .join("");
 
     renderIcons(this.topEffectsEl);
@@ -956,8 +969,153 @@ export class SwitcherBar {
     if (!this.topCenterEl) return;
     // Refresh the chips *before* the pill is painted: the fade-in must already
     // show the new set, never the previous one for a frame.
-    if (visible) this.syncTopBarEffects(card);
+    if (visible) {
+      this.syncTopBarEffects(card);
+    } else {
+      this._hideTopEffectTooltip?.();
+    }
     this.topCenterEl.classList.toggle("is-hidden", !visible);
+  }
+
+  /**
+   * Initialize the singleton floating tooltip gliding horizontally beneath
+   * `#wallpaper_switcher_top_center` (mirroring Settings `initNavFloatingTooltip`).
+   * @private
+   */
+  _initTopEffectFloatingTooltip() {
+    const host = this.topCenterEl;
+    const tooltip = this.topEffectTooltipEl;
+    const textEl = this.topEffectTooltipTextEl;
+    const measureEl = this.topEffectTooltipMeasureEl;
+    if (!host || !tooltip || !textEl || !measureEl) return;
+
+    let hideTimer = null;
+    let fadeTimer = null;
+    let rafId = null;
+
+    let currentX = null;
+    let targetX = null;
+    let currentWidth = null;
+    let targetWidth = null;
+    let currentText = "";
+
+    const LERP_FACTOR = 0.22;
+    const HORIZONTAL_CHROME = 28 + 2; // 14px * 2 padding + 1px * 2 border
+
+    const animate = () => {
+      const dx = targetX - currentX;
+      const dw = targetWidth - currentWidth;
+
+      if (Math.abs(dx) < 0.25 && Math.abs(dw) < 0.25) {
+        currentX = targetX;
+        currentWidth = targetWidth;
+        tooltip.style.left = `${currentX.toFixed(1)}px`;
+        tooltip.style.width = `${currentWidth.toFixed(1)}px`;
+        rafId = null;
+        return;
+      }
+
+      currentX += dx * LERP_FACTOR;
+      currentWidth += dw * LERP_FACTOR;
+
+      tooltip.style.left = `${currentX.toFixed(1)}px`;
+      tooltip.style.width = `${currentWidth.toFixed(1)}px`;
+
+      rafId = requestAnimationFrame(animate);
+    };
+
+    const startLerp = () => {
+      if (!rafId) {
+        rafId = requestAnimationFrame(animate);
+      }
+    };
+
+    const hideNow = () => {
+      clearTimeout(hideTimer);
+      clearTimeout(fadeTimer);
+      tooltip.classList.remove("visible");
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+    };
+    this._hideTopEffectTooltip = hideNow;
+
+    const itemSelector = ".wallpaper_top_effect_tab, .wallpaper_top_effect_add";
+
+    host.addEventListener("pointerover", (e) => {
+      const item = e.target.closest(itemSelector);
+      if (!item || !host.contains(item)) return;
+
+      // When no effect chips exist and customization is available, the "+" pill
+      // keeps its label expanded inline, so skip the floating tooltip.
+      if (
+        item === this.customizeBtn &&
+        this.topEffectsEl?.children.length === 0 &&
+        !item.classList.contains("is-disabled")
+      ) {
+        hideNow();
+        return;
+      }
+
+      clearTimeout(hideTimer);
+      const text = item.getAttribute("data-tooltip");
+      if (!text) return;
+
+      const hostRect = host.getBoundingClientRect();
+      const itemRect = item.getBoundingClientRect();
+      targetX = itemRect.left - hostRect.left + itemRect.width / 2;
+
+      measureEl.textContent = text;
+      targetWidth = Math.ceil(measureEl.offsetWidth + HORIZONTAL_CHROME);
+
+      const isAlreadyVisible = tooltip.classList.contains("visible");
+
+      if (!isAlreadyVisible) {
+        currentX = targetX;
+        currentWidth = targetWidth;
+        currentText = text;
+        textEl.textContent = text;
+        textEl.className = "top_effect_tooltip_text";
+        tooltip.style.left = `${currentX}px`;
+        tooltip.style.width = `${currentWidth}px`;
+        tooltip.classList.add("visible");
+      } else {
+        startLerp();
+
+        if (text !== currentText) {
+          currentText = text;
+          clearTimeout(fadeTimer);
+          textEl.classList.remove("fade_in_prep");
+          textEl.classList.add("fade_out");
+
+          fadeTimer = setTimeout(() => {
+            textEl.textContent = text;
+            textEl.classList.add("fade_in_prep");
+            textEl.classList.remove("fade_out");
+            void textEl.offsetWidth; // Force reflow
+            textEl.classList.remove("fade_in_prep");
+          }, 70);
+        }
+      }
+    });
+
+    host.addEventListener("pointerout", (e) => {
+      const item = e.target.closest(itemSelector);
+      if (!item) return;
+
+      const related = e.relatedTarget?.closest?.(itemSelector);
+      if (related && host.contains(related)) return;
+
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => {
+        tooltip.classList.remove("visible");
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+      }, 80);
+    });
   }
 
   /**
