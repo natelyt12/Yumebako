@@ -424,6 +424,7 @@
     "sp.widgets.widget_clock": "Large Clock",
     "sp.widgets.widget_date": "Date",
     "sp.widgets.widget_lunar": "Lunar Calendar",
+    "sp.widgets.widget_search": "Search",
     "sp.widgets.widget_visibility_title": "Widget Visibility Configuration",
     "sp.widgets.widget_weather": "Weather",
     "sp.widgets.widgets_settings": "Widget Customization",

@@ -1,0 +1,265 @@
+@layer features {
+  .search-widget {
+    min-width: 240px;
+    min-height: 44px;
+    overflow: visible;
+  }
+
+  .search-box {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border: 1px solid var(--glass-border);
+    border-radius: 9999px;
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.25),
+      inset 0 1px 0 var(--glass-inset);
+    cursor: text;
+    overflow: visible;
+    box-sizing: border-box;
+    font-family: "Quicksand", "Mulish", sans-serif;
+    font-weight: 500;
+    transition:
+      border-color 0.2s var(--ease_out),
+      box-shadow 0.2s var(--ease_out);
+  }
+
+  .search-box::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--bg-panel);
+    -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+    backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  .search-box:hover {
+    border-color: rgba(255, 255, 255, 0.22);
+  }
+
+  .search-box.is-focused {
+    border-color: var(--input-border-focus);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.35),
+      0 0 0 3px var(--glass-highlight),
+      inset 0 1px 0 var(--glass-border);
+  }
+
+  /* ── Leading Icon Slot (Search <-> Active Provider Swap on Focus) ──────── */
+  .search-provider-slot {
+    position: absolute;
+    left: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 34px;
+    height: 36px;
+    border-radius: 50px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    z-index: 14;
+    overflow: hidden;
+    color: var(--text-secondary);
+    transition:
+      width 0.28s var(--expo_out),
+      color 0.2s var(--ease_out);
+  }
+
+  .search-box.is-focused .search-provider-slot,
+  .search-box.is-picker-open .search-provider-slot {
+    width: 44px;
+  }
+
+  .search-box:hover .search-provider-slot,
+  .search-box.is-focused .search-provider-slot {
+    color: var(--text-primary);
+  }
+
+  .search-provider-glyph {
+    transition: opacity 0.16s var(--ease_out);
+  }
+
+  .search-box.is-picker-open .search-provider-glyph {
+    opacity: 0;
+  }
+
+  .search-icon-layer {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    padding-left: 10px;
+    pointer-events: none;
+    transition:
+      transform 0.28s var(--expo_out),
+      opacity 0.2s var(--ease_out);
+  }
+
+  .search-icon-default svg,
+  .search-provider-glyph svg {
+    width: 18px;
+    height: 18px;
+    display: block;
+    flex-shrink: 0;
+  }
+
+  .search-icon-provider {
+    gap: 3px;
+  }
+
+  .search-provider-arrows {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+  }
+
+  .search-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.82;
+    color: var(--text-primary);
+    transform: translateY(0);
+    transition: transform 0.3s ease;
+  }
+
+  .search-provider-slot:hover .search-arrow {
+    opacity: 1;
+  }
+
+  .search-arrow-up.is-lit {
+    transform: translateY(-2.5px);
+    transition: none !important;
+  }
+
+  .search-arrow-down.is-lit {
+    transform: translateY(2.5px);
+    transition: none !important;
+  }
+
+  .search-arrow svg {
+    width: 9px;
+    height: 9px;
+    display: block;
+  }
+
+  /* At rest: Search icon at left: 16px; Provider icon waiting to the left */
+  .search-icon-default {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  .search-icon-provider {
+    transform: translateX(-14px);
+    opacity: 0;
+  }
+
+  /* When focused (or picker open): Search slides RIGHT out, Provider slides in from LEFT */
+  .search-box.is-focused .search-icon-default,
+  .search-box.is-picker-open .search-icon-default {
+    transform: translateX(14px);
+    opacity: 0;
+  }
+
+  .search-box.is-focused .search-icon-provider,
+  .search-box.is-picker-open .search-icon-provider {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  /* ── Carousel-style Vertical Provider Reel ─────────────────────────────── */
+  .search-provider-reel {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 48px;
+    height: 0;
+    overflow: visible;
+    z-index: 12;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s var(--ease_out);
+  }
+
+  .search-box.is-picker-open .search-provider-reel {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .search-provider-track {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 48px;
+    transition: transform 0.36s var(--expo_out);
+    will-change: transform;
+  }
+
+  .search-provider-item {
+    display: flex;
+    align-items: center;
+    width: 48px;
+    height: 36px;
+    padding-left: 16px;
+    box-sizing: border-box;
+    color: var(--text-secondary);
+    font-size: 15px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.16s var(--ease_out);
+  }
+
+  .search-provider-item svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    display: block;
+    filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.45));
+  }
+
+  .search-provider-label {
+    margin-left: 22px;
+    line-height: 1;
+    pointer-events: none;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+  }
+
+  .search-provider-item:hover {
+    color: var(--text-primary);
+  }
+
+  .search-provider-item.is-active {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .search-box__canvas {
+    position: absolute;
+    pointer-events: none;
+    display: block;
+    transition: opacity 0.2s var(--ease_out);
+  }
+
+  .search-box.is-picker-open .search-box__canvas {
+    opacity: 0;
+  }
+
+  .search-box__proxy {
+    position: absolute;
+    inset: 0;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+    border: 0;
+    padding: 0;
+    margin: 0;
+  }
+}

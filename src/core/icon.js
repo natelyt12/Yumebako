@@ -39,6 +39,16 @@ import cameraIcon from "@phosphor-icons/core/assets/regular/camera.svg?raw";
 import pencilSimpleIcon from "@phosphor-icons/core/assets/regular/pencil-simple.svg?raw";
 import prohibitIcon from "@phosphor-icons/core/assets/regular/prohibit.svg?raw";
 import dragHandleIcon from "@phosphor-icons/core/assets/regular/dots-six-vertical.svg?raw";
+import magnifyingGlassIcon from "@phosphor-icons/core/assets/regular/magnifying-glass.svg?raw";
+import googleLogoIcon from "@phosphor-icons/core/assets/regular/google-logo.svg?raw";
+import youtubeLogoIcon from "@phosphor-icons/core/assets/regular/youtube-logo.svg?raw";
+import githubLogoIcon from "@phosphor-icons/core/assets/regular/github-logo.svg?raw";
+import redditLogoIcon from "@phosphor-icons/core/assets/regular/reddit-logo.svg?raw";
+import compassIcon from "@phosphor-icons/core/assets/regular/compass.svg?raw";
+import birdIcon from "@phosphor-icons/core/assets/regular/bird.svg?raw";
+import caretUpIcon from "@phosphor-icons/core/assets/regular/caret-up.svg?raw";
+import pinterestLogoIcon from "@phosphor-icons/core/assets/regular/pinterest-logo.svg?raw";
+import spotifyLogoIcon from "@phosphor-icons/core/assets/regular/spotify-logo.svg?raw";
 
 function withSize(svg, size = 24, style = "") {
   return svg.replace(
@@ -111,6 +121,17 @@ dragHandle: withSize(dragHandleIcon, 16),
   addMore: withSize(plusIcon, 40),
   image: withSize(imageIcon),
   collection: withSize(stackSimpleIcon),
+  search: withSize(magnifyingGlassIcon, 18),
+  providerGoogle: withSize(googleLogoIcon, 18),
+  providerDuckDuckGo: withSize(birdIcon, 18),
+  providerBing: withSize(compassIcon, 18),
+  providerYouTube: withSize(youtubeLogoIcon, 18),
+  providerGitHub: withSize(githubLogoIcon, 18),
+  providerReddit: withSize(redditLogoIcon, 18),
+  providerPinterest: withSize(pinterestLogoIcon, 18),
+  providerSpotify: withSize(spotifyLogoIcon, 18),
+  caretUpSmall: withSize(caretUpIcon, 9),
+  caretDownSmall: withSize(caretDownIcon, 9),
 };
 
 export function renderIcons(rootNode = document) {

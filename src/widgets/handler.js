@@ -1,6 +1,7 @@
 import { getSettings, saveSettings, subscribe } from "/src/core/storageHandler.js";
 import { startClockUpdates, stopClockUpdates, initClockSettings } from "/src/widgets/clock/clock.js";
 import { startWeatherUpdates, stopWeatherUpdates } from "/src/widgets/weather/weather.js";
+import { startSearchWidget, stopSearchWidget } from "/src/widgets/search/search.js";
 import { makeWidgetsDraggable, syncWidgetEditMode } from "./editmode.js";
 
 /** @typedef {import("/src/core/storageHandler.js").WidgetPositionConfig} WidgetPositionConfig */
@@ -77,9 +78,11 @@ export function applyWidgetPositionStyles(widget, pos) {
 
 import clockHtml from "./clock/clock.html?raw";
 import weatherHtml from "./weather/weather.html?raw";
+import searchHtml from "./search/search.html?raw";
 import "./editmode.css";
 import "./clock/clock.css";
 import "./weather/weather.css";
+import "./search/search.css";
 
 export async function initWidget() {
     const isEnabled = getSettings().widgets?.enabled !== false;
@@ -118,6 +121,10 @@ export async function initWidget() {
         container.insertAdjacentHTML("beforeend", weatherHtml);
         loadedCount++;
     }
+    if (getSettings().widgets?.search?.enabled !== false) {
+        container.insertAdjacentHTML("beforeend", searchHtml);
+        loadedCount++;
+    }
 
 
     if (loadedCount > 0) {
@@ -132,7 +139,8 @@ export async function initWidget() {
         "widget-clock": { ax: 0, ay: 100, x: 0, y: 0 },
         "widget-date": { ax: 0, ay: 100, x: 0, y: -80 },
         "widget-lunar": { ax: 0, ay: 100, x: 0, y: -120 },
-        "widget-weather": { ax: 100, ay: 0, x: -20, y: 20 }
+        "widget-weather": { ax: 100, ay: 0, x: -20, y: 20 },
+        "widget-search": { ax: 50, ay: 50, x: 0, y: 0, w: 440, h: 44 }
     };
 
     widgetSubscriptions.forEach((unsub) => unsub());
@@ -219,11 +227,13 @@ export async function initWidget() {
     makeWidgetsDraggable(container);
     if (getSettings().widgets?.clock?.enabled !== false || getSettings().widgets?.date?.enabled !== false || getSettings().widgets?.lunar?.enabled !== false) startClockUpdates();
     if (getSettings().widgets?.weather?.enabled !== false) startWeatherUpdates();
+    if (getSettings().widgets?.search?.enabled !== false) startSearchWidget();
 }
 
 function cleanupWidget() {
     stopClockUpdates();
     stopWeatherUpdates();
+    stopSearchWidget();
     widgetSubscriptions.forEach((unsub) => unsub());
     widgetSubscriptions = [];
     if (resizeObserver) {
@@ -363,6 +373,18 @@ function syncIndividualWidgetToggles() {
         });
         weatherToggle.onchange = async (e) => {
             saveSettings({ widgets: { ...getSettings().widgets, weather: { ...getSettings().widgets?.weather, enabled: e.target.checked } } });
+            await reloadWidgets();
+        };
+    }
+
+    const searchToggle = document.getElementById("widget_search_enabled");
+    if (searchToggle) {
+        subscribe("widgets", (widgets) => {
+            const enabled = widgets?.search?.enabled !== false;
+            searchToggle.checked = enabled;
+        });
+        searchToggle.onchange = async (e) => {
+            saveSettings({ widgets: { ...getSettings().widgets, search: { ...getSettings().widgets?.search, enabled: e.target.checked } } });
             await reloadWidgets();
         };
     }

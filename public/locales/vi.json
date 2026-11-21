@@ -424,6 +424,7 @@
     "sp.widgets.widget_clock": "Đồng hồ lớn",
     "sp.widgets.widget_date": "Ngày tháng",
     "sp.widgets.widget_lunar": "Âm lịch",
+    "sp.widgets.widget_search": "Thanh tìm kiếm",
     "sp.widgets.widget_visibility_title": "Cấu hình hiển thị Widget",
     "sp.widgets.widget_weather": "Thời tiết",
     "sp.widgets.widgets_settings": "Tùy biến Widget",

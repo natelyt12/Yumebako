@@ -281,28 +281,55 @@ export function syncWidgetEditMode() {
 }
 
 let floatingBar = null;
+let editBackdrop = null;
 let canExit = false;
 let exitTimer = null;
 let originalPositions = [];
 
 const RESIZE_HANDLE_ICONS = {
-    nw: `<svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3H3v13"/></svg>`,
-    ne: `<svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h13v13"/></svg>`,
-    se: `<svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 15h13V2"/></svg>`,
-    sw: `<svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 15H3V2"/></svg>`,
-    n: `<svg viewBox="0 0 24 6" width="24" height="6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="2" y1="3" x2="22" y2="3"/></svg>`,
-    s: `<svg viewBox="0 0 24 6" width="24" height="6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="2" y1="3" x2="22" y2="3"/></svg>`,
-    w: `<svg viewBox="0 0 6 24" width="6" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="2" x2="3" y2="22"/></svg>`,
-    e: `<svg viewBox="0 0 6 24" width="6" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="2" x2="3" y2="22"/></svg>`
+    nw: `<svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="butt" stroke-linejoin="miter"><path d="M16 3H3v13"/></svg>`,
+    ne: `<svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="butt" stroke-linejoin="miter"><path d="M2 3h13v13"/></svg>`,
+    se: `<svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="butt" stroke-linejoin="miter"><path d="M2 15h13V2"/></svg>`,
+    sw: `<svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="butt" stroke-linejoin="miter"><path d="M16 15H3V2"/></svg>`,
+    n: `<svg viewBox="0 0 24 6" width="24" height="6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="butt"><line x1="2" y1="3" x2="22" y2="3"/></svg>`,
+    s: `<svg viewBox="0 0 24 6" width="24" height="6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="butt"><line x1="2" y1="3" x2="22" y2="3"/></svg>`,
+    w: `<svg viewBox="0 0 6 24" width="6" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="butt"><line x1="3" y1="2" x2="3" y2="22"/></svg>`,
+    e: `<svg viewBox="0 0 6 24" width="6" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="butt"><line x1="3" y1="2" x2="3" y2="22"/></svg>`
 };
+
+const WIDGET_SIZE_CONSTRAINTS = {
+    search: {
+        minW: 240,
+        lockHeight: true
+    }
+};
+
+function getWidgetSizeConstraints(widget) {
+    const type = widget.id?.replace("widget-", "") || "";
+    const cfg = WIDGET_SIZE_CONSTRAINTS[type] || {};
+    return {
+        minW: cfg.minW ?? 20,
+        maxW: cfg.maxW ?? Infinity,
+        minH: cfg.minH ?? 20,
+        maxH: cfg.maxH ?? Infinity,
+        lockWidth: Boolean(cfg.lockWidth),
+        lockHeight: Boolean(cfg.lockHeight)
+    };
+}
 
 function createResizeHandles(widget, container) {
     if (widget.querySelector(".widget-resize-handles")) return;
 
+    const constraints = getWidgetSizeConstraints(widget);
     const wrapper = document.createElement("div");
     wrapper.className = "widget-resize-handles";
 
-    const handlePositions = ["nw", "n", "ne", "w", "e", "sw", "s", "se"];
+    const handlePositions = ["nw", "n", "ne", "w", "e", "sw", "s", "se"].filter((pos) => {
+        if (constraints.lockHeight && (pos.includes("n") || pos.includes("s"))) return false;
+        if (constraints.lockWidth && (pos.includes("w") || pos.includes("e"))) return false;
+        return true;
+    });
+
     handlePositions.forEach((pos) => {
         const h = document.createElement("div");
         h.className = `resize-handle handle-${pos}`;
@@ -310,7 +337,7 @@ function createResizeHandles(widget, container) {
         if (RESIZE_HANDLE_ICONS[pos]) {
             h.innerHTML = RESIZE_HANDLE_ICONS[pos];
         }
-        attachHandleEvents(h, pos, widget, container);
+        attachHandleEvents(h, pos, widget, container, constraints);
         wrapper.appendChild(h);
     });
 
@@ -321,7 +348,7 @@ function removeResizeHandles(container) {
     container.querySelectorAll(".widget-resize-handles").forEach((el) => el.remove());
 }
 
-function attachHandleEvents(handleEl, handleType, widget, container) {
+function attachHandleEvents(handleEl, handleType, widget, container, constraints = getWidgetSizeConstraints(widget)) {
     const onStart = (clientX, clientY, e) => {
         if (!isEditMode) return;
         e.stopPropagation();
@@ -369,34 +396,42 @@ function attachHandleEvents(handleEl, handleType, widget, container) {
             let newH = startH;
             let newY = startY;
 
-            // Horizontal resize có chặn biên container
-            if (handleType.includes("e")) {
-                const maxW = Math.max(20, Math.floor((cWidth - initialLeft) / step) * step);
-                const dx = Math.round(rawDx / step) * step;
-                newW = Math.min(maxW, Math.max(20, startW + dx));
-                const actualDeltaW = newW - startW;
-                newX = startX + (ax / 100) * actualDeltaW;
-            } else if (handleType.includes("w")) {
-                const maxW = Math.max(20, Math.floor(initialRight / step) * step);
-                const dx = Math.round(rawDx / step) * step;
-                newW = Math.min(maxW, Math.max(20, startW - dx));
-                const actualDeltaW = newW - startW;
-                newX = startX - (1 - ax / 100) * actualDeltaW;
+            // Horizontal resize có chặn biên container và min/max width
+            if (!constraints.lockWidth) {
+                if (handleType.includes("e")) {
+                    const containerMaxW = Math.floor((cWidth - initialLeft) / step) * step;
+                    const maxW = Math.max(constraints.minW, Math.min(constraints.maxW, containerMaxW));
+                    const dx = Math.round(rawDx / step) * step;
+                    newW = Math.min(maxW, Math.max(constraints.minW, startW + dx));
+                    const actualDeltaW = newW - startW;
+                    newX = startX + (ax / 100) * actualDeltaW;
+                } else if (handleType.includes("w")) {
+                    const containerMaxW = Math.floor(initialRight / step) * step;
+                    const maxW = Math.max(constraints.minW, Math.min(constraints.maxW, containerMaxW));
+                    const dx = Math.round(rawDx / step) * step;
+                    newW = Math.min(maxW, Math.max(constraints.minW, startW - dx));
+                    const actualDeltaW = newW - startW;
+                    newX = startX - (1 - ax / 100) * actualDeltaW;
+                }
             }
 
-            // Vertical resize có chặn biên container
-            if (handleType.includes("s")) {
-                const maxH = Math.max(20, Math.floor((cHeight - initialTop) / step) * step);
-                const dy = Math.round(rawDy / step) * step;
-                newH = Math.min(maxH, Math.max(20, startH + dy));
-                const actualDeltaH = newH - startH;
-                newY = startY + (ay / 100) * actualDeltaH;
-            } else if (handleType.includes("n")) {
-                const maxH = Math.max(20, Math.floor(initialBottom / step) * step);
-                const dy = Math.round(rawDy / step) * step;
-                newH = Math.min(maxH, Math.max(20, startH - dy));
-                const actualDeltaH = newH - startH;
-                newY = startY - (1 - ay / 100) * actualDeltaH;
+            // Vertical resize có chặn biên container và min/max height
+            if (!constraints.lockHeight) {
+                if (handleType.includes("s")) {
+                    const containerMaxH = Math.floor((cHeight - initialTop) / step) * step;
+                    const maxH = Math.max(constraints.minH, Math.min(constraints.maxH, containerMaxH));
+                    const dy = Math.round(rawDy / step) * step;
+                    newH = Math.min(maxH, Math.max(constraints.minH, startH + dy));
+                    const actualDeltaH = newH - startH;
+                    newY = startY + (ay / 100) * actualDeltaH;
+                } else if (handleType.includes("n")) {
+                    const containerMaxH = Math.floor(initialBottom / step) * step;
+                    const maxH = Math.max(constraints.minH, Math.min(constraints.maxH, containerMaxH));
+                    const dy = Math.round(rawDy / step) * step;
+                    newH = Math.min(maxH, Math.max(constraints.minH, startH - dy));
+                    const actualDeltaH = newH - startH;
+                    newY = startY - (1 - ay / 100) * actualDeltaH;
+                }
             }
 
             widget.style.width = `${newW}px`;
@@ -459,7 +494,20 @@ function startEditMode() {
 
     isWidgetDragDirty = false;
     isEditMode = true;
-    container.classList.add("edit-mode");
+
+    // Create dedicated darkening backdrop for the widget editor grid
+    if (editBackdrop) editBackdrop.remove();
+    const backdrop = document.createElement("div");
+    backdrop.className = "widget_edit_backdrop";
+    backdrop.id = "widget_edit_backdrop";
+    document.body.appendChild(backdrop);
+    editBackdrop = backdrop;
+
+    requestAnimationFrame(() => {
+        backdrop.classList.add("visible");
+        container.classList.add("edit-mode");
+    });
+
     anchorIndicators = createAnchorIndicators(container);
 
     // Hide settings panel during edit mode
@@ -467,16 +515,16 @@ function startEditMode() {
     document.querySelector("#action_buttons")?.classList.add("preview_active");
     document.querySelector("#setting_toggle_btn")?.classList.add("preview_active");
 
-    // Create lightweight floating action bar with only Cancel and Save buttons
+    // Create pill floating action bar with Cancel and Save buttons
     const bar = document.createElement("div");
     bar.className = "edit_floating_bar";
     bar.id = "widget_edit_bar";
     bar.innerHTML = `
-        <button id="edit_cancel_btn">
+        <button type="button" class="edit_cancel_btn" id="edit_cancel_btn">
             <i data-icon="close"></i>
             <span>${t("sp.widgets.edit_cancel", "Hủy")}</span>
         </button>
-        <button id="edit_save_btn">
+        <button type="button" class="edit_save_btn" id="edit_save_btn">
             <i data-icon="particleCheck"></i>
             <span>${t("sp.widgets.edit_save", "Lưu")}</span>
         </button>
@@ -560,6 +608,13 @@ function exitMode() {
     if (anchorMenuEl) {
         anchorMenuEl.classList.remove("visible");
         targetWidgetForAnchor = null;
+    }
+
+    if (editBackdrop) {
+        editBackdrop.classList.remove("visible");
+        const backdropToRemove = editBackdrop;
+        editBackdrop = null;
+        setTimeout(() => backdropToRemove.remove(), 300);
     }
 
     if (floatingBar) {

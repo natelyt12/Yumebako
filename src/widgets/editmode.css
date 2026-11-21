@@ -1,5 +1,20 @@
 @layer features {
-  /* Visual Grid Background — removed, will be redesigned */
+  /* Darkening overlay behind the widget grid during edit mode */
+  .widget_edit_backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: calc(var(--z-widgets) - 1);
+    background: rgba(0, 0, 0, 0.8);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.28s var(--smooth);
+  }
+
+  .widget_edit_backdrop.visible {
+    opacity: 1;
+  }
+
+  /* Visual Grid Background */
   #widgets_container {
     position: absolute;
     top: 50%;
@@ -17,43 +32,56 @@
     pointer-events: auto;
   }
 
-  #widgets_container.edit-mode::before {
+  #widgets_container::before {
     content: "";
     position: absolute;
     left: 0;
     top: 0;
     width: 100%;
     height: 100%;
-    /* Simple line grid (50px spacing) */
+    /* Exact debug grid: 10px main cells (--grid-size / resize step) + 5px sub-cells (drag step) */
     background-image:
-      linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-    background-size: calc(var(--grid-size, 10) * 5px)
-      calc(var(--grid-size, 10) * 5px);
-    background-position: center center;
-
+      linear-gradient(rgba(255, 255, 255, 0.09) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.09) 1px, transparent 1px),
+      linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+    background-size:
+      calc(var(--grid-size, 10) * 1px) calc(var(--grid-size, 10) * 1px),
+      calc(var(--grid-size, 10) * 1px) calc(var(--grid-size, 10) * 1px),
+      calc(var(--grid-size, 10) * 0.5px) calc(var(--grid-size, 10) * 0.5px),
+      calc(var(--grid-size, 10) * 0.5px) calc(var(--grid-size, 10) * 0.5px);
+    background-position: 0 0;
+    opacity: 0;
     pointer-events: none;
     z-index: var(--z-base);
+    transition: opacity 0.28s var(--smooth);
   }
 
-  #widgets_container.edit-mode::after {
+  #widgets_container::after {
     content: "";
     position: absolute;
     left: 0;
     top: 0;
     width: 100%;
     height: 100%;
-
     /* Outer box bao quanh vùng giới hạn canvas */
     border: 1px solid rgba(255, 255, 255, 0.2);
     box-sizing: border-box;
+    opacity: 0;
     pointer-events: none;
     z-index: var(--z-base);
+    transition: opacity 0.28s var(--smooth);
+  }
+
+  #widgets_container.edit-mode::before,
+  #widgets_container.edit-mode::after {
+    opacity: 1;
   }
 
   /* Base Widget Styling */
   .widget {
     position: absolute;
+    z-index: 2;
     box-sizing: border-box;
     pointer-events: auto;
     /* Allow interactions with widgets */
@@ -164,9 +192,8 @@
     filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.75));
     pointer-events: auto !important;
     transition:
-      transform 0.12s ease,
-      color 0.12s ease,
-      filter 0.12s ease;
+      transform 0.14s var(--ease_out),
+      color 0.14s var(--ease_out);
     z-index: 6;
   }
 
@@ -179,23 +206,20 @@
   .edit-mode .widget .resize-handle:hover,
   .edit-mode .widget .resize-handle.active {
     color: #ffffff;
-    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.85))
-      drop-shadow(0 1px 3px rgba(0, 0, 0, 0.9));
   }
 
-  /* 4 Corners: L-shaped Right Angle Brackets */
+  /* 4 Corners: Flat L-shaped Right Angle Brackets (nudge 2px outward on hover) */
   .edit-mode .widget .resize-handle.handle-nw {
     width: 18px;
     height: 18px;
     top: -7px;
     left: -7px;
     cursor: nwse-resize;
-    transform-origin: top left;
   }
 
   .edit-mode .widget .resize-handle.handle-nw:hover,
   .edit-mode .widget .resize-handle.handle-nw.active {
-    transform: scale(1.2);
+    transform: translate(-2px, -2px);
   }
 
   .edit-mode .widget .resize-handle.handle-ne {
@@ -204,12 +228,11 @@
     top: -7px;
     right: -7px;
     cursor: nesw-resize;
-    transform-origin: top right;
   }
 
   .edit-mode .widget .resize-handle.handle-ne:hover,
   .edit-mode .widget .resize-handle.handle-ne.active {
-    transform: scale(1.2);
+    transform: translate(2px, -2px);
   }
 
   .edit-mode .widget .resize-handle.handle-se {
@@ -218,12 +241,11 @@
     bottom: -7px;
     right: -7px;
     cursor: nwse-resize;
-    transform-origin: bottom right;
   }
 
   .edit-mode .widget .resize-handle.handle-se:hover,
   .edit-mode .widget .resize-handle.handle-se.active {
-    transform: scale(1.2);
+    transform: translate(2px, 2px);
   }
 
   .edit-mode .widget .resize-handle.handle-sw {
@@ -232,15 +254,14 @@
     bottom: -7px;
     left: -7px;
     cursor: nesw-resize;
-    transform-origin: bottom left;
   }
 
   .edit-mode .widget .resize-handle.handle-sw:hover,
   .edit-mode .widget .resize-handle.handle-sw.active {
-    transform: scale(1.2);
+    transform: translate(-2px, 2px);
   }
 
-  /* 4 Edges: Single Straight Lines */
+  /* 4 Edges: Flat Single Straight Lines (nudge 2px outward on hover) */
   .edit-mode .widget .resize-handle.handle-n {
     width: 32px;
     height: 16px;
@@ -252,7 +273,7 @@
 
   .edit-mode .widget .resize-handle.handle-n:hover,
   .edit-mode .widget .resize-handle.handle-n.active {
-    transform: translateX(-50%) scale(1.2);
+    transform: translate(-50%, -2px);
   }
 
   .edit-mode .widget .resize-handle.handle-s {
@@ -266,7 +287,7 @@
 
   .edit-mode .widget .resize-handle.handle-s:hover,
   .edit-mode .widget .resize-handle.handle-s.active {
-    transform: translateX(-50%) scale(1.2);
+    transform: translate(-50%, 2px);
   }
 
   .edit-mode .widget .resize-handle.handle-w {
@@ -280,7 +301,7 @@
 
   .edit-mode .widget .resize-handle.handle-w:hover,
   .edit-mode .widget .resize-handle.handle-w.active {
-    transform: translateY(-50%) scale(1.2);
+    transform: translate(-2px, -50%);
   }
 
   .edit-mode .widget .resize-handle.handle-e {
@@ -294,7 +315,7 @@
 
   .edit-mode .widget .resize-handle.handle-e:hover,
   .edit-mode .widget .resize-handle.handle-e.active {
-    transform: translateY(-50%) scale(1.2);
+    transform: translate(2px, -50%);
   }
 
   /* During widget resizing */
@@ -324,11 +345,11 @@
 
   /* ─── Anchor Indicators ─────────────────────────────────── */
 
-  /* Base for all indicators */
+  /* Base for all indicators (renders underneath widgets) */
   .canvas-indicator {
     position: absolute;
     pointer-events: none;
-    z-index: 4;
+    z-index: 0;
     opacity: 0.3;
     transition:
       opacity 0.15s ease,
@@ -453,7 +474,7 @@
     box-shadow: none !important;
   }
 
-  /* Floating Action Bar - follows Yumebako design language */
+  /* Floating Action Bar — pill-shaped glass bar matching current Yumebako UI */
   .edit_floating_bar {
     position: fixed;
     bottom: 24px;
@@ -462,57 +483,78 @@
     z-index: var(--z-floating-bar);
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 8px;
+    gap: 4px;
+    padding: 4px;
     background-color: var(--bg-panel);
     border: 1px solid var(--glass-border);
-    border-radius: 4px;
+    border-radius: 50px;
     box-shadow:
       0 8px 32px rgba(0, 0, 0, 0.4),
       0 2px 8px rgba(0, 0, 0, 0.2),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
-    backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
-    animation: floating_bar_slide_up 0.35s var(--expo_out) both;
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+    backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+    animation: floating_bar_slide_up 0.36s var(--expo_out) both;
   }
 
   .edit_floating_bar.closing {
-    animation: floating_bar_slide_down 0.25s var(--smooth) both;
+    animation: floating_bar_slide_down 0.24s var(--cubic_in) both;
     pointer-events: none;
   }
 
   .edit_floating_bar button {
     width: auto;
-    height: 36px;
-    padding: 0 14px;
-    border-radius: 2px;
-    font-size: 0.95em;
+    height: 34px;
+    padding: 0 16px;
+    border-radius: 50px;
+    font-size: 0.9em;
     font-weight: 500;
     font-family: inherit;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    background-color: var(--button);
-    border: 1px solid var(--glass-border-sm);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    color: var(--text-primary);
-    transition: all 0.2s var(--smooth);
+    gap: 7px;
+    background-color: transparent;
+    border: 1px solid transparent;
+    box-shadow: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition:
+      background-color 0.18s var(--ease_out),
+      border-color 0.18s var(--ease_out),
+      color 0.18s var(--ease_out),
+      transform 0.14s var(--smooth);
   }
 
   .edit_floating_bar button:hover {
-    background-color: var(--button-hov);
-    border-color: var(--glass-border);
-    transition-duration: 0s !important;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
   }
 
   .edit_floating_bar button:active {
-    background-color: var(--button-act);
+    background-color: rgba(255, 255, 255, 0.15);
+    transform: scale(0.96);
+  }
+
+  .edit_floating_bar button.edit_save_btn {
+    background-color: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.14);
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  .edit_floating_bar button.edit_save_btn:hover {
+    background-color: rgba(255, 255, 255, 0.24);
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+
+  .edit_floating_bar button.edit_save_btn:active {
+    background-color: rgba(255, 255, 255, 0.3);
   }
 
   .edit_floating_bar button svg {
-    width: 16px;
-    height: 16px;
+    width: 15px;
+    height: 15px;
     flex-shrink: 0;
   }
 

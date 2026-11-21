@@ -98,6 +98,7 @@ import { initDate, initClock } from "/src/core/time.js";
  * @property {WidgetEntry} date         - Date display widget.
  * @property {WidgetEntry} lunar        - Lunar calendar widget.
  * @property {WidgetEntry} weather      - Weather widget.
+ * @property {WidgetEntry} search       - Search bar widget.
  */
 
 /**
@@ -329,6 +330,13 @@ const defaultSettings = {
       config: {
         fahrenheit: false,
         manual_location: null,
+      },
+    },
+    search: {
+      enabled: false,
+      position: { ax: 50, ay: 50, x: 0, y: 0, w: 440, h: 44 },
+      config: {
+        provider: "google",
       },
     },
   },
