@@ -1,7 +1,6 @@
 import "./style.css";
 import editorTemplateHtml from "./template.html?raw";
 import {
-  setSubmenuDirty,
   showNotification,
   createSlider,
   createButton,
@@ -20,7 +19,7 @@ import {
   EffectsEngine,
   getEffectsEngine,
 } from "../../../../backend/effects/particles/index.js";
-import { deepEqual } from "../../state.js";
+import { createAutoSaver } from "../../state.js";
 
 function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -32,32 +31,12 @@ function genId() {
 export class EffectsEditorUI {
   constructor(engine) {
     this.engine = engine;
-    this._dirty = false;
     this.workingState = null;
     this.columnLists = {};
-    this.saveBtn = null;
-    this.savedSnapshot = null;
     this.drawer = null;
     this.activeEffectId = null;
     this._disposed = false;
-
-    // Every `isDirty = true` assignment refreshes the Save button, so it stays
-    // disabled while the working state still matches the last save.
-    Object.defineProperty(this, "isDirty", {
-      get: () => this._dirty,
-      set: (value) => {
-        this._dirty = value;
-        if (this.saveBtn) this._refreshSaveState();
-      },
-    });
-  }
-
-  _refreshSaveState() {
-    if (!this.saveBtn || !this.workingState) return;
-    const equal = deepEqual(this.workingState, this.savedSnapshot);
-    this.saveBtn.disabled = equal;
-    this._dirty = !equal;
-    setSubmenuDirty(!equal);
+    this.autoSave = createAutoSaver(() => this._persistState());
   }
 
   createPanel() {
@@ -78,8 +57,6 @@ export class EffectsEditorUI {
       staticEnabled: saved.staticEnabled === true,
     };
     this.workingState = JSON.parse(JSON.stringify(initialState));
-    this.savedSnapshot = JSON.parse(JSON.stringify(initialState));
-    this.isDirty = false;
     this.columnLists = {};
     this.columns = {};
 
@@ -105,13 +82,6 @@ export class EffectsEditorUI {
       });
     }
 
-    const btnSave = this.clone.querySelector("#btn_save");
-    if (btnSave) {
-      this.saveBtn = btnSave;
-      btnSave.disabled = true;
-      btnSave.addEventListener("click", () => this._handleSave());
-    }
-
     const panelEl = this.clone.firstElementChild;
 
     this._disposed = false;
@@ -128,31 +98,10 @@ export class EffectsEditorUI {
 
     return {
       el: panelEl,
-      isDirty: () => this.isDirty,
-      revert: () => {
-        this.drawer?.close();
-        if (!this.isDirty) return;
-        const savedData = getSettings().particles || {
-          enabled: true,
-          dynamicEnabled: false,
-          staticEnabled: false,
-          dynamic: [],
-          static: [],
-        };
-        this.engine.loadState(savedData);
-        this.workingState = JSON.parse(
-          JSON.stringify({
-            dynamic: savedData.dynamic || [],
-            static: savedData.static || [],
-            dynamicEnabled: savedData.dynamicEnabled === true,
-            staticEnabled: savedData.staticEnabled === true,
-          }),
-        );
-        this.isDirty = false;
-        setSubmenuDirty(false);
-      },
+      cancelPending: () => this.autoSave.cancel(),
       dispose: () => {
         this._disposed = true;
+        this.autoSave.flush();
         this.drawer?.destroy();
         this.drawer = null;
       },
@@ -219,8 +168,6 @@ export class EffectsEditorUI {
     masterToggleInput.onchange = () => {
       const isEnabled = masterToggleInput.checked;
       this.workingState[`${layer}Enabled`] = isEnabled;
-      this.isDirty = true;
-      setSubmenuDirty(true);
 
       if (isEnabled) {
         list.style.opacity = "1";
@@ -249,6 +196,7 @@ export class EffectsEditorUI {
           this.drawer.close();
         }
       }
+      this.autoSave.now();
     };
 
     if (this.workingState[`${layer}Enabled`] === false) {
@@ -412,8 +360,7 @@ export class EffectsEditorUI {
           this.engine.updateEffectConfig(effectData.id, layer, {
             [spec.key]: val,
           });
-          this.isDirty = true;
-          setSubmenuDirty(true);
+          this.autoSave.now();
         });
         itemWrapper.appendChild(toggle);
         // Reset-to-defaults writes through `.value`, like sliders and colors.
@@ -437,8 +384,7 @@ export class EffectsEditorUI {
             this.engine.updateEffectConfig(effectData.id, layer, {
               [spec.key]: val,
             });
-            this.isDirty = true;
-            setSubmenuDirty(true);
+            this.autoSave.schedule();
           },
         });
         renderIcons(picker);
@@ -461,8 +407,7 @@ export class EffectsEditorUI {
             this.engine.updateEffectConfig(effectData.id, layer, {
               [spec.key]: val,
             });
-            this.isDirty = true;
-            setSubmenuDirty(true);
+            this.autoSave.schedule();
           },
         });
         itemWrapper.appendChild(sliderComponent);
@@ -503,17 +448,12 @@ export class EffectsEditorUI {
 
       for (const [key, val] of Object.entries(defaults)) {
         if (sliders[key]) {
-          if (typeof sliders[key].setValueNoAnim === "function") {
-            sliders[key].setValueNoAnim(val);
-          } else {
-            sliders[key].value = val;
-          }
+          sliders[key].value = val;
         }
         effectData.config[key] = val;
       }
       this.engine.updateEffectConfig(effectData.id, layer, defaults);
-      this.isDirty = true;
-      setSubmenuDirty(true);
+      this.autoSave.now();
       showNotification(t("particles.reset_success"), "success");
     };
 
@@ -577,8 +517,7 @@ export class EffectsEditorUI {
       if (idx >= 0) arr.splice(idx, 1);
       this.engine.removeEffect(effectData.id, layer);
       this._refreshList(layer);
-      this.isDirty = true;
-      setSubmenuDirty(true);
+      this.autoSave.now();
     });
     btnDelete.className = "effect_btn_delete";
 
@@ -605,8 +544,6 @@ export class EffectsEditorUI {
       e.stopPropagation();
       const newState = toggleInput.checked;
       effectData.enabled = newState;
-      this.isDirty = true;
-      setSubmenuDirty(true);
 
       if (newState) {
         this.engine.addEffect(
@@ -628,6 +565,7 @@ export class EffectsEditorUI {
           this.drawer?.close();
         }
       }
+      this.autoSave.now();
     };
 
     // Clicking anywhere on the card opens the effect drawer
@@ -665,8 +603,7 @@ export class EffectsEditorUI {
     arr.push(effectData);
     this.engine.addEffect(id, layer, type, config);
     this._refreshList(layer);
-    this.isDirty = true;
-    setSubmenuDirty(true);
+    this.autoSave.now();
   }
 
   _refreshList(layer) {
@@ -693,12 +630,11 @@ export class EffectsEditorUI {
     this.workingState.static = [];
     this._refreshList("dynamic");
     this._refreshList("static");
-    this.isDirty = true;
+    this.autoSave.now();
     showNotification(t("particles.clear_all_success"), "success");
   }
 
-  _handleSave() {
-    this.drawer?.close();
+  _persistState() {
     const cloned = JSON.parse(JSON.stringify(this.workingState));
     const current = getSettings().particles || { enabled: true };
     const nextParticles = {
@@ -709,12 +645,8 @@ export class EffectsEditorUI {
       staticEnabled: cloned.staticEnabled,
       enabled: true,
     };
+    this.engine.markStateSynced(nextParticles);
     saveSettings({ particles: nextParticles });
-    this.savedSnapshot = cloned;
-
-    showNotification(t("common.saved_changes"), "success");
-    this.isDirty = false;
-    setSubmenuDirty(false);
   }
 }
 

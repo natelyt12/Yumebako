@@ -8,8 +8,6 @@ import {
   Drawer,
   initButtons,
   setDropdownValue,
-  setSubmenuDirty,
-  showConfirm,
   showNotification,
 } from "/src/core/ui.js";
 import { t } from "/src/core/i18n.js";
@@ -24,7 +22,7 @@ import {
   cloneData,
   getWavyController,
 } from "../../../../backend/effects/motion/WavyEngine.js";
-import { createSaveState } from "../../state.js";
+import { createAutoSaver } from "../../state.js";
 
 /** Random value inside a spec's range, snapped to its step. */
 function randomInRange(min, max, step) {
@@ -63,7 +61,7 @@ const PARALLAX_SPECS = [
  * Combines wavy motion generator controls and mouse-parallax tracking into
  * a single panel since both share the same WavyEngine loop and zoom scale.
  *
- * @returns {{ el: HTMLElement, isDirty: () => boolean, revert: () => void }}
+ * @returns {{ el: HTMLElement, cancelPending: () => void, dispose: () => void }}
  */
 export function createWavyPanel() {
   const wavy = getWavyController();
@@ -72,31 +70,28 @@ export function createWavyPanel() {
   const el = template.content.firstElementChild;
 
   const isInitializing = { value: true };
-  let isDirty = false;
 
   const savedWavy = () => getSettings().wavy || {};
 
-  // Snapshot restored when the panel is left with unsaved edits.
-  let startConfig = wavy ? cloneData(wavy.getConfig()) : {};
+  const initialConfig = wavy ? wavy.getConfig() : {};
   const sharedDefaults = wavy
     ? wavy.getDefaultConfig()
     : { scale: 1.04, parallaxInertia: 0.03, parallaxAmplitude: -30 };
 
-  // Working copy — every edit is previewed live but only persisted on Save.
   const working = {
     enabled: savedWavy().enabled !== false,
     parallaxEnabled: savedWavy().parallaxEnabled === true,
-    motionType: startConfig.motionType || DEFAULT_MOTION,
-    scale: Number(startConfig.scale) || sharedDefaults.scale,
+    motionType: initialConfig.motionType || DEFAULT_MOTION,
+    scale: Number(initialConfig.scale) || sharedDefaults.scale,
     // The advanced stack always lives in its own drawer now, so the flag that
     // used to gate it is permanently on (same contract as the onload panel).
     advanced: true,
-    motions: cloneData(startConfig.motions),
+    motions: cloneData(initialConfig.motions),
     parallaxAmplitude: Number(
-      startConfig.parallaxAmplitude ?? sharedDefaults.parallaxAmplitude ?? -30,
+      initialConfig.parallaxAmplitude ?? sharedDefaults.parallaxAmplitude ?? -30,
     ),
     parallaxInertia: Number(
-      startConfig.parallaxInertia ?? sharedDefaults.parallaxInertia ?? 0.03,
+      initialConfig.parallaxInertia ?? sharedDefaults.parallaxInertia ?? 0.03,
     ),
   };
 
@@ -233,10 +228,10 @@ export function createWavyPanel() {
       const { MotionClass, stored } = activeMotion();
       Object.entries(MotionClass.DEFAULTS || {}).forEach(([key, value]) => {
         stored[key] = value;
-        if (motionSliderMap[key]) motionSliderMap[key].setValueNoAnim(value);
+        if (motionSliderMap[key]) motionSliderMap[key].value = value;
       });
       wavy?.reseed();
-      applyLivePreview();
+      applyLivePreview(true);
     });
 
     const footerRow = document.createElement("div");
@@ -324,14 +319,7 @@ export function createWavyPanel() {
   resetBtn.className = "btn flex_1";
   resetBtn.textContent = t("wavy.btn_default", "Mặc định");
 
-  const saveBtn = document.createElement("button");
-  saveBtn.type = "button";
-  saveBtn.className = "btn flex_1";
-  saveBtn.textContent = t("wavy.btn_save", "Lưu");
-
-  const saveState = createSaveState(saveBtn);
-
-  actions.append(resetBtn, saveBtn);
+  actions.append(resetBtn);
 
   el.append(
     columns,
@@ -342,17 +330,7 @@ export function createWavyPanel() {
     actions,
   );
 
-  // ── Live preview plumbing ────────────────────────────────────────────────
-
-  const syncDirty = (next) => {
-    isDirty = next;
-    setSubmenuDirty(next);
-  };
-
-  const markDirty = () => {
-    if (isInitializing.value) return;
-    syncDirty(saveState.sync(working));
-  };
+  // ── Live preview & auto-save plumbing ────────────────────────────────────
 
   /** Start the loop when either wavy or parallax is switched on. */
   const ensureStarted = () => {
@@ -380,10 +358,33 @@ export function createWavyPanel() {
     }
   };
 
-  const applyLivePreview = () => {
+  const persistConfig = () => {
+    const wavyData = savedWavy();
+    saveSettings({
+      wavy: {
+        ...wavyData,
+        enabled: working.enabled,
+        parallaxEnabled: working.parallaxEnabled,
+        config: {
+          ...(wavyData.config || {}),
+          motionType: working.motionType,
+          scale: working.scale,
+          advanced: working.advanced,
+          motions: cloneData(working.motions),
+          parallaxAmplitude: working.parallaxAmplitude,
+          parallaxInertia: working.parallaxInertia,
+        },
+      },
+    });
+  };
+
+  const autoSave = createAutoSaver(persistConfig);
+
+  const applyLivePreview = (immediate = false) => {
     if (isInitializing.value) return;
     syncEngineFromWorking();
-    markDirty();
+    if (immediate) autoSave.now();
+    else autoSave.schedule();
   };
 
   const applyEnabledVisibility = () => {
@@ -517,77 +518,6 @@ export function createWavyPanel() {
     applyEnabledVisibility();
   };
 
-  // ── Persistence ──────────────────────────────────────────────────────────
-
-  const persistConfig = () => {
-    const wavyData = savedWavy();
-    saveSettings({
-      wavy: {
-        ...wavyData,
-        enabled: working.enabled,
-        parallaxEnabled: working.parallaxEnabled,
-        config: {
-          ...(wavyData.config || {}),
-          motionType: working.motionType,
-          scale: working.scale,
-          advanced: working.advanced,
-          motions: cloneData(working.motions),
-          parallaxAmplitude: working.parallaxAmplitude,
-          parallaxInertia: working.parallaxInertia,
-        },
-      },
-    });
-  };
-
-  const save = () => {
-    persistConfig();
-    startConfig = cloneData(wavy?.getConfig() ?? working);
-    saveState.markSaved(working);
-    showNotification(t("common.saved_changes"), "success");
-    syncDirty(false);
-  };
-
-  /** Discard the working copy and restore the settings the panel opened with. */
-  const revert = () => {
-    working.enabled = savedWavy().enabled !== false;
-    working.parallaxEnabled = savedWavy().parallaxEnabled === true;
-    working.motionType = startConfig.motionType || DEFAULT_MOTION;
-    working.scale = Number(startConfig.scale) || sharedDefaults.scale;
-    working.advanced = true;
-    working.motions = cloneData(startConfig.motions);
-    working.parallaxAmplitude = Number(
-      startConfig.parallaxAmplitude ?? sharedDefaults.parallaxAmplitude ?? -30,
-    );
-    working.parallaxInertia = Number(
-      startConfig.parallaxInertia ?? sharedDefaults.parallaxInertia ?? 0.03,
-    );
-
-    syncEngineFromWorking();
-
-    isInitializing.value = true;
-    const { MotionClass, stored } = activeMotion();
-    const resolved = resolveMotionConfig(working.motionType, stored);
-    const motionDefaults = MotionClass.DEFAULTS || {};
-    Object.entries(motionSliderMap).forEach(([key, slider]) => {
-      slider.setValueNoAnim(resolved[key] ?? motionDefaults[key]);
-    });
-    if (parallaxSliderMap.parallaxAmplitude) {
-      parallaxSliderMap.parallaxAmplitude.setValueNoAnim(
-        working.parallaxAmplitude,
-      );
-    }
-    if (parallaxSliderMap.parallaxInertia) {
-      parallaxSliderMap.parallaxInertia.setValueNoAnim(
-        working.parallaxInertia,
-      );
-    }
-    if (scaleSlider) scaleSlider.setValueNoAnim(working.scale);
-    syncControls();
-    isInitializing.value = false;
-    saveState.sync(working);
-    syncDirty(false);
-  };
-
   // ── Bindings ─────────────────────────────────────────────────────────────
 
   MOTION_ORDER.forEach((motionId) => {
@@ -598,33 +528,10 @@ export function createWavyPanel() {
     motionSelect.appendChild(opt);
   });
 
-  const handleToggleChange = async (key, toggleInput) => {
-    const checked = toggleInput.checked;
-
-    if (isDirty) {
-      const confirmed = await showConfirm(t("wavy.toggle_unsaved_msg"), {
-        title: t("wavy.toggle_unsaved_title"),
-        okText: t("wavy.btn_save"),
-        cancelText: t("common.cancel"),
-        anchor: toggleInput.closest("label") || toggleInput,
-      });
-
-      if (!confirmed) {
-        toggleInput.checked = !checked;
-        return;
-      }
-
-      working[key] = checked;
-      applyEnabledVisibility();
-      save();
-      return;
-    }
-
-    working[key] = checked;
+  const handleToggleChange = (key, toggleInput) => {
+    working[key] = toggleInput.checked;
     applyEnabledVisibility();
-    saveSettings({ wavy: { ...savedWavy(), [key]: checked } });
-    saveState.markSaved(working);
-    syncDirty(false);
+    applyLivePreview(true);
   };
 
   wavyEnabledToggle.input.addEventListener("change", () => {
@@ -638,7 +545,7 @@ export function createWavyPanel() {
   motionSelect.addEventListener("change", (e) => {
     working.motionType = e.target.value || DEFAULT_MOTION;
     renderMotionSliders();
-    applyLivePreview();
+    applyLivePreview(true);
   });
 
   resetBtn.addEventListener("click", async () => {
@@ -646,23 +553,21 @@ export function createWavyPanel() {
     const { MotionClass, stored } = activeMotion();
     Object.entries(MotionClass.DEFAULTS).forEach(([key, value]) => {
       stored[key] = value;
-      if (motionSliderMap[key]) motionSliderMap[key].setValueNoAnim(value);
+      if (motionSliderMap[key]) motionSliderMap[key].value = value;
     });
     working.scale = sharedDefaults.scale;
-    if (scaleSlider) scaleSlider.setValueNoAnim(sharedDefaults.scale);
+    if (scaleSlider) scaleSlider.value = sharedDefaults.scale;
 
     working.parallaxAmplitude = sharedDefaults.parallaxAmplitude ?? -30;
     if (parallaxSliderMap.parallaxAmplitude) {
-      parallaxSliderMap.parallaxAmplitude.setValueNoAnim(
-        working.parallaxAmplitude,
-      );
+      parallaxSliderMap.parallaxAmplitude.value = working.parallaxAmplitude;
     }
     working.parallaxInertia = sharedDefaults.parallaxInertia ?? 0.03;
     if (parallaxSliderMap.parallaxInertia) {
-      parallaxSliderMap.parallaxInertia.setValueNoAnim(working.parallaxInertia);
+      parallaxSliderMap.parallaxInertia.value = working.parallaxInertia;
     }
 
-    applyLivePreview();
+    applyLivePreview(true);
     showNotification(t("wavy.reset_success"), "success");
   });
 
@@ -671,13 +576,11 @@ export function createWavyPanel() {
     MotionClass.getSettingsSpec().forEach((spec) => {
       const value = randomInRange(spec.min, spec.max, spec.step);
       stored[spec.key] = value;
-      if (motionSliderMap[spec.key]) motionSliderMap[spec.key].setValueNoAnim(value);
+      if (motionSliderMap[spec.key]) motionSliderMap[spec.key].value = value;
     });
     wavy?.reseed();
-    applyLivePreview();
+    applyLivePreview(true);
   });
-
-  saveBtn.addEventListener("click", save);
 
   // ── Initial paint ────────────────────────────────────────────────────────
 
@@ -685,14 +588,49 @@ export function createWavyPanel() {
   syncControls();
   isInitializing.value = false;
   initButtons(el);
-  saveState.markSaved(working);
-  syncDirty(false);
 
   return {
     el,
-    isDirty: () => isDirty,
-    revert,
+    syncFromSettings() {
+      autoSave.cancel();
+      const latest = savedWavy();
+      const cfg = latest.config || {};
+      const prevMotion = working.motionType;
+      working.enabled = latest.enabled !== false;
+      working.parallaxEnabled = latest.parallaxEnabled === true;
+      working.motionType = cfg.motionType || DEFAULT_MOTION;
+      working.scale = Number(cfg.scale) || sharedDefaults.scale;
+      working.motions = cloneData(cfg.motions);
+      working.parallaxAmplitude = Number(
+        cfg.parallaxAmplitude ?? sharedDefaults.parallaxAmplitude ?? -30,
+      );
+      working.parallaxInertia = Number(
+        cfg.parallaxInertia ?? sharedDefaults.parallaxInertia ?? 0.03,
+      );
+
+      syncControls();
+      if (scaleSlider) scaleSlider.value = working.scale;
+      if (parallaxSliderMap.parallaxAmplitude) {
+        parallaxSliderMap.parallaxAmplitude.value = working.parallaxAmplitude;
+      }
+      if (parallaxSliderMap.parallaxInertia) {
+        parallaxSliderMap.parallaxInertia.value = working.parallaxInertia;
+      }
+
+      if (working.motionType !== prevMotion) {
+        renderMotionSliders();
+      } else {
+        const { MotionClass, stored } = activeMotion();
+        const resolved = resolveMotionConfig(working.motionType, stored);
+        const motionDefaults = MotionClass.DEFAULTS || {};
+        Object.entries(motionSliderMap).forEach(([key, slider]) => {
+          slider.value = resolved[key] ?? motionDefaults[key];
+        });
+      }
+    },
+    cancelPending: () => autoSave.cancel(),
     dispose() {
+      autoSave.flush();
       advancedDrawer?.destroy?.();
       advancedDrawer = null;
     },

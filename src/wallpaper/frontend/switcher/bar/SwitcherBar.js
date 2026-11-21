@@ -99,7 +99,7 @@ export class SwitcherBar {
     this.tabButtons = new Map();
     this.sidebar = null;
     this.manageGrid = null;
-    /** Active Customize section panel (`{ el, isDirty, revert }`), if any. */
+    /** Active Customize section panel (`{ el, cancelPending, dispose }`), if any. */
     this._customizePanel = null;
     /** Teardown for the "hold V to preview" listeners, if bound. */
     this._previewKeyCleanup = null;
@@ -462,11 +462,7 @@ export class SwitcherBar {
       title,
       content,
       direction: "bottom",
-      isDirty: () => Boolean(this._customizePanel?.isDirty?.()),
       onClose: () => {
-        // Closing with an unsaved live preview: restore the saved filters
-        // before the panel (and its DOM) goes away.
-        if (this._customizePanel?.isDirty?.()) this._customizePanel.revert();
         this._customizePanel?.dispose?.();
         this._customizePanel = null;
         this._unbindCustomizeDots();
@@ -633,7 +629,7 @@ export class SwitcherBar {
     if (tabs.length === 0) return;
 
     tabs.forEach((tab) => {
-      tab.addEventListener("click", async () => {
+      tab.addEventListener("click", () => {
         // Action row: opens the fullscreen editor, never becomes the active tab.
         if (tab.dataset.customizeAction === "arrange") {
           openPositionEditorPopup();
@@ -644,17 +640,7 @@ export class SwitcherBar {
         const activeTabId = host.querySelector(
           ".wallpaper_customize_tab.is-active",
         )?.dataset.customizeTab;
-        const isSwitching = Boolean(activeTabId && activeTabId !== nextTabId);
-
-        // Leaving a section with unsaved edits would silently discard them, so
-        // ask first (same dirty contract as closing the whole submenu).
-        if (isSwitching && this._customizePanel?.isDirty?.()) {
-          const proceed = await showConfirm(
-            t("sp.wallpaper_customization.discard_changes_on_switch"),
-            { isDanger: true },
-          );
-          if (!proceed) return;
-        }
+        if (nextTabId && nextTabId === activeTabId) return;
 
         this._selectCustomizeTab(host, nextTabId);
       });
@@ -707,6 +693,7 @@ export class SwitcherBar {
     );
     if (!proceed) return;
 
+    this._customizePanel?.cancelPending?.();
     if (trigger) trigger.disabled = true;
     try {
       await this.dataControl.resetActiveCardEffects();
@@ -714,11 +701,15 @@ export class SwitcherBar {
       if (trigger) trigger.disabled = false;
     }
 
-    // Rebuild the active section on the fresh defaults (also clears any dirty
-    // preview) and refresh the "has effect" indicators.
-    const activeTabId = host.querySelector(".wallpaper_customize_tab.is-active")
-      ?.dataset.customizeTab;
-    if (activeTabId) this._selectCustomizeTab(host, activeTabId);
+    // Sync the active section in place when possible so existing sliders animate
+    // smoothly back to their defaults; otherwise fall back to remounting it.
+    if (typeof this._customizePanel?.syncFromSettings === "function") {
+      this._customizePanel.syncFromSettings();
+    } else {
+      const activeTabId = host.querySelector(".wallpaper_customize_tab.is-active")
+        ?.dataset.customizeTab;
+      if (activeTabId) this._selectCustomizeTab(host, activeTabId);
+    }
     this._syncCustomizeTabDots(host);
     this.syncTopBarEffects();
 
@@ -971,7 +962,7 @@ export class SwitcherBar {
 
   /**
    * Activate one Customize section and mount its panel into the right column.
-   * Reverts any unsaved live preview of the section being left.
+   * Flushes any pending auto-save on the section being left.
    * @param {HTMLElement} host
    * @param {string} tabId
    * @private
@@ -989,9 +980,6 @@ export class SwitcherBar {
     const panelHost = host.querySelector("#wallpaper_customize_panel");
     if (!panelHost) return;
 
-    if (this._customizePanel?.isDirty?.()) {
-      this._customizePanel.revert();
-    }
     this._customizePanel?.dispose?.();
     this._customizePanel = null;
     panelHost.replaceChildren();

@@ -20,12 +20,16 @@ import { clamp } from "./easing.js";
 /** Kích thước chuẩn của sketch: thẻ tâm 800px, ảnh trong 792×446 (16:9). */
 export const DEFAULT_GEOMETRY = Object.freeze({
   baseWidth: 744,
-  cardMargin: 3,
+  cardMargin: 3.5,
   containerHeight: 420,
-  /** Bề rộng theo từng bước khoảng cách: tâm, ±1, ±2, ±3, rồi sàn. */
-  percentageCurve: Object.freeze([1.0, 0.45, 0.22, 0.1, 0.05]),
+  /** Bề rộng theo từng bước khoảng cách: tâm, ±1, ±2, ±3, ±4 rồi sàn minWidth. */
+  percentageCurve: Object.freeze([1.0, 0.44, 0.22, 0.11, 0.06]),
   /** Bề rộng tối thiểu (px) cho các thẻ ở rất xa tâm. */
   minWidth: 35,
+  /** Tỉ lệ chiều cao theo từng bước khoảng cách: giảm đều từ tâm và êm dần về minHeight. */
+  heightCurve: Object.freeze([1.0, 0.82, 0.68, 0.57, 0.5]),
+  /** Chiều cao tối thiểu (px) cho các thẻ ở rất xa tâm. */
+  minHeight: 200,
   /**
    * Độ mờ theo khoảng cách tới tâm: tâm 100%, rồi 90 / 70 / 50 / 30 / 10 (sàn)
    * ở các bậc ±1..±5. Giữa hai bậc thì nội suy tuyến tính, nên khi lướt độ mờ
@@ -56,6 +60,7 @@ export const DEFAULT_SELECTORS = Object.freeze({
 export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
   const config = { ...DEFAULT_GEOMETRY, ...overrides };
   const curve = config.percentageCurve;
+  const heightCurve = config.heightCurve;
   const selectors_ = { ...DEFAULT_SELECTORS, ...selectors };
 
   const innerWidth = config.baseWidth - config.cardMargin * 2;
@@ -65,6 +70,12 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
     k < curve.length
       ? Math.round(config.baseWidth * curve[k])
       : config.minWidth;
+
+  /** Chiều cao của slot cách tâm `k` bậc (k là số nguyên ≥ 0). */
+  const heightForOffset = (k) =>
+    k < heightCurve.length
+      ? Math.round(config.containerHeight * heightCurve[k])
+      : config.minHeight;
 
   /** Độ mờ của thẻ cách tâm `offset` bậc (nội suy tuyến tính trong `opacityCurve`). */
   const opacityForOffset = (offset) => {
@@ -179,16 +190,19 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
 
   /**
    * Theoretical layout for `count` cards with `centerIndex` centered on screen.
-   * @returns {{ widths: number[], lefts: number[], count: number, centerIndex: number }}
+   * @returns {{ widths: number[], heights: number[], lefts: number[], count: number, centerIndex: number }}
    */
   const computeLayout = (centerIndex, count, screenCenter) => {
     const widths = new Array(count);
+    const heights = new Array(count);
     const lefts = new Array(count);
-    if (count === 0) return { widths, lefts, count, centerIndex: 0 };
+    if (count === 0) return { widths, heights, lefts, count, centerIndex: 0 };
 
     const center = clamp(centerIndex, 0, count - 1);
     for (let i = 0; i < count; i += 1) {
-      widths[i] = widthForOffset(Math.abs(i - center));
+      const dist = Math.abs(i - center);
+      widths[i] = widthForOffset(dist);
+      heights[i] = heightForOffset(dist);
     }
 
     // Build from center outwards
@@ -200,7 +214,7 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
       lefts[i] = lefts[i + 1] - widths[i];
     }
 
-    return { widths, lefts, count, centerIndex: center };
+    return { widths, heights, lefts, count, centerIndex: center };
   };
 
   /**
@@ -221,14 +235,16 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
     const layoutA = computeLayout(fromIdx, count, screenCenter);
     const layoutB = computeLayout(toIdx, count, screenCenter);
     const widths = new Array(count);
+    const heights = new Array(count);
     const lefts = new Array(count);
 
     for (let i = 0; i < count; i += 1) {
       widths[i] = (1 - t) * layoutA.widths[i] + t * layoutB.widths[i];
+      heights[i] = (1 - t) * layoutA.heights[i] + t * layoutB.heights[i];
       lefts[i] = (1 - t) * layoutA.lefts[i] + t * layoutB.lefts[i];
     }
 
-    return { widths, lefts, count, centerIndex: continuousIndex };
+    return { widths, heights, lefts, count, centerIndex: continuousIndex };
   };
 
   /**
@@ -243,7 +259,9 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
    */
   const readLayout = (cards, screenCenter, continuousIndex) => {
     const count = cards.length;
-    if (count === 0) return { widths: [], lefts: [], count: 0, centerIndex: 0 };
+    if (count === 0) {
+      return { widths: [], heights: [], lefts: [], count: 0, centerIndex: 0 };
+    }
 
     const index = Number.isFinite(continuousIndex) ? continuousIndex : 0;
     return computeInterpolatedLayout(index, count, screenCenter);
@@ -255,7 +273,7 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
    * Trả về cả layout vừa ghi: bên gọi cần biết chính xác dải đang nằm ở đâu để
    * dùng làm điểm xuất phát cho cú lướt kế tiếp (xem `_currentLayout` bên engine).
    *
-   * @returns {{ closestIndex: number, layout: { widths: number[], lefts: number[], count: number, centerIndex: number }|null }}
+   * @returns {{ closestIndex: number, layout: { widths: number[], heights: number[], lefts: number[], count: number, centerIndex: number }|null }}
    */
   const applyLayout = (cards, layoutA, layoutB, t, screenCenter) => {
     const count = cards.length;
@@ -272,23 +290,30 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
     let closestIndex = -1;
     let minDistance = Infinity;
 
-    // First pass: compute positions, widths, and find closestIndex
+    // First pass: compute positions, widths, heights, and find closestIndex
     const widths = new Array(count);
+    const heights = new Array(count);
     const lefts = new Array(count);
     const opacityIndices = new Array(count);
 
     for (let i = 0; i < count; i += 1) {
       const width = (1 - t) * layoutA.widths[i] + t * layoutB.widths[i];
+      const height =
+        (1 - t) * (layoutA.heights?.[i] ?? config.containerHeight) +
+        t * (layoutB.heights?.[i] ?? config.containerHeight);
       const left = (1 - t) * layoutA.lefts[i] + t * layoutB.lefts[i];
       const opacityIndexA = layoutA.opacityIndices?.[i] ?? i;
       const opacityIndexB = layoutB.opacityIndices?.[i] ?? i;
       opacityIndices[i] = (1 - t) * opacityIndexA + t * opacityIndexB;
       const safeWidth = Math.max(0, width);
+      const safeHeight = Math.max(0, height);
       widths[i] = safeWidth;
+      heights[i] = safeHeight;
       lefts[i] = left;
 
       cards[i].style.width = `${safeWidth}px`;
-      cards[i].style.transform = `translateX(${left}px)`;
+      cards[i].style.height = `${safeHeight}px`;
+      cards[i].style.transform = `translateX(${left}px) translateY(-50%)`;
 
       const isDeleting = cards[i].classList.contains(selectors_.deletingClass);
       if (!isDeleting || t < 0.2) {
@@ -317,6 +342,7 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
       closestIndex,
       layout: {
         widths,
+        heights,
         lefts,
         count,
         centerIndex: continuousCenter,
@@ -334,6 +360,7 @@ export function createGeometry(overrides = {}, { selectors, onCardInfo } = {}) {
     innerWidth,
     innerHeight,
     widthForOffset,
+    heightForOffset,
     computeLayout,
     computeInterpolatedLayout,
     readLayout,

@@ -5,8 +5,6 @@ import {
   createSlider,
   initButtons,
   setDropdownValue,
-  setSubmenuDirty,
-  showNotification,
 } from "/src/core/ui.js";
 import { t } from "/src/core/i18n.js";
 import { renderIcons } from "/src/core/icon.js";
@@ -29,7 +27,7 @@ import {
   normalizeEasingId,
 } from "../../../../backend/effects/onload/easing.js";
 import { getOnloadEngine } from "../../../../backend/effects/onload/index.js";
-import { createSaveState } from "../../state.js";
+import { createAutoSaver } from "../../state.js";
 
 /**
  * "Startup Animation" editor (the old OnloadEditorUI, ported to the Customize
@@ -37,7 +35,7 @@ import { createSaveState } from "../../state.js";
  * (`BasePreset.getSettingsSpec()` + `LABEL_KEY`), so shipping a new preset needs
  * no editor change.
  *
- * @returns {{ el: HTMLElement, isDirty: () => boolean, revert: () => void }}
+ * @returns {{ el: HTMLElement, cancelPending: () => void, dispose: () => void }}
  */
 export function createOnloadPanel() {
   const engine = getOnloadEngine();
@@ -46,10 +44,8 @@ export function createOnloadPanel() {
   const el = template.content.firstElementChild;
 
   const isInitializing = { value: true };
-  let isDirty = false;
   let isPreviewing = false;
 
-  // Working copy — every edit is previewed live but only persisted on Save.
   // The advanced section is always visible, so the flag is always on.
   let working = { ...(getSettings().onload || {}), advanced: true };
   const spec = BasePreset.getSettingsSpec();
@@ -154,14 +150,7 @@ export function createOnloadPanel() {
   previewBtn.className = "btn flex_1";
   previewBtn.textContent = t("onload_anim.btn_preview", "Xem trước");
 
-  const saveBtn = document.createElement("button");
-  saveBtn.type = "button";
-  saveBtn.className = "btn flex_1";
-  saveBtn.textContent = t("onload_anim.btn_save", "Lưu");
-
-  const saveState = createSaveState(saveBtn);
-
-  actions.append(previewBtn, saveBtn);
+  actions.append(previewBtn);
 
   el.append(
     section("onload_anim.preset_label", [grid(presetSelect)]),
@@ -232,6 +221,7 @@ export function createOnloadPanel() {
         onChange: (value) => {
           working[item.key] = value;
           markAsCustom();
+          autoSave.schedule();
         },
       });
 
@@ -240,17 +230,23 @@ export function createOnloadPanel() {
     });
   };
 
-  // ── Dirty state ──────────────────────────────────────────────────────────
+  // ── Auto-save ────────────────────────────────────────────────────────────
 
-  const syncDirty = (next) => {
-    isDirty = next;
-    setSubmenuDirty(next);
+  const persistConfig = () => {
+    const current = getSettings().onload || {};
+    saveSettings({
+      onload: {
+        ...current,
+        ...working,
+        preset: working.preset || DEFAULT_PRESET,
+        widget_immediate: working.widget_immediate !== false,
+        // The advanced section is always shown, so it is always "enabled".
+        advanced: true,
+      },
+    });
   };
 
-  const markDirty = () => {
-    if (isInitializing.value) return;
-    syncDirty(saveState.sync(working));
-  };
+  const autoSave = createAutoSaver(persistConfig);
 
   /**
    * Any manual tweak leaves the named presets behind: switch the dropdown to
@@ -263,7 +259,6 @@ export function createOnloadPanel() {
       working.preset = CUSTOM_PRESET;
       setDropdownValue(presetSelect, CUSTOM_PRESET);
     }
-    markDirty();
   };
 
   const syncControls = () => {
@@ -289,15 +284,15 @@ export function createOnloadPanel() {
       const bundle = resolvePresetConfig(PresetClass.ID, working);
       Object.assign(working, bundle);
       Object.entries(bundle).forEach(([key, value]) => {
-        if (sliders[key]) sliders[key].setValueNoAnim(value);
+        if (sliders[key]) sliders[key].value = value;
       });
     }
 
     syncControls();
-    markDirty();
+    if (!isInitializing.value) autoSave.now();
   };
 
-  // ── Preview / Save ───────────────────────────────────────────────────────
+  // ── Preview ──────────────────────────────────────────────────────────────
 
   const stopPreview = () => {
     if (!isPreviewing) return;
@@ -319,49 +314,11 @@ export function createOnloadPanel() {
     });
   };
 
-  const save = () => {
-    stopPreview();
-
-    const current = getSettings().onload || {};
-    saveSettings({
-      onload: {
-        ...current,
-        ...working,
-        preset: working.preset || DEFAULT_PRESET,
-        widget_immediate: working.widget_immediate !== false,
-        // The advanced section is always shown, so it is always "enabled".
-        advanced: true,
-      },
-    });
-    saveState.markSaved(working);
-    showNotification(t("common.saved_changes"), "success");
-    syncDirty(false);
-  };
-
-  /** Discard the working copy and drop any running preview. */
-  const revert = () => {
-    stopPreview();
-    working = { ...(getSettings().onload || {}), advanced: true };
-    isInitializing.value = true;
-    const params = resolvePresetConfig(
-      working.preset || DEFAULT_PRESET,
-      working,
-    );
-    Object.assign(working, params);
-    Object.entries(sliders).forEach(([key, slider]) => {
-      if (params[key] !== undefined) slider.setValueNoAnim(params[key]);
-    });
-    syncControls();
-    isInitializing.value = false;
-    saveState.sync(working);
-    syncDirty(false);
-  };
-
   // ── Bindings ─────────────────────────────────────────────────────────────
 
   widgetImmediate.input.addEventListener("change", () => {
     working.widget_immediate = widgetImmediate.input.checked;
-    markDirty();
+    if (!isInitializing.value) autoSave.now();
   });
 
   presetSelect.addEventListener("change", (e) => selectPreset(e.target.value));
@@ -369,13 +326,13 @@ export function createOnloadPanel() {
     working.bg_easing = e.target.value;
     setDropdownValue(easingSelect, e.target.value);
     markAsCustom();
+    if (!isInitializing.value) autoSave.now();
   });
 
   previewBtn.addEventListener("click", () => {
     if (isPreviewing) stopPreview();
     else startPreview();
   });
-  saveBtn.addEventListener("click", save);
 
   // ── Initial paint ────────────────────────────────────────────────────────
 
@@ -389,8 +346,27 @@ export function createOnloadPanel() {
   initButtons(el);
   renderIcons(el);
   isInitializing.value = false;
-  saveState.markSaved(working);
-  syncDirty(false);
 
-  return { el, isDirty: () => isDirty, revert };
+  return {
+    el,
+    syncFromSettings() {
+      autoSave.cancel();
+      stopPreview();
+      working = { ...(getSettings().onload || {}), advanced: true };
+      const params = resolvePresetConfig(
+        working.preset || DEFAULT_PRESET,
+        working,
+      );
+      Object.assign(working, params);
+      Object.entries(sliders).forEach(([key, slider]) => {
+        if (params[key] !== undefined) slider.value = params[key];
+      });
+      syncControls();
+    },
+    cancelPending: () => autoSave.cancel(),
+    dispose: () => {
+      stopPreview();
+      autoSave.flush();
+    },
+  };
 }

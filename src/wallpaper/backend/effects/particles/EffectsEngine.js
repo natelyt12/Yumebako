@@ -222,17 +222,32 @@ export class EffectsEngine {
         clearLayer(this.staticLayers);
     }
 
-    loadState(data, enabled) {
+    _computeStateSignature(data, enabled) {
         const isMasterEnabled = Boolean(data) && (enabled !== undefined ? enabled : (data.enabled !== false));
-        const signature = !isMasterEnabled
-            ? "disabled"
-            : JSON.stringify({
-                enabled: true,
-                dynamicEnabled: data.dynamicEnabled !== false,
-                staticEnabled: data.staticEnabled !== false,
-                dynamic: (data.dynamic || []).filter((e) => e.enabled !== false),
-                static: (data.static || []).filter((e) => e.enabled !== false),
-            });
+        if (!isMasterEnabled) return "disabled";
+        return JSON.stringify({
+            enabled: true,
+            dynamicEnabled: data.dynamicEnabled !== false,
+            staticEnabled: data.staticEnabled !== false,
+            dynamic: (data.dynamic || []).filter((e) => e.enabled !== false),
+            static: (data.static || []).filter((e) => e.enabled !== false),
+        });
+    }
+
+    /**
+     * Record the current engine state as already synced with `data` so a
+     * matching `loadState(data)` triggered by settings listeners does not
+     * tear down and respawn running canvases.
+     *
+     * @param {Object} data
+     * @param {boolean} [enabled]
+     */
+    markStateSynced(data, enabled) {
+        this._lastStateSignature = this._computeStateSignature(data, enabled);
+    }
+
+    loadState(data, enabled) {
+        const signature = this._computeStateSignature(data, enabled);
 
         if (this._lastStateSignature !== null && this._lastStateSignature === signature) {
             return;
@@ -240,7 +255,7 @@ export class EffectsEngine {
 
         this.stopAll();
         this._lastStateSignature = signature;
-        if (!isMasterEnabled) return;
+        if (signature === "disabled") return;
 
         if (data.dynamicEnabled !== false) {
             (data.dynamic || []).forEach(e => {

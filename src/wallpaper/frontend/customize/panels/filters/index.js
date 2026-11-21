@@ -4,17 +4,14 @@ import panelTemplateHtml from "./template.html?raw";
 import {
   createSlider,
   confirmReset,
-  showNotification,
-  setSubmenuDirty,
 } from "/src/core/ui.js";
 import { t } from "/src/core/i18n.js";
 import { getSettings, saveSettings } from "/src/core/storageHandler.js";
 import {
   FILTER_DEFAULTS,
   applyFilterConfig,
-  applyWallpaperFilters,
 } from "../../../../backend/rendering/filter.js";
-import { createSaveState } from "../../state.js";
+import { createAutoSaver } from "../../state.js";
 
 const STANDARD_SPECS = [
   {
@@ -68,10 +65,10 @@ const HEAVY_SPECS = [
 /**
  * Build the "Filters & Colors" editor.
  *
- * Live preview writes straight to the wallpaper media; only Save persists.
+ * Every change previews immediately on the wallpaper media and auto-saves.
  *
  * @param {{ isVideo?: boolean }} [options]
- * @returns {{ el: HTMLElement, isDirty: () => boolean, revert: () => void }}
+ * @returns {{ el: HTMLElement, cancelPending: () => void, dispose: () => void }}
  */
 export function createFiltersPanel({ isVideo = false } = {}) {
   const config = getSettings().wallpaperConfig || {};
@@ -97,7 +94,10 @@ export function createFiltersPanel({ isVideo = false } = {}) {
       value: config[spec.id] ?? FILTER_DEFAULTS[spec.id],
       defaultValue: FILTER_DEFAULTS[spec.id],
       unit: spec.unit,
-      onChange: () => setPreview(),
+      onChange: () => {
+        applyFilterConfig(readConfig(), { isVideo });
+        autoSave.schedule();
+      },
     });
     slidersHost.appendChild(slider);
     sliders[spec.id] = slider;
@@ -135,70 +135,51 @@ export function createFiltersPanel({ isVideo = false } = {}) {
   resetBtn.className = "btn flex_1";
   resetBtn.textContent = t("bg_editor.btn_reset", "Đặt lại");
 
-  const saveBtn = document.createElement("button");
-  saveBtn.type = "button";
-  saveBtn.className = "btn flex_1";
-  saveBtn.textContent = t("wavy.btn_save", "Lưu");
-
-  const saveState = createSaveState(saveBtn);
-
-  actions.append(resetBtn, saveBtn);
+  actions.append(resetBtn);
   el.appendChild(actions);
-
-  let isDirty = false;
-
-  const syncDirty = (next) => {
-    isDirty = next;
-    setSubmenuDirty(next);
-  };
 
   const readConfig = () => {
     const values = {};
     for (const [id, slider] of Object.entries(sliders)) {
       values[id] = slider.value;
     }
+    // Videos never carry bloom, even if the shared settings had a value.
+    if (isVideo) values.bloom = 0;
     return values;
   };
 
-  // The values the panel opened with are the "last saved" baseline.
-  saveState.markSaved(readConfig());
-
-  const setPreview = () => {
-    const config = readConfig();
-    syncDirty(saveState.sync(config));
-    applyFilterConfig(config, { isVideo });
+  const persistConfig = () => {
+    saveSettings({
+      wallpaperConfig: {
+        ...(getSettings().wallpaperConfig || {}),
+        ...readConfig(),
+      },
+    });
   };
 
-  const revert = () => {
-    applyWallpaperFilters(undefined, { isVideo });
-    syncDirty(false);
-  };
+  const autoSave = createAutoSaver(persistConfig);
 
   resetBtn.addEventListener("click", async () => {
     if (!(await confirmReset())) return;
     for (const [id, slider] of Object.entries(sliders)) {
       if (id in FILTER_DEFAULTS) {
-        slider.setValueNoAnim(FILTER_DEFAULTS[id]);
+        slider.value = FILTER_DEFAULTS[id];
       }
     }
-    setPreview();
+    applyFilterConfig(readConfig(), { isVideo });
+    autoSave.now();
   });
 
-  saveBtn.addEventListener("click", () => {
-    const config = readConfig();
-    // Videos never carry bloom, even if the shared settings had a value.
-    if (isVideo) config.bloom = 0;
-    saveSettings({
-      wallpaperConfig: {
-        ...(getSettings().wallpaperConfig || {}),
-        ...config,
-      },
-    });
-    saveState.markSaved(config);
-    showNotification(t("common.saved_changes"), "success");
-    syncDirty(false);
-    applyWallpaperFilters(undefined, { isVideo });
-  });
-
-  return { el, isDirty: () => isDirty, revert };
+  return {
+    el,
+    syncFromSettings() {
+      autoSave.cancel();
+      const latest = getSettings().wallpaperConfig || {};
+      for (const [id, slider] of Object.entries(sliders)) {
+        slider.value = latest[id] ?? FILTER_DEFAULTS[id];
+      }
+    },
+    cancelPending: () => autoSave.cancel(),
+    dispose: () => autoSave.flush(),
+  };
 }

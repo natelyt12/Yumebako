@@ -99,38 +99,9 @@
     <div class="carousel-container hide-accent-bg" id="wallpaper_carousel">
       <div class="carousel-guide"></div>
       <div class="carousel-viewfinder">
-        <svg class="viewfinder-ring" aria-hidden="true" focusable="false">
-          <defs>
-            <mask id="wp_viewfinder_mask">
-              <rect width="100%" height="100%" fill="white" />
-              <g class="vf-mask-arms">
-                <path class="vf-arm" pathLength="100" fill="none"></path>
-                <path class="vf-arm" pathLength="100" fill="none"></path>
-                <path class="vf-arm" pathLength="100" fill="none"></path>
-                <path class="vf-arm" pathLength="100" fill="none"></path>
-                <path class="vf-arm" pathLength="100" fill="none"></path>
-                <path class="vf-arm" pathLength="100" fill="none"></path>
-                <path class="vf-arm" pathLength="100" fill="none"></path>
-                <path class="vf-arm" pathLength="100" fill="none"></path>
-              </g>
-            </mask>
-          </defs>
-          <path
-            class="vf-trace"
-            pathLength="1000"
-            mask="url(#wp_viewfinder_mask)"
-          ></path>
-          <g class="vf-progress-arms">
-            <path class="vf-arm" pathLength="100" fill="none"></path>
-            <path class="vf-arm" pathLength="100" fill="none"></path>
-            <path class="vf-arm" pathLength="100" fill="none"></path>
-            <path class="vf-arm" pathLength="100" fill="none"></path>
-            <path class="vf-arm" pathLength="100" fill="none"></path>
-            <path class="vf-arm" pathLength="100" fill="none"></path>
-            <path class="vf-arm" pathLength="100" fill="none"></path>
-            <path class="vf-arm" pathLength="100" fill="none"></path>
-          </g>
-        </svg>
+        <span class="vf-bar-base"></span>
+        <span class="vf-bar-sweep is-left"></span>
+        <span class="vf-bar-sweep is-right"></span>
       </div>
       <div
         class="carousel-track hide-accent-bg"

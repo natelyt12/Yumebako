@@ -184,18 +184,7 @@ export class CarouselEngine {
     /** Hẹn giờ chốt thẻ sau khi vệt quét viền chạy xong (null = không có). */
     this._commitId = null;
 
-    this._vfRing = this.viewfinder?.querySelector(".viewfinder-ring") ?? null;
-    this._vfTrace = this._vfRing?.querySelector(".vf-trace") ?? null;
-    this._vfMaskArms = this._vfRing
-      ? Array.from(this._vfRing.querySelectorAll(".vf-mask-arms .vf-arm"))
-      : [];
-    this._vfProgressArms = this._vfRing
-      ? Array.from(this._vfRing.querySelectorAll(".vf-progress-arms .vf-arm"))
-      : [];
-    this._vfRingKey = "";
-
     this._applyAccentBg();
-    this._syncViewfinderRing();
     this._bindInput();
   }
 
@@ -361,7 +350,6 @@ export class CarouselEngine {
 
   /** Đo lại tâm rồi đặt lại layout tại vị trí đang chốt (dùng khi resize). */
   recenter() {
-    this._syncViewfinderRing();
     if (this.isDeleting || this.count === 0) return;
     this._centerCache = null;
     this._recenterLayout();
@@ -921,6 +909,7 @@ export class CarouselEngine {
     // Dựng layout đích cho *cả* mảng hiện tại: thẻ bị xóa giữ width 0, các thẻ
     // còn lại nhận đúng chỗ của chúng trong danh sách tương lai.
     const widths = new Array(this.count);
+    const heights = new Array(this.count);
     const lefts = new Array(this.count);
     // DOM indexes remain uncompressed until the collapse ends; track each
     // surviving card's eventual index so its opacity follows its visual slot.
@@ -931,10 +920,13 @@ export class CarouselEngine {
         // Thẻ bị xóa co bề rộng về 0 tại đúng chỗ nó đang nằm, nên cột bên phải
         // trượt sang trái thay vì nhảy.
         widths[i] = 0;
+        heights[i] =
+          start.heights?.[i] ?? this._geometry.config.containerHeight;
         lefts[i] = start.lefts[i];
         opacityIndices[i] = nextActive;
       } else {
         widths[i] = future.widths[futureIdx];
+        heights[i] = future.heights[futureIdx];
         lefts[i] = future.lefts[futureIdx];
         opacityIndices[i] = futureIdx;
         futureIdx += 1;
@@ -942,6 +934,7 @@ export class CarouselEngine {
     }
     const target = {
       widths,
+      heights,
       lefts,
       count: this.count,
       centerIndex: nextActive,
@@ -1222,7 +1215,6 @@ export class CarouselEngine {
     if (this.isSettled === settled) return;
     this.isSettled = settled;
     if (!settled) {
-      this._syncViewfinderRing();
       this.viewfinder?.classList.add("is-moving");
     } else {
       this.viewfinder?.classList.remove("is-moving");
@@ -1231,16 +1223,13 @@ export class CarouselEngine {
   }
 
   /**
-   * Dải vừa đứng yên: chạy vệt quét viền rồi mới chốt.
+   * Dải vừa đứng yên: chạy vệt quét tiến độ rồi mới chốt.
    *
-   * Viền vẫn nhấc nguyên tại chỗ (không hạ xuống vội): vệt quét solid khép kín
-   * viền ngay lập tức, dài đúng `--vf-sweep-duration`. Hết vệt mới
-   * `_setSettled(true)` — chính là lúc viền hạ xuống — rồi mới báo hard-select,
-   * nên bên nhận chỉ thấy "đã chốt" khi viền đã liền và về đúng mép thẻ.
+   * Hai vệt chạy từ tâm ra hai mép trong `--vf-sweep-duration`, xong mới
+   * `_setSettled(true)` rồi báo hard-select.
    */
   _beginCommit({ immediate = false } = {}) {
     if (this.isSettled || this._commitId !== null) return;
-    this._syncViewfinderRing();
 
     const finish = () => {
       this._commitId = null;
@@ -1283,67 +1272,6 @@ export class CarouselEngine {
     const value = parseFloat(raw);
     if (!Number.isFinite(value)) return 0;
     return raw.endsWith("ms") ? value : value * 1000;
-  }
-
-  /**
-   * Vẽ lại hình học vòng ngắm theo đúng kích thước khung.
-   *
-   * Tạo đường chu vi kín cho nét đứt chạy liên tục, đồng thời chia 8 nhánh nở
-   * từ 4 góc về 4 tâm cạnh khi chốt thẻ.
-   * Chưa đo được khung (switcher còn ẩn) thì bỏ qua — `has-ring` chỉ bật khi đã
-   * có đường đi thật, nhờ vậy viền `border` không biến mất trước khi vòng SVG
-   * có gì để vẽ.
-   */
-  _syncViewfinderRing() {
-    if (!this.viewfinder || !this._vfRing) return;
-    const width = this.viewfinder.offsetWidth;
-    const height = this.viewfinder.offsetHeight;
-    if (!width || !height) return;
-
-    // Nửa bề dày nét: đường đi lùi vào để nét nằm trọn bên trong khung, trùng
-    // khít với `border` mà khung đang vẽ — nên đổi `--vf-ring-width` là cả hai
-    // phía đổi theo.
-    const { borderTopWidth } = getComputedStyle(this.viewfinder);
-    const strokeWidth = Number.parseFloat(borderTopWidth);
-    if (!(strokeWidth > 0)) return;
-
-    const ringKey = `${width}x${height}x${strokeWidth}`;
-    if (ringKey === this._vfRingKey) return;
-    this._vfRingKey = ringKey;
-
-    const inset = strokeWidth / 2;
-
-    const x0 = inset;
-    const y0 = inset;
-    const x1 = width - inset;
-    const y1 = height - inset;
-    const mx = width / 2;
-    const my = height / 2;
-
-    const dPerimeter =
-      `M ${x0} ${y1} L ${x0} ${y0} L ${x1} ${y0} L ${x1} ${y1} Z`;
-    this._vfRing.setAttribute("viewBox", `0 0 ${width} ${height}`);
-    if (this._vfTrace) this._vfTrace.setAttribute("d", dPerimeter);
-
-    // 8 nhánh nở từ 4 đỉnh về 4 tâm cạnh:
-    // [0,1] Top-Left     -> Top-Center, Left-Center
-    // [2,3] Top-Right    -> Top-Center, Right-Center
-    // [4,5] Bottom-Right -> Bottom-Center, Right-Center
-    // [6,7] Bottom-Left  -> Bottom-Center, Left-Center
-    const armsD = [
-      `M ${x0} ${y0} L ${mx} ${y0}`,
-      `M ${x0} ${y0} L ${x0} ${my}`,
-      `M ${x1} ${y0} L ${mx} ${y0}`,
-      `M ${x1} ${y0} L ${x1} ${my}`,
-      `M ${x1} ${y1} L ${mx} ${y1}`,
-      `M ${x1} ${y1} L ${x1} ${my}`,
-      `M ${x0} ${y1} L ${mx} ${y1}`,
-      `M ${x0} ${y1} L ${x0} ${my}`,
-    ];
-
-    this._vfMaskArms.forEach((path, i) => path.setAttribute("d", armsD[i]));
-    this._vfProgressArms.forEach((path, i) => path.setAttribute("d", armsD[i]));
-    this.viewfinder.classList.add("has-ring");
   }
 
   _notifySoft() {

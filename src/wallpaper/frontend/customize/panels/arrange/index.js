@@ -250,9 +250,9 @@ export function openPositionEditorPopup(options = {}) {
       currentState.zoom = 1;
       currentState.x = 50;
       currentState.y = 50;
-      sliderZoom.setValueNoAnim(1);
-      sliderX.setValueNoAnim(50);
-      sliderY.setValueNoAnim(50);
+      sliderZoom.value = 1;
+      sliderX.value = 50;
+      sliderY.value = 50;
     }
     syncSlidersDisabled();
     applyWallpaperPosition(currentState);
@@ -309,10 +309,11 @@ export function openPositionEditorPopup(options = {}) {
       if (!(await confirmReset())) return;
       currentState = { ...DEFAULT_STATE };
       fitModeCheckbox.checked = false;
-      sliderZoom.setValueNoAnim(DEFAULT_STATE.zoom);
-      sliderX.setValueNoAnim(DEFAULT_STATE.x);
-      sliderY.setValueNoAnim(DEFAULT_STATE.y);
+      // Enable sliders before updating `.value` so disabled sliders from `contain` mode still animate cleanly.
       syncSlidersDisabled();
+      sliderZoom.value = DEFAULT_STATE.zoom;
+      sliderX.value = DEFAULT_STATE.x;
+      sliderY.value = DEFAULT_STATE.y;
       applyWallpaperPosition(currentState);
     } finally {
       canvas.style.pointerEvents = "";
