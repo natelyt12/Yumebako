@@ -1,5 +1,23 @@
-import { ParticleEffect } from "../ParticleEffect.js";
+import { ParticleEffect, parseColorRgb } from "../ParticleEffect.js";
 import { t } from "/src/core/i18n.js";
+
+function buildRainDropSprite(rgb) {
+    const c = document.createElement("canvas");
+    c.width = 8;
+    c.height = 64;
+    const sCtx = c.getContext("2d");
+    const grad = sCtx.createLinearGradient(4, 2, 4, 62);
+    grad.addColorStop(0, `rgba(${rgb}, 0.25)`);
+    grad.addColorStop(1, `rgba(${rgb}, 1)`);
+    sCtx.strokeStyle = grad;
+    sCtx.lineWidth = 4;
+    sCtx.lineCap = "round";
+    sCtx.beginPath();
+    sCtx.moveTo(4, 2);
+    sCtx.lineTo(4, 62);
+    sCtx.stroke();
+    return c;
+}
 
 // ==========================================
 // RAIN EFFECT
@@ -88,56 +106,50 @@ export class RainEffect extends ParticleEffect {
         });
     }
 
+    _ensureDropSprite(color) {
+        const key = color || "";
+        if (this._spriteKey === key && this._dropSprite) return this._dropSprite;
+        this._spriteKey = key;
+        const rgb = parseColorRgb(color, "255, 255, 255");
+        this._dropSprite = buildRainDropSprite(rgb);
+        return this._dropSprite;
+    }
+
     render() {
         const { ctx, particles, config } = this;
         const opcMultiplier = this.config.opacity !== undefined ? this.config.opacity : RainEffect.DEFAULTS.opacity;
         const lengthMultiplier = this.config.length !== undefined ? this.config.length : RainEffect.DEFAULTS.length;
+        const dropSprite = this._ensureDropSprite(config.color);
+        const amplitude = this.parallaxAmplitude !== undefined ? this.parallaxAmplitude : -30;
+        const parallaxBaseX = (this.mouseX || 0) * amplitude * 0.35;
 
-        let rgb = "255, 255, 255";
-        if (config.color && config.color.startsWith("#")) {
-            const r = parseInt(config.color.slice(1, 3), 16);
-            const g = parseInt(config.color.slice(3, 5), 16);
-            const b = parseInt(config.color.slice(5, 7), 16);
-            rgb = `${r}, ${g}, ${b}`;
-        }
-
-        ctx.lineCap = "round";
-
-        particles.forEach((p) => {
+        for (let i = 0; i < particles.length; i++) {
+            const p = particles[i];
             const alpha = Math.min(1, Math.max(0, p.baseOpacity * opcMultiplier));
+            if (alpha <= 0.002) continue;
 
             // Parallax X-axis only (rain falls straight; no vertical shift).
             // Depth hierarchy: background rain barely shifts, foreground rain up to 4x wallpaper
-            const amplitude = this.parallaxAmplitude !== undefined ? this.parallaxAmplitude : -30;
             const depthFactor = p.z * p.z * 4.0; // quadratic: bg≈0, fg≈4.0x
-            const parallaxOffsetX = (this.mouseX || 0) * amplitude * depthFactor * 0.35;
-
-            const headX = p.x + parallaxOffsetX;
+            const headX = p.x + parallaxBaseX * depthFactor;
             const headY = p.y;
 
             const dx = this.currentWind * p.windSensitivity;
             const dy = p.verticalSpeed;
-            const dist = Math.sqrt(dx * dx + dy * dy);
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            const ux = dx / dist;
+            const uy = dy / dist;
             const currentLength = p.length * lengthMultiplier;
-            const ldx = (dx / dist) * currentLength;
-            const ldy = (dy / dist) * currentLength;
 
-            const tailX = headX - ldx;
-            const tailY = headY - ldy;
+            const tailX = headX - ux * currentLength;
+            const tailY = headY - uy * currentLength;
 
-            // Create gradient from head to tail
-            const grad = ctx.createLinearGradient(headX, headY, tailX, tailY);
-            grad.addColorStop(0, `rgba(${rgb}, ${alpha})`);
-            grad.addColorStop(1, `rgba(${rgb}, ${alpha * 0.25})`);
-
-            ctx.strokeStyle = grad;
-            ctx.lineWidth = p.width;
-
-            ctx.beginPath();
-            ctx.moveTo(headX, headY);
-            ctx.lineTo(tailX, tailY);
-            ctx.stroke();
-        });
+            ctx.globalAlpha = alpha;
+            ctx.setTransform(uy, -ux, ux, uy, tailX, tailY);
+            ctx.drawImage(dropSprite, -p.width, 0, p.width * 2, currentLength);
+        }
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalAlpha = 1;
     }
 
     static getSettingsSpec() {

@@ -8,7 +8,11 @@ import {
 import { renderIcons } from "/src/core/icon.js";
 import { t } from "/src/core/i18n.js";
 import { getSettings, saveSettings } from "/src/core/storageHandler.js";
-import { applyWallpaperPosition } from "../../../../backend/rendering/position.js";
+import { dataControl } from "../../../../backend/data/DataControl.js";
+import {
+  applyWallpaperPosition,
+  computeCoverOverflow,
+} from "../../../../backend/rendering/position.js";
 
 const DEFAULT_STATE = Object.freeze({
   x: 50,
@@ -141,61 +145,12 @@ export function openPositionEditorPopup(options = {}) {
   //    position by 1% shifts the painted image by `(renderedSize - container) / 100`
   //    pixels. The layer is additionally scaled by `zoom` around its position
   //    origin, so the on-screen shift per 1% becomes `zoom * renderedSize - container`.
-  //    We only need the natural image size to derive `renderedSize`, which lets us
-  //    convert pointer pixels into an exact position delta instead of guessing a
-  //    sensitivity constant.
-  let naturalSize = null;
-
-  const getLayerElement = () => {
-    const video = [...document.querySelectorAll(".video")].find(
-      (v) => v.style.display !== "none" && v.videoWidth > 0,
-    );
-    return video || document.querySelector(".image");
-  };
-
-  const measureNaturalSize = () => {
-    const layer = getLayerElement();
-    if (layer?.tagName === "VIDEO") {
-      return Promise.resolve({ w: layer.videoWidth, h: layer.videoHeight });
-    }
-
-    const bg = layer ? getComputedStyle(layer).backgroundImage : "";
-    const match = bg && bg.match(/url\(["']?(.*?)["']?\)/);
-    if (!match) return Promise.resolve(null);
-
-    return new Promise((resolve) => {
-      const probe = new Image();
-      probe.onload = () =>
-        resolve({ w: probe.naturalWidth, h: probe.naturalHeight });
-      probe.onerror = () => resolve(null);
-      probe.src = match[1];
-    });
-  };
-  measureNaturalSize().then((size) => {
-    naturalSize = size;
+  //    Layer 4 (`position.js` via `dataControl`) measures and exposes the active
+  //    media metrics so Layer 1 never queries `.image` / `.video` DOM directly.
+  let activeMetrics = dataControl.getActiveMediaMetrics();
+  dataControl.measureActiveMediaMetrics().then((metrics) => {
+    if (metrics) activeMetrics = metrics;
   });
-
-  /**
-   * Painted (cover-fitted) media size before zoom, plus the box it is painted in.
-   * Measured from the live layer so the math works even when the wallpaper layer
-   * is not exactly the size of the window.
-   */
-  const getRenderedSize = () => {
-    const layer = getLayerElement();
-    const cw = layer?.clientWidth || window.innerWidth || 1;
-    const ch = layer?.clientHeight || window.innerHeight || 1;
-    const base =
-      layer?.tagName === "VIDEO"
-        ? { w: layer.videoWidth, h: layer.videoHeight }
-        : naturalSize || { w: 16, h: 9 }; // 16:9 fallback until measured
-    const coverScale = Math.max(cw / base.w, ch / base.h);
-    return {
-      width: base.w * coverScale,
-      height: base.h * coverScale,
-      containerWidth: cw,
-      containerHeight: ch,
-    };
-  };
 
   const clampPercent = (value) => Math.min(100, Math.max(0, value));
 
@@ -204,6 +159,15 @@ export function openPositionEditorPopup(options = {}) {
   let startY = 0;
   let originX = currentState.x;
   let originY = currentState.y;
+  let dragMetrics = activeMetrics;
+  let dragRafId = null;
+
+  const flushDragUpdate = () => {
+    dragRafId = null;
+    sliderX.setValueNoAnim(currentState.x);
+    sliderY.setValueNoAnim(currentState.y);
+    applyWallpaperPosition(currentState);
+  };
 
   const onPointerDown = (e) => {
     if (e.target !== canvas) return;
@@ -217,6 +181,8 @@ export function openPositionEditorPopup(options = {}) {
     startY = e.clientY;
     originX = currentState.x;
     originY = currentState.y;
+    const latestMetrics = dataControl.getActiveMediaMetrics();
+    dragMetrics = latestMetrics?.width > 0 ? latestMetrics : activeMetrics;
   };
 
   const onPointerMove = (e) => {
@@ -225,11 +191,8 @@ export function openPositionEditorPopup(options = {}) {
     const dyPx = e.clientY - startY;
 
     const zoom = currentState.zoom || 1;
-    const rendered = getRenderedSize();
-
     // Signed overflow of the painted image past the viewport on each axis.
-    const overflowX = zoom * rendered.width - rendered.containerWidth;
-    const overflowY = zoom * rendered.height - rendered.containerHeight;
+    const { overflowX, overflowY } = computeCoverOverflow(dragMetrics, zoom);
 
     let nextX = currentState.x;
     let nextY = currentState.y;
@@ -244,15 +207,18 @@ export function openPositionEditorPopup(options = {}) {
     currentState.x = parseFloat(nextX.toFixed(2));
     currentState.y = parseFloat(nextY.toFixed(2));
 
-    sliderX.value = currentState.x;
-    sliderY.value = currentState.y;
-
-    applyWallpaperPosition(currentState);
+    if (dragRafId === null) {
+      dragRafId = requestAnimationFrame(flushDragUpdate);
+    }
   };
 
   const onPointerUp = (e) => {
     if (!isDragging) return;
     isDragging = false;
+    if (dragRafId !== null) {
+      cancelAnimationFrame(dragRafId);
+      flushDragUpdate();
+    }
     try {
       canvas.releasePointerCapture(e.pointerId);
     } catch {}
@@ -266,7 +232,7 @@ export function openPositionEditorPopup(options = {}) {
     const nextZoom = Math.min(3.0, Math.max(1.0, currentState.zoom + step));
     if (nextZoom !== currentState.zoom) {
       currentState.zoom = parseFloat(nextZoom.toFixed(2));
-      sliderZoom.value = currentState.zoom;
+      sliderZoom.setValueNoAnim(currentState.zoom);
       applyWallpaperPosition(currentState);
     }
   };
@@ -284,9 +250,9 @@ export function openPositionEditorPopup(options = {}) {
       currentState.zoom = 1;
       currentState.x = 50;
       currentState.y = 50;
-      sliderZoom.value = 1;
-      sliderX.value = 50;
-      sliderY.value = 50;
+      sliderZoom.setValueNoAnim(1);
+      sliderX.setValueNoAnim(50);
+      sliderY.setValueNoAnim(50);
     }
     syncSlidersDisabled();
     applyWallpaperPosition(currentState);
@@ -297,6 +263,10 @@ export function openPositionEditorPopup(options = {}) {
   const close = (saved = false) => {
     if (isClosed) return;
     isClosed = true;
+    if (dragRafId !== null) {
+      cancelAnimationFrame(dragRafId);
+      dragRafId = null;
+    }
 
     window.removeEventListener("keydown", onKeyDown);
     canvas.removeEventListener("pointerdown", onPointerDown);
@@ -339,9 +309,9 @@ export function openPositionEditorPopup(options = {}) {
       if (!(await confirmReset())) return;
       currentState = { ...DEFAULT_STATE };
       fitModeCheckbox.checked = false;
-      sliderZoom.value = DEFAULT_STATE.zoom;
-      sliderX.value = DEFAULT_STATE.x;
-      sliderY.value = DEFAULT_STATE.y;
+      sliderZoom.setValueNoAnim(DEFAULT_STATE.zoom);
+      sliderX.setValueNoAnim(DEFAULT_STATE.x);
+      sliderY.setValueNoAnim(DEFAULT_STATE.y);
       syncSlidersDisabled();
       applyWallpaperPosition(currentState);
     } finally {

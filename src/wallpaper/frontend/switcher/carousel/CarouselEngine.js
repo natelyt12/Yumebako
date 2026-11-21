@@ -192,6 +192,7 @@ export class CarouselEngine {
     this._vfProgressArms = this._vfRing
       ? Array.from(this._vfRing.querySelectorAll(".vf-progress-arms .vf-arm"))
       : [];
+    this._vfRingKey = "";
 
     this._applyAccentBg();
     this._syncViewfinderRing();
@@ -391,12 +392,44 @@ export class CarouselEngine {
   ) {
     if (!this.track) return this;
 
+    const next = this._uniqueItems(items);
+    const clampedTarget = Math.max(
+      0,
+      Math.min(Math.max(0, next.length - 1), Math.round(Number(index) || 0)),
+    );
+
+    // Fast path: when item IDs, URLs, and settled index are unchanged (e.g.
+    // `card:effects_changed` updating metadata on the active card), refresh
+    // `items` / `_item` references in place without re-running DOM layout.
+    if (
+      !this._anim &&
+      !this._drag &&
+      this.isSettled &&
+      clampedTarget === this.hardIndex &&
+      next.length === this.items.length &&
+      this.track.children.length === next.length &&
+      next.every((item, i) => {
+        const el = this.els[i];
+        return (
+          el &&
+          el.dataset.id === this._cardKey(item, i) &&
+          el._bgUrl === resolveImageUrl(item)
+        );
+      })
+    ) {
+      this.items = next;
+      next.forEach((item, i) => {
+        if (this.els[i]) this.els[i]._item = item;
+      });
+      if (!silent) this._notifyHard();
+      return this;
+    }
+
     this._cancelAnimation();
     this._anim = null;
     this._drag = null;
     this._liveLayout = null;
 
-    const next = this._uniqueItems(items);
     const wanted = new Set(next.map((item, i) => this._cardKey(item, i)));
 
     // Thẻ bị xoá thường đã tự rời DOM ở pha thu cột; những thẻ bị cắt khỏi danh
@@ -1273,6 +1306,11 @@ export class CarouselEngine {
     const { borderTopWidth } = getComputedStyle(this.viewfinder);
     const strokeWidth = Number.parseFloat(borderTopWidth);
     if (!(strokeWidth > 0)) return;
+
+    const ringKey = `${width}x${height}x${strokeWidth}`;
+    if (ringKey === this._vfRingKey) return;
+    this._vfRingKey = ringKey;
+
     const inset = strokeWidth / 2;
 
     const x0 = inset;
@@ -1572,7 +1610,7 @@ export class CarouselEngine {
   }
 
   _onResize = () => {
-    if (this.isDeleting || this.count === 0) return;
+    if (!this.isActive || this.isDeleting || this.count === 0) return;
     this.recenter();
   };
 

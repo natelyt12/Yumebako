@@ -100,14 +100,26 @@ function createWavyController(element, initialConfig = null) {
   let targetMouseY = 0;
   let mouseX = 0;
   let mouseY = 0;
+  let pointerBound = false;
 
   // pointermove fires reliably even when a mouse button is held down on another element,
   // unlike mousemove which can be blocked by pointer capture during mousedown.
-  window.addEventListener("pointermove", (e) => {
+  function onPointerMove(e) {
     if (e.pointerType !== "mouse") return; // ignore touch/pen to avoid conflicts
     targetMouseX = (e.clientX / window.innerWidth - 0.5) * 2;
     targetMouseY = (e.clientY / window.innerHeight - 0.5) * 2;
-  });
+  }
+
+  function syncPointerListener() {
+    const shouldBind = isActive && config.parallaxEnabled === true;
+    if (shouldBind === pointerBound) return;
+    pointerBound = shouldBind;
+    if (shouldBind) {
+      window.addEventListener("pointermove", onPointerMove);
+    } else {
+      window.removeEventListener("pointermove", onPointerMove);
+    }
+  }
 
   function animate(timestamp) {
     if (lastTimestamp === null) lastTimestamp = timestamp;
@@ -116,20 +128,29 @@ function createWavyController(element, initialConfig = null) {
     if (!(dt > 0)) dt = 0; // guard against NaN / clock going backwards
     if (dt > 0.05) dt = 0.05; // clamp after tab switches to keep the integrator stable
 
-    const inertia =
-      config.parallaxInertia !== undefined ? config.parallaxInertia : 0.025;
-    mouseX += (targetMouseX - mouseX) * inertia;
-    mouseY += (targetMouseY - mouseY) * inertia;
-
     const isWavyOn = config.enabled !== false;
     const isParallaxOn = config.parallaxEnabled === true;
 
-    ensureSampler();
-    const motion = sampler.update(dt);
+    if (isParallaxOn) {
+      const inertia =
+        config.parallaxInertia !== undefined ? config.parallaxInertia : 0.025;
+      mouseX += (targetMouseX - mouseX) * inertia;
+      mouseY += (targetMouseY - mouseY) * inertia;
+    } else {
+      mouseX = 0;
+      mouseY = 0;
+    }
 
-    const x = isWavyOn ? motion.x : 0;
-    const y = isWavyOn ? motion.y : 0;
-    const rot = isWavyOn ? motion.rot : 0;
+    let x = 0;
+    let y = 0;
+    let rot = 0;
+    if (isWavyOn) {
+      ensureSampler();
+      const motion = sampler.update(dt);
+      x = motion.x;
+      y = motion.y;
+      rot = motion.rot;
+    }
 
     // Dynamic Wallpaper Mouse Parallax Shift
     const parallaxAmp = isParallaxOn
@@ -169,9 +190,13 @@ function createWavyController(element, initialConfig = null) {
   }
 
   function start() {
-    if (isActive) return;
+    if (isActive) {
+      syncPointerListener();
+      return;
+    }
     clearStopTransition();
     isActive = true;
+    syncPointerListener();
     lastTimestamp = null;
     entryStartTime = hasStopped ? performance.now() : null;
     hasStopped = false;
@@ -182,6 +207,7 @@ function createWavyController(element, initialConfig = null) {
   function stop(resetPosition = true) {
     const wasActive = isActive;
     isActive = false;
+    syncPointerListener();
     hasStopped = true;
     entryStartTime = null;
     if (animationId) {
@@ -216,6 +242,7 @@ function createWavyController(element, initialConfig = null) {
     const next = { ...newConfig };
     if (next.motions) next.motions = cloneData(next.motions);
     config = { ...config, ...next };
+    syncPointerListener();
   }
 
   function getConfig() {

@@ -55,7 +55,7 @@ export async function start() {
   initAppUtils();
   applyWallpaperFilters();
   applyWallpaperPosition();
-  wallpaperRenderer.bindDataControl();
+  wallpaperRenderer.bindDataControl(dataControl);
   initButtons();
   renderIcons();
 

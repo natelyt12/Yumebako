@@ -233,7 +233,7 @@ export function createWavyPanel() {
       const { MotionClass, stored } = activeMotion();
       Object.entries(MotionClass.DEFAULTS || {}).forEach(([key, value]) => {
         stored[key] = value;
-        if (motionSliderMap[key]) motionSliderMap[key].value = value;
+        if (motionSliderMap[key]) motionSliderMap[key].setValueNoAnim(value);
       });
       wavy?.reseed();
       applyLivePreview();
@@ -330,7 +330,6 @@ export function createWavyPanel() {
   saveBtn.textContent = t("wavy.btn_save", "Lưu");
 
   const saveState = createSaveState(saveBtn);
-  const snapshot = () => JSON.parse(JSON.stringify(working));
 
   actions.append(resetBtn, saveBtn);
 
@@ -352,7 +351,7 @@ export function createWavyPanel() {
 
   const markDirty = () => {
     if (isInitializing.value) return;
-    syncDirty(saveState.sync(snapshot()));
+    syncDirty(saveState.sync(working));
   };
 
   /** Start the loop when either wavy or parallax is switched on. */
@@ -543,7 +542,7 @@ export function createWavyPanel() {
   const save = () => {
     persistConfig();
     startConfig = cloneData(wavy?.getConfig() ?? working);
-    saveState.markSaved(snapshot());
+    saveState.markSaved(working);
     showNotification(t("common.saved_changes"), "success");
     syncDirty(false);
   };
@@ -566,10 +565,26 @@ export function createWavyPanel() {
     syncEngineFromWorking();
 
     isInitializing.value = true;
-    renderAll();
+    const { MotionClass, stored } = activeMotion();
+    const resolved = resolveMotionConfig(working.motionType, stored);
+    const motionDefaults = MotionClass.DEFAULTS || {};
+    Object.entries(motionSliderMap).forEach(([key, slider]) => {
+      slider.setValueNoAnim(resolved[key] ?? motionDefaults[key]);
+    });
+    if (parallaxSliderMap.parallaxAmplitude) {
+      parallaxSliderMap.parallaxAmplitude.setValueNoAnim(
+        working.parallaxAmplitude,
+      );
+    }
+    if (parallaxSliderMap.parallaxInertia) {
+      parallaxSliderMap.parallaxInertia.setValueNoAnim(
+        working.parallaxInertia,
+      );
+    }
+    if (scaleSlider) scaleSlider.setValueNoAnim(working.scale);
     syncControls();
     isInitializing.value = false;
-    saveState.sync(snapshot());
+    saveState.sync(working);
     syncDirty(false);
   };
 
@@ -608,7 +623,7 @@ export function createWavyPanel() {
     working[key] = checked;
     applyEnabledVisibility();
     saveSettings({ wavy: { ...savedWavy(), [key]: checked } });
-    saveState.markSaved(snapshot());
+    saveState.markSaved(working);
     syncDirty(false);
   };
 
@@ -631,18 +646,20 @@ export function createWavyPanel() {
     const { MotionClass, stored } = activeMotion();
     Object.entries(MotionClass.DEFAULTS).forEach(([key, value]) => {
       stored[key] = value;
-      if (motionSliderMap[key]) motionSliderMap[key].value = value;
+      if (motionSliderMap[key]) motionSliderMap[key].setValueNoAnim(value);
     });
     working.scale = sharedDefaults.scale;
-    if (scaleSlider) scaleSlider.value = sharedDefaults.scale;
+    if (scaleSlider) scaleSlider.setValueNoAnim(sharedDefaults.scale);
 
     working.parallaxAmplitude = sharedDefaults.parallaxAmplitude ?? -30;
     if (parallaxSliderMap.parallaxAmplitude) {
-      parallaxSliderMap.parallaxAmplitude.value = working.parallaxAmplitude;
+      parallaxSliderMap.parallaxAmplitude.setValueNoAnim(
+        working.parallaxAmplitude,
+      );
     }
     working.parallaxInertia = sharedDefaults.parallaxInertia ?? 0.03;
     if (parallaxSliderMap.parallaxInertia) {
-      parallaxSliderMap.parallaxInertia.value = working.parallaxInertia;
+      parallaxSliderMap.parallaxInertia.setValueNoAnim(working.parallaxInertia);
     }
 
     applyLivePreview();
@@ -654,7 +671,7 @@ export function createWavyPanel() {
     MotionClass.getSettingsSpec().forEach((spec) => {
       const value = randomInRange(spec.min, spec.max, spec.step);
       stored[spec.key] = value;
-      if (motionSliderMap[spec.key]) motionSliderMap[spec.key].value = value;
+      if (motionSliderMap[spec.key]) motionSliderMap[spec.key].setValueNoAnim(value);
     });
     wavy?.reseed();
     applyLivePreview();
@@ -668,7 +685,7 @@ export function createWavyPanel() {
   syncControls();
   isInitializing.value = false;
   initButtons(el);
-  saveState.markSaved(snapshot());
+  saveState.markSaved(working);
   syncDirty(false);
 
   return {

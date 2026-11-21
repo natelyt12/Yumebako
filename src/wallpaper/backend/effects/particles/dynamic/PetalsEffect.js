@@ -1,5 +1,25 @@
-import { ParticleEffect } from "../ParticleEffect.js";
+import { ParticleEffect, parseColorRgb } from "../ParticleEffect.js";
 import { t } from "/src/core/i18n.js";
+
+const PETAL_SPRITE_SIZE = 64;
+
+function buildSoftPetalSprite(rgb) {
+    const c = document.createElement("canvas");
+    c.width = PETAL_SPRITE_SIZE;
+    c.height = PETAL_SPRITE_SIZE;
+    const sCtx = c.getContext("2d");
+    const h = PETAL_SPRITE_SIZE / 2;
+    const grad = sCtx.createRadialGradient(h, h, 0, h, h, h);
+    grad.addColorStop(0, `rgba(${rgb}, 1)`);
+    grad.addColorStop(1, `rgba(${rgb}, 0)`);
+    sCtx.fillStyle = grad;
+    sCtx.beginPath();
+    sCtx.moveTo(h, 0);
+    sCtx.quadraticCurveTo(h + h * 0.8, h * 0.5, h, PETAL_SPRITE_SIZE);
+    sCtx.quadraticCurveTo(h - h * 0.8, h * 0.5, h, 0);
+    sCtx.fill();
+    return c;
+}
 
 // ==========================================
 // PETALS EFFECT
@@ -96,66 +116,71 @@ export class PetalsEffect extends ParticleEffect {
         });
     }
 
+    _ensureVisualCache(color) {
+        const key = color || "#ffc0cb";
+        if (this._visualKey === key && this._softSprite && this._fillColor) {
+            return { rgb: this._rgb, fillColor: this._fillColor, softSprite: this._softSprite };
+        }
+        this._visualKey = key;
+        this._rgb = parseColorRgb(key, "255, 192, 203");
+        this._fillColor = `rgb(${this._rgb})`;
+        this._softSprite = buildSoftPetalSprite(this._rgb);
+        return { rgb: this._rgb, fillColor: this._fillColor, softSprite: this._softSprite };
+    }
+
     render() {
         const { ctx, particles, config } = this;
-        const color = config.color || "#ffc0cb";
         const opcMultiplier = this.config.opacity !== undefined ? this.config.opacity : PetalsEffect.DEFAULTS.opacity;
         const sizeMultiplier = this.config.size !== undefined ? this.config.size : PetalsEffect.DEFAULTS.size;
+        const { fillColor, softSprite } = this._ensureVisualCache(config.color);
 
-        let rgb = "255, 192, 203";
-        if (color.startsWith("#")) {
-            const r = parseInt(color.slice(1, 3), 16);
-            const g = parseInt(color.slice(3, 5), 16);
-            const b = parseInt(color.slice(5, 7), 16);
-            rgb = `${r}, ${g}, ${b}`;
-        }
+        const amplitude = this.parallaxAmplitude !== undefined ? this.parallaxAmplitude : -30;
+        const mx = (this.mouseX || 0) * amplitude;
+        const my = (this.mouseY || 0) * (amplitude * 0.65);
 
-        particles.forEach((p) => {
+        ctx.fillStyle = fillColor;
+        ctx.strokeStyle = fillColor;
+        ctx.lineWidth = 1;
+
+        for (let i = 0; i < particles.length; i++) {
+            const p = particles[i];
             const alpha = Math.min(1, Math.max(0, p.baseOpacity * opcMultiplier));
+            if (alpha <= 0.002) continue;
+
             const flipScale = Math.cos(p.flip); // 3D scale simulation
             // Parallax depth hierarchy (relative to wallpaper = 1.0):
             // Background (z≈0): ~0.3x | Midground (z≈0.7): ~1.5x | Foreground (z=1): 4.0x | isSoft: 6.0x
-            const amplitude = this.parallaxAmplitude !== undefined ? this.parallaxAmplitude : -30;
             const depthFactor = p.isSoft ? 6.0 : (0.3 + 3.7 * Math.pow(p.z, 1.4));
-            const offsetX = (this.mouseX || 0) * amplitude * depthFactor;
-            const offsetY = (this.mouseY || 0) * (amplitude * 0.65) * depthFactor;
-            const renderX = p.x + offsetX;
-            const renderY = p.y + offsetY;
+            const renderX = p.x + mx * depthFactor;
+            const renderY = p.y + my * depthFactor;
             const currentRadius = p.radius * sizeMultiplier;
 
-            ctx.save();
-            ctx.translate(renderX, renderY);
-            ctx.rotate(p.rot);
-            ctx.scale(1, flipScale); // Flip on one axis
+            const cosR = Math.cos(p.rot);
+            const sinR = Math.sin(p.rot);
+            ctx.setTransform(cosR, sinR, -sinR * flipScale, cosR * flipScale, renderX, renderY);
 
             if (p.isSoft) {
-                const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, currentRadius);
-                grad.addColorStop(0, `rgba(${rgb}, ${alpha})`);
-                grad.addColorStop(1, `rgba(${rgb}, 0)`);
-                ctx.fillStyle = grad;
+                ctx.globalAlpha = alpha;
+                ctx.drawImage(softSprite, -currentRadius, -currentRadius, currentRadius * 2, currentRadius * 2);
             } else {
-                ctx.fillStyle = `rgba(${rgb}, ${alpha})`;
-            }
-
-            // Draw a basic petal shape (leaf-like)
-            ctx.beginPath();
-            ctx.moveTo(0, -currentRadius);
-            ctx.quadraticCurveTo(currentRadius * 0.8, -currentRadius * 0.5, 0, currentRadius);
-            ctx.quadraticCurveTo(-currentRadius * 0.8, -currentRadius * 0.5, 0, -currentRadius);
-            ctx.fill();
-
-            // Add a subtle line in middle
-            if (!p.isSoft && currentRadius > 5) {
-                ctx.strokeStyle = `rgba(${rgb}, ${alpha * 0.5})`;
-                ctx.lineWidth = 1;
+                ctx.globalAlpha = alpha;
                 ctx.beginPath();
                 ctx.moveTo(0, -currentRadius);
-                ctx.lineTo(0, currentRadius);
-                ctx.stroke();
-            }
+                ctx.quadraticCurveTo(currentRadius * 0.8, -currentRadius * 0.5, 0, currentRadius);
+                ctx.quadraticCurveTo(-currentRadius * 0.8, -currentRadius * 0.5, 0, -currentRadius);
+                ctx.fill();
 
-            ctx.restore();
-        });
+                if (currentRadius > 5) {
+                    ctx.globalAlpha = alpha * 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(0, -currentRadius);
+                    ctx.lineTo(0, currentRadius);
+                    ctx.stroke();
+                }
+            }
+        }
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalAlpha = 1;
     }
 
     static getSettingsSpec() {

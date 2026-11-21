@@ -5,12 +5,7 @@ import {
   attemptCloseSubmenu,
   closeSubmenu,
 } from "/src/core/ui.js";
-import {
-  getSettings,
-  saveSettings,
-  getDefaultWallpaperEffects,
-} from "/src/core/storageHandler.js";
-import { createSources } from "../../backend/sources/index.js";
+import { getSettings } from "/src/core/storageHandler.js";
 import { dataControl } from "../../backend/data/DataControl.js";
 import { describeFetchError } from "../../backend/data/errors.js";
 import { SwitcherBar } from "./bar/SwitcherBar.js";
@@ -49,10 +44,10 @@ export class WallpaperSwitcher {
     this.isOpen = false;
     /** True while a source swap animation is in flight. */
     this._isSwapping = false;
+    /** True while Layer 2 is importing uploaded collection files. */
+    this._isImporting = false;
     this._pendingSourceId = null;
 
-    // Source adapters (Collection, Wallhaven, Unsplash, Picre...) — see ./sources/registry.js
-    this.sources = createSources();
     // Resolved from the applied wallpaper once the DOM exists (see init).
     this.activeSourceId = null;
 
@@ -61,6 +56,10 @@ export class WallpaperSwitcher {
     this.carousel = null;
     this.bar = null;
     this.toggleBtn = null;
+    this._innerEl = null;
+    this._emptyEl = null;
+    this._emptyHintEl = null;
+    this._emptyHintKey = null;
   }
 
   async init() {
@@ -71,6 +70,9 @@ export class WallpaperSwitcher {
     // Inject dynamic HTML template
     this.container.innerHTML = switcherHtml;
 
+    this._innerEl = this.container.querySelector(".wallpaper_switcher_inner");
+    this._emptyEl = this.container.querySelector("#wallpaper_carousel_empty");
+    this._emptyHintEl = this._emptyEl?.querySelector(".empty-sub") || null;
     this.carouselEl = this.container.querySelector("#wallpaper_carousel");
 
     this.carousel = new CarouselEngine({
@@ -223,10 +225,16 @@ export class WallpaperSwitcher {
     translateDOM(this.container);
     this.bar?.syncRightSlot(this.activeSourceId);
   }
+  /** Canonical source adapters owned by Layer 2 (`DataControl`). */
+  get sources() {
+    return Array.from(dataControl.sources.values());
+  }
+
   /** The source adapter currently feeding the carousel. */
   get activeSource() {
     return (
-      this.sources.find((source) => source.id === this.activeSourceId) ||
+      dataControl.sources.get(this.activeSourceId) ||
+      dataControl.activeSource ||
       this.sources[0]
     );
   }
@@ -248,7 +256,8 @@ export class WallpaperSwitcher {
    * @returns {boolean}
    */
   isCarouselViewActive() {
-    const host = this.container?.querySelector(".wallpaper_switcher_inner");
+    const host =
+      this._innerEl || this.container?.querySelector(".wallpaper_switcher_inner");
     return Boolean(host) && !host.classList.contains("submenu_active");
   }
 
@@ -323,20 +332,22 @@ export class WallpaperSwitcher {
    * @param {boolean} [isEmpty]
    */
   syncEmptyState(isEmpty = (this.carousel?.count ?? 0) === 0) {
-    const emptyEl = this.container?.querySelector("#wallpaper_carousel_empty");
+    const emptyEl =
+      this._emptyEl || this.container?.querySelector("#wallpaper_carousel_empty");
     if (!emptyEl) return;
     emptyEl.classList.toggle("is-visible", isEmpty);
     if (isEmpty) {
-      const hintEl = emptyEl.querySelector(".empty-sub");
-      if (hintEl) {
-        const isCollection = this.activeSourceId === "collection";
-        const key = isCollection
+      const hintEl = this._emptyHintEl || emptyEl.querySelector(".empty-sub");
+      const key =
+        this.activeSourceId === "collection"
           ? "wallpaper_switcher.empty_hint_collection"
           : "wallpaper_switcher.empty_hint_remote";
+      if (hintEl && this._emptyHintKey !== key) {
+        this._emptyHintKey = key;
         hintEl.setAttribute("data-i18n", key);
+        renderIcons(emptyEl);
+        translateDOM(emptyEl);
       }
-      renderIcons(emptyEl);
-      translateDOM(emptyEl);
     }
   }
 
@@ -367,23 +378,108 @@ export class WallpaperSwitcher {
         "error",
       );
     }
-
-    if (source.id === "collection")
-      this.syncWallpapersStorage(dataControl.items);
   }
 
   /**
-   * Bar's right-hand button: ask the current source for items.
+   * Open a native file picker inside the user gesture and resolve with chosen files
+   * (empty array when cancelled).
+   *
+   * @returns {Promise<File[]>}
+   * @private
+   */
+  _pickMediaFiles() {
+    return new Promise((resolve) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*,video/*";
+      input.multiple = true;
+
+      input.addEventListener(
+        "change",
+        () => resolve(Array.from(input.files || [])),
+        { once: true },
+      );
+      input.addEventListener("cancel", () => resolve([]), { once: true });
+
+      input.click();
+    });
+  }
+
+  /**
+   * Display toast notifications for warnings, errors, and imported cards
+   * returned by `dataControl.importCollectionFiles(files)`.
+   *
+   * @param {{ addedCards?: Array<Object>, warnings?: Array<{ file: string, code: string }>, errors?: Array<{ file: string, code: string }> }} result
+   * @private
+   */
+  _notifyImportResult({ addedCards = [], warnings = [], errors = [] } = {}) {
+    for (const warning of warnings) {
+      if (warning?.code === "video_large_warning") {
+        showNotification(t("sp.api.local.video_large_warning"), "warning");
+      }
+    }
+
+    for (const error of errors) {
+      if (error?.code === "video_too_large") {
+        showNotification(t("sp.api.local.video_too_large"), "error");
+      } else if (error?.code === "upload_error") {
+        showNotification(
+          t("sp.api.collection.upload_error", { file: error.file || "" }),
+          "error",
+        );
+      }
+    }
+
+    if (addedCards.length > 0) {
+      showNotification(
+        t("sp.api.collection.upload_success", { count: addedCards.length }),
+        "success",
+      );
+    }
+  }
+
+  /**
+   * Bar's right-hand button: pick local media files for Collection or ask the
+   * active remote source for more items.
+   * @returns {Promise<void>}
    */
   async requestUpload() {
-    await dataControl.requestMore({
-      onPruneActive: async () => {
-        this.bar?.hideActions();
-        if (this.carousel) {
-          await this.carousel.deleteActiveCard();
-        }
-      },
-    });
+    if (dataControl.activeSourceId !== "collection") {
+      await dataControl.requestMore({
+        onPruneActive: async () => {
+          this.bar?.hideActions();
+          if (this.carousel) {
+            await this.carousel.deleteActiveCard();
+          }
+        },
+      });
+      return;
+    }
+
+    if (this._isImporting || this.bar?.isDataBusy()) return;
+
+    const files = await this._pickMediaFiles();
+    if (!files || files.length === 0) return;
+
+    this._isImporting = true;
+    this.bar?.setBusy(true);
+    try {
+      const result = await dataControl.importCollectionFiles(files);
+      this._notifyImportResult(result);
+    } catch (err) {
+      console.error(
+        "[WallpaperSwitcher] Failed to import collection files:",
+        err,
+      );
+      showNotification(
+        t("sp.api.collection.upload_error", { file: files[0]?.name || "" }),
+        "error",
+      );
+    } finally {
+      this._isImporting = false;
+      this.bar?.setBusy(false);
+      this.syncEmptyState((dataControl.items || []).length === 0);
+    }
   }
 
   /**
@@ -411,24 +507,17 @@ export class WallpaperSwitcher {
 
   /**
    * Rebuild a card's thumbnail after the one it was drawn with failed to load.
-   * Only the owning source can tell whether that is possible — a thumbnail
-   * derived from the stored media — or futile, in which case the carousel falls
-   * back to the generic placeholder.
+   * Routes through `dataControl.recoverThumbnail(card)` so the canonical source
+   * adapter evicts stale cached URLs before regenerating the thumbnail.
    *
    * @param {Object} card
    * @param {HTMLElement} [cardEl] - Thẻ đang hiển thị, để gán ảnh mới vào.
    * @returns {Promise<string|null>}
    */
   async recoverThumbnail(card, cardEl) {
-    const source =
-      this.sources.find((entry) => entry.id === card?.source) ||
-      this.activeSource;
-    if (!source || !card?.id) return null;
+    if (!card?.id) return null;
 
-    // Clear the unusable URL, otherwise the source would consider the card as
-    // already having a thumbnail to preload.
-    card.thumbnailUrl = "";
-    const url = await source.prepareThumb(card);
+    const url = await dataControl.recoverThumbnail(card);
 
     // The engine painted the broken URL as a `background-image`; swap it in
     // place so the card heals without the row being redrawn.
@@ -528,37 +617,6 @@ export class WallpaperSwitcher {
     }
   }
 
-  /**
-   * Synchronize collection items with the per-wallpaper profiles stored in LocalStorage.
-   * @param {Array<Object>} items - Normalized collection card items.
-   */
-  syncWallpapersStorage(items) {
-    const settings = getSettings();
-    const storedWallpapers = Array.isArray(settings.wallpapers)
-      ? [...settings.wallpapers]
-      : [];
-    let updated = false;
-
-    items.forEach((item) => {
-      const exists = storedWallpapers.some((w) => w.id === item.id);
-      if (!exists) {
-        storedWallpapers.push({
-          id: item.id,
-          title: item.title || "",
-          type: item.mediaType || "image",
-          source: item.sourceUrl || "local",
-          createdAt: Date.now(),
-          effects: getDefaultWallpaperEffects(),
-        });
-        updated = true;
-      }
-    });
-
-    if (updated) {
-      saveSettings({ wallpapers: storedWallpapers });
-    }
-  }
-
   bindEvents() {
     // Toggle button click
     this.toggleBtn.addEventListener("click", (e) => {
@@ -630,11 +688,6 @@ export class WallpaperSwitcher {
         this.close();
       }
     });
-
-    // Re-center on window resize
-    window.addEventListener("resize", () => {
-      if (this.isOpen) this.carousel?.recenter();
-    });
   }
 
   async open() {
@@ -686,7 +739,8 @@ export class WallpaperSwitcher {
    * @returns {boolean}
    */
   hasActiveSubmenu() {
-    const inner = this.container?.querySelector(".wallpaper_switcher_inner");
+    const inner =
+      this._innerEl || this.container?.querySelector(".wallpaper_switcher_inner");
     return Boolean(
       inner?.classList.contains("submenu_active") ||
         this.container?.classList.contains("submenu_active"),

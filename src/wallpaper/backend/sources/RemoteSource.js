@@ -5,7 +5,6 @@ import {
   getSettings,
   getDefaultWallpaperEffects,
 } from "/src/core/storageHandler.js";
-import { wallpaperRenderer } from "/src/wallpaper/backend/rendering/renderer.js";
 import { generateImageThumbnail } from "/src/wallpaper/backend/data/thumbnailGenerator.js";
 import {
   NetworkError,
@@ -15,11 +14,11 @@ import { t } from "/src/core/i18n.js";
 
 /**
  * Resolve once the browser has the image decoded (and ready to paint), or
- * `false` when it never arrived — offline, DNS, a 404, a dead blob URL.
+ * `false` when it never arrived — offline, DNS, a 404, or a dead blob URL.
  *
- * `decode()` rejects on failure; a `background-image` (which is how the cards
- * paint) fires no event at all, so this is the only way to tell "loading" from
- * "broken" before handing the item to the carousel.
+ * `decode()` rejects on failure; a CSS `background-image` fires no event at
+ * all, so this is the only way to distinguish "loading" from "broken" before
+ * handing the item to the carousel.
  *
  * @param {string} url
  * @returns {Promise<boolean>}
@@ -43,34 +42,37 @@ function preloadImage(url) {
 /**
  * RemoteSource.js
  * ---------------------------------------------------------------------------
- * Lớp cơ sở cho các nguồn ảnh trực tuyến (Wallhaven, Picre, Unsplash...).
+ * Base adapter for online wallpaper providers (Wallhaven, Picre, Unsplash, Bing).
  *
- * Triển khai Quy trình 1 pha chuẩn hóa (Single-Phase Pipeline):
- *   1. Lấy metadata ảnh từ API nguồn (fetchItem).
- *   2. Tải ảnh gốc 1 lần duy nhất và lưu Blob vào mediaData (`media:orig:${id}`).
- *   3. Tự sinh thumbnail chuẩn 16:9 chất lượng cao và lưu vào mediaData (`media:thumb:${id}`).
- *   4. Bàn giao thẻ hoàn chỉnh với local blob URL cho DataControl và Carousel.
- *   5. Khi chọn thẻ, ảnh gốc đã có sẵn trong DB -> Đổi nền Desktop ngay lập tức (0ms trễ mạng).
+ * Implements the Single-Phase Pipeline:
+ *   1. Fetch image metadata from the provider API (`fetchItem`).
+ *   2. Download the full-size image once and store its Blob in `mediaData` (`media:orig:${id}`).
+ *   3. Generate a 16:9 thumbnail and store it in `mediaData` (`media:thumb:${id}`).
+ *   4. Hand the completed card with a live thumbnail Object URL to DataControl.
+ *   5. Build a pure render payload (`getRenderPayload`) from RAM/DB on apply.
  */
 export class RemoteSource extends BaseSource {
   static providerId = "";
   static storageKey = "";
+  // Số lượng ảnh gốc tối đa giữ sẵn trong RAM cache để đổi/tải nhanh.
   static maxCachedBlobs = 6;
-  /** Remote images can be fetched again, so the feed window is bounded. */
+  // Số thẻ tối đa giữ trong cửa sổ lịch sử của nguồn ảnh online.
   static maxCards = 20;
 
   constructor() {
     super();
-    /** @type {Map<string, Blob>} RAM cache cho ảnh gốc để apply/download tức thì */
+    /** @type {Map<string, Blob>} In-memory full-size Blob cache for instant apply/download. */
     this.blobCache = new Map();
-    /** @type {Map<string, string>} Item id -> Object URL của thumbnail sinh cục bộ */
+    /** @type {Map<string, string>} Card id -> locally generated thumbnail Object URL. */
     this.thumbCache = new Map();
   }
 
+  /** @returns {string} */
   get providerId() {
     return this.constructor.providerId || this.id;
   }
 
+  /** @returns {Array<Object>} */
   get actions() {
     return [
       SOURCE_ACTIONS.download,
@@ -80,18 +82,21 @@ export class RemoteSource extends BaseSource {
     ];
   }
 
+  /** @returns {boolean} */
   get canGrow() {
     return true;
   }
 
+  /** @returns {string} */
   get moreLabel() {
     return t("wallpaper_switcher.get_new_image", "Lấy ảnh mới");
   }
 
-  // ─── Sản xuất dữ liệu thẻ (Single-Phase Pipeline) ─────────────────────────
+  // ─── Single-Phase Card Production ─────────────────────────────────────────
 
   /**
-   * Khởi tạo danh sách thẻ: ưu tiên thẻ đang áp dụng (seed) hoặc nạp 1 thẻ mới đầu tiên.
+   * Initialize the source card list from the persisted seed item or fetch one fresh card.
+   * @returns {Promise<Array<Object>>}
    */
   async fetchItems() {
     this._releaseAllThumbs();
@@ -102,7 +107,8 @@ export class RemoteSource extends BaseSource {
   }
 
   /**
-   * Nạp thêm 1 thẻ mới khi người dùng đến ô "+" trên Carousel.
+   * Fetch one additional card when the user requests more items.
+   * @returns {Promise<Array<Object>|null>}
    */
   async fetchMore() {
     if (this.isLoading) return null;
@@ -116,7 +122,9 @@ export class RemoteSource extends BaseSource {
   }
 
   /**
-   * Khôi phục ảnh đã áp dụng gần nhất nếu còn lưu trong DB.
+   * Restore the last applied wallpaper as a seed card if recorded in IndexedDB.
+   * Migrates legacy inline `applied.blob` records into `media:orig:${id}` on read.
+   * @returns {Promise<Object|null>}
    */
   async fetchSeedItem() {
     const key = this.constructor.storageKey;
@@ -127,11 +135,21 @@ export class RemoteSource extends BaseSource {
 
     const id = String(applied.id ?? applied.image);
     let blob =
-      applied.blob instanceof Blob
-        ? applied.blob
-        : await this.getBlob({ id, url: applied.image });
+      this.blobCache.get(id) ||
+      (await getFromStore(`media:orig:${id}`, "mediaData"));
+
+    // Legacy migration: copy inline `applied.blob` from `appData` to `mediaData`.
+    if (!(blob instanceof Blob) && applied.blob instanceof Blob) {
+      blob = applied.blob;
+      await saveToStore(`media:orig:${id}`, blob, "mediaData");
+    }
+
+    if (!(blob instanceof Blob)) {
+      blob = await this.getBlob({ id, url: applied.image });
+    }
+
     if (blob instanceof Blob) {
-      this.blobCache.set(id, blob);
+      this._cacheBlob(id, blob);
     }
 
     const item = this.toCarouselItem(applied, {
@@ -152,12 +170,17 @@ export class RemoteSource extends BaseSource {
     return item;
   }
 
+  /**
+   * Build the fallback title for a restored seed card.
+   * @param {Object} applied
+   * @returns {string}
+   */
   getSeedTitle(applied) {
     return applied.category || "";
   }
 
   /**
-   * Lấy thẻ kế tiếp và chạy qua Single-Phase Pipeline.
+   * Fetch the next item and run it through the Single-Phase Pipeline.
    * @returns {Promise<Object|null>}
    */
   async fetchNext() {
@@ -170,7 +193,7 @@ export class RemoteSource extends BaseSource {
 
   /**
    * @abstract
-   * Phương thức con cần override để gọi API tương ứng.
+   * Subclasses override this to pull one raw record from their provider API/queue.
    * @returns {Promise<Object|null>}
    */
   async fetchItem() {
@@ -178,36 +201,36 @@ export class RemoteSource extends BaseSource {
   }
 
   /**
-   * Thực thi Single-Phase Pipeline:
-   * 1. Kiểm tra / Tải ảnh gốc -> lưu vào mediaData (`media:orig:${id}`)
-   * 2. Tự tạo thumbnail 16:9 -> lưu vào mediaData (`media:thumb:${id}`)
-   * 3. Gán blob URL vào item.thumbnailUrl
+   * Execute the Single-Phase Pipeline:
+   * 1. Reuse or fetch the full-size image -> store in `mediaData` (`media:orig:${id}`).
+   * 2. Reuse or generate a 16:9 thumbnail -> store in `mediaData` (`media:thumb:${id}`).
+   * 3. Assign the live Object URL to `item.thumbnailUrl`.
    *
-   * Ném lỗi khi thẻ không còn ảnh nào vẽ được (mất mạng, ảnh gốc 404): thà báo
-   * cho người dùng biết còn hơn trả về một thẻ chỉ hiện ra như khung rỗng.
+   * Throws when neither local media nor a reachable fallback URL exists so callers
+   * report a fetch error instead of adding a broken blank card.
    *
+   * @param {Object} item
    * @throws {import("../data/errors.js").NetworkError|Error}
    */
   async processSinglePhasePipeline(item) {
     if (!item?.id) return;
 
-    /** Ảnh của thẻ đã nằm trên máy (blob trong RAM/DB) hay chỉ có URL mạng. */
     let hasLocalMedia = false;
-    /** Lỗi của bước tải ảnh gốc, để phân biệt mất mạng với ảnh hỏng/404. */
     let pipelineError = null;
 
     try {
-      // 1. Lấy hoặc tải ảnh gốc
+      // 1. Resolve or fetch the full-size image Blob.
       let origBlob =
         this.blobCache.get(item.id) ||
         (await getFromStore(`media:orig:${item.id}`, "mediaData"));
 
       if (!(origBlob instanceof Blob) && item.url) {
         const response = await fetch(item.url, { mode: "cors" });
-        if (!response.ok)
+        if (!response.ok) {
           throw new Error(
-            `HTTP ${response.status} khi tải ảnh gốc [${item.url}]`,
+            `HTTP ${response.status} while downloading image [${item.url}]`,
           );
+        }
         origBlob = await response.blob();
         await saveToStore(`media:orig:${item.id}`, origBlob, "mediaData");
       }
@@ -216,7 +239,7 @@ export class RemoteSource extends BaseSource {
         this._cacheBlob(item.id, origBlob);
         if (!item.size) item.size = origBlob.size;
 
-        // 2. Tạo hoặc lấy thumbnail 16:9 chất lượng cao
+        // 2. Resolve or generate the 16:9 thumbnail Blob.
         let thumbBlob = await getFromStore(
           `media:thumb:${item.id}`,
           "mediaData",
@@ -228,13 +251,13 @@ export class RemoteSource extends BaseSource {
           }
         }
 
-        // 3. Tạo Object URL cho thumbnail
+        // 3. Create and register the thumbnail Object URL.
         const displayBlob = thumbBlob instanceof Blob ? thumbBlob : origBlob;
         const thumbUrl = this._createObjectUrl(displayBlob);
         if (thumbUrl) {
           hasLocalMedia = true;
           item.thumbnailUrl = thumbUrl;
-          this.thumbCache.set(item.id, thumbUrl);
+          this._setThumbCache(item.id, thumbUrl);
         }
       }
     } catch (err) {
@@ -243,32 +266,31 @@ export class RemoteSource extends BaseSource {
         `[RemoteSource] Single-Phase Pipeline warning for [${item.id}]:`,
         err,
       );
-      // Giữ nguyên thumbnailUrl dự phòng của item nếu có lỗi tải mạng
     }
 
-    if (item.thumbnailUrl) {
-      const reachable = await preloadImage(item.thumbnailUrl);
+    const reachable = item.thumbnailUrl
+      ? await preloadImage(item.thumbnailUrl)
+      : false;
 
-      // Không có ảnh trên máy, URL dự phòng của nguồn cũng không vẽ được: thẻ
-      // này chỉ có thể hiện ra như một khung rỗng. Ném lỗi để nơi gọi báo cho
-      // người dùng, còn hơn thêm một khung trắng vào dải.
-      if (!reachable && !hasLocalMedia) {
-        if (pipelineError && !isNetworkError(pipelineError))
-          throw pipelineError;
-        throw new NetworkError(pipelineError);
+    if (!hasLocalMedia && !reachable) {
+      if (pipelineError && !isNetworkError(pipelineError)) {
+        throw pipelineError;
       }
+      throw new NetworkError(pipelineError);
     }
   }
 
   // ─── Thumbnail & Cache Management ─────────────────────────────────────────
 
   /**
-   * Đảm bảo thẻ có thumbnail sẵn sàng vẽ lên Carousel (dùng khi mở lại app hoặc sau reload).
+   * Ensure `item.thumbnailUrl` points to a valid live URL after load or reload.
+   * @param {Object} item
+   * @returns {Promise<string|null>}
    */
   async prepareThumb(item) {
     if (!item?.id) return null;
 
-    // Nếu thumbnailUrl là blob URL cũ (từ session trước hoặc DB), xóa bỏ để không render URL chết
+    // Discard dead blob: URLs persisted from an earlier browser session.
     if (
       typeof item.thumbnailUrl === "string" &&
       item.thumbnailUrl.startsWith("blob:") &&
@@ -277,22 +299,22 @@ export class RemoteSource extends BaseSource {
       item.thumbnailUrl = null;
     }
 
-    // 1. Đã có URL còn sống trong RAM
+    // 1. Live Object URL already cached in RAM.
     if (this.thumbCache.has(item.id)) {
       item.thumbnailUrl = this.thumbCache.get(item.id);
       return item.thumbnailUrl;
     }
 
-    // 2. Kiểm tra thumbnail blob trong IndexedDB
+    // 2. Thumbnail Blob persisted in IndexedDB.
     const thumbBlob = await getFromStore(`media:thumb:${item.id}`, "mediaData");
     if (thumbBlob instanceof Blob) {
       const url = this._createObjectUrl(thumbBlob);
       item.thumbnailUrl = url;
-      this.thumbCache.set(item.id, url);
+      this._setThumbCache(item.id, url);
       return url;
     }
 
-    // 3. Nếu chưa có thumb nhưng có ảnh gốc trong DB -> tự sinh lại thumb
+    // 3. Regenerate thumbnail from persisted full-size Blob if available.
     const origBlob = await getFromStore(`media:orig:${item.id}`, "mediaData");
     if (origBlob instanceof Blob) {
       const newThumbBlob = await generateImageThumbnail(origBlob).catch(
@@ -302,12 +324,12 @@ export class RemoteSource extends BaseSource {
         await saveToStore(`media:thumb:${item.id}`, newThumbBlob, "mediaData");
         const url = this._createObjectUrl(newThumbBlob);
         item.thumbnailUrl = url;
-        this.thumbCache.set(item.id, url);
+        this._setThumbCache(item.id, url);
         return url;
       }
     }
 
-    // 4. Dự phòng: dùng URL trực tuyến (nếu không phải chuỗi blob chết)
+    // 4. Fallback to remote non-blob URL.
     if (item.url && !item.url.startsWith("blob:")) {
       item.thumbnailUrl = item.url;
       return item.url;
@@ -317,8 +339,18 @@ export class RemoteSource extends BaseSource {
   }
 
   /**
-   * Lấy Blob ảnh gốc (cho Áp dụng nền, Tải về, Thêm vào BST).
-   * Thứ tự: RAM -> IndexedDB -> Tải mạng.
+   * Release a cached thumbnail Object URL for `itemId`.
+   * @param {string|number} itemId
+   */
+  releaseThumb(itemId) {
+    if (itemId === undefined || itemId === null) return;
+    this._releaseThumb(String(itemId));
+  }
+
+  /**
+   * Resolve the full-size media Blob (RAM -> IndexedDB -> network fetch).
+   * @param {Object} item
+   * @returns {Promise<Blob|null>}
    */
   async getBlob(item) {
     if (!item?.id) return null;
@@ -338,18 +370,58 @@ export class RemoteSource extends BaseSource {
   }
 
   /**
-   * Giải phóng tài nguyên bộ nhớ (Object URL và cache) của thẻ khi bị xóa.
+   * Release RAM/Object URL caches when an item is deleted from the window.
+   * @param {Object} item
+   * @returns {Promise<void>}
    */
   async deleteItem(item) {
     if (!item?.id) return;
     this.releaseItem(item.id);
   }
 
+  /**
+   * Release both Blob and thumbnail caches for `id`.
+   * @param {string} id
+   */
   releaseItem(id) {
     this.blobCache.delete(id);
     this._releaseThumb(id);
   }
 
+  /**
+   * Store a thumbnail Object URL, revoking any superseded URL for `id`.
+   * @param {string} id
+   * @param {string} url
+   * @protected
+   */
+  _setThumbCache(id, url) {
+    const prev = this.thumbCache.get(id);
+    if (prev && prev !== url) {
+      URL.revokeObjectURL(prev);
+      this._objectUrls.delete(prev);
+    }
+    this.thumbCache.set(id, url);
+  }
+
+  /**
+   * Revoke cached thumbnail URLs whose IDs are not present in `activeIds`.
+   * @param {Set<string>} activeIds
+   * @protected
+   */
+  _releaseUnusedThumbs(activeIds) {
+    for (const [id, url] of this.thumbCache.entries()) {
+      if (activeIds.has(String(id))) continue;
+      URL.revokeObjectURL(url);
+      this._objectUrls.delete(url);
+      this.thumbCache.delete(id);
+    }
+  }
+
+  /**
+   * Revoke and delete a single cached thumbnail Object URL.
+   * @param {string} id
+   * @protected
+   */
   _releaseThumb(id) {
     const url = this.thumbCache.get(id);
     if (!url) return;
@@ -358,6 +430,10 @@ export class RemoteSource extends BaseSource {
     this.thumbCache.delete(id);
   }
 
+  /**
+   * Revoke all cached thumbnail Object URLs owned by this source.
+   * @protected
+   */
   _releaseAllThumbs() {
     this.thumbCache.forEach((url) => {
       URL.revokeObjectURL(url);
@@ -366,6 +442,13 @@ export class RemoteSource extends BaseSource {
     this.thumbCache.clear();
   }
 
+  /**
+   * Insert a Blob into the bounded LRU-like RAM cache.
+   * @param {string} id
+   * @param {Blob} blob
+   * @returns {Blob}
+   * @protected
+   */
   _cacheBlob(id, blob) {
     this.blobCache.set(id, blob);
     while (this.blobCache.size > this.constructor.maxCachedBlobs) {
@@ -374,8 +457,13 @@ export class RemoteSource extends BaseSource {
     return blob;
   }
 
-  // ─── Áp dụng hình nền ───────────────────────────────────────────────────
+  // ─── Render Payload & Persistence ─────────────────────────────────────────
 
+  /**
+   * Return whether `item` matches the currently active desktop wallpaper.
+   * @param {Object} item
+   * @returns {boolean}
+   */
   isActive(item) {
     const config = getSettings().wallpaperConfig || {};
     return (
@@ -383,8 +471,15 @@ export class RemoteSource extends BaseSource {
     );
   }
 
-  async apply(item, { firstRun = false } = {}) {
-    // Nhờ Single-Phase Pipeline, ảnh gốc đã có sẵn trong DB/RAM -> getBlob giải quyết tức thì!
+  /**
+   * Build a pure render payload (`{ id, blob, type, effects, credit, ... }`)
+   * without touching the DOM or WallpaperRenderer.
+   *
+   * @param {Object} item
+   * @returns {Promise<Object|null>}
+   */
+  async getRenderPayload(item) {
+    if (!item) return null;
     const blob = await this.getBlob(item);
     if (!blob) {
       throw new Error(
@@ -393,17 +488,45 @@ export class RemoteSource extends BaseSource {
     }
 
     const payload = this.buildPayload(item, blob);
-    const applied = await wallpaperRenderer.apply(payload, { firstRun });
-    if (applied === false) return false;
+    payload.credit = this.getAttribution(item);
+    return payload;
+  }
 
+  /**
+   * Persist applied wallpaper metadata once the renderer commits the payload.
+   * @param {Object} _item
+   * @param {Object} payload
+   * @returns {Promise<void>}
+   */
+  async onApplied(_item, payload) {
+    if (!payload) return;
     try {
       await this.persistApplied(payload);
     } catch (error) {
       console.error(`[${this.id}] Failed to persist current wallpaper:`, error);
     }
-    return true;
   }
 
+  /**
+   * Clear the persisted `applied` entry in this source's provider state store.
+   * @returns {Promise<void>}
+   */
+  async clearApplied() {
+    const key = this.constructor.storageKey;
+    if (!key) return;
+    const storeData = await getFromStore(key);
+    if (storeData && storeData.applied) {
+      storeData.applied = null;
+      await saveToStore(key, storeData);
+    }
+  }
+
+  /**
+   * Assemble a render payload from a card item and its resolved Blob.
+   * @param {Object} item
+   * @param {Blob} blob
+   * @returns {Object}
+   */
   buildPayload(item, blob) {
     return {
       id: item.id,
@@ -425,6 +548,13 @@ export class RemoteSource extends BaseSource {
     };
   }
 
+  /**
+   * Persist lightweight metadata for the applied wallpaper in `appData`
+   * without duplicating the full-size `Blob` (which lives in `mediaData`).
+   *
+   * @param {Object} payload
+   * @returns {Promise<void>}
+   */
   async persistApplied(payload) {
     const key = this.constructor.storageKey;
     if (!key) return;
@@ -433,7 +563,6 @@ export class RemoteSource extends BaseSource {
     storeData.applied = {
       id: payload.id,
       image: payload.image,
-      blob: payload.blob,
       source: payload.source,
       width: payload.width,
       height: payload.height,
@@ -444,9 +573,5 @@ export class RemoteSource extends BaseSource {
       queue_total: storeData.queue_total,
     };
     await saveToStore(key, storeData);
-  }
-
-  async persistCurrent(payload) {
-    return this.persistApplied(payload);
   }
 }

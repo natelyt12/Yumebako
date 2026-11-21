@@ -80,7 +80,8 @@ export async function fetchBingDaily8({ resolution, strict = false } = {}) {
 }
 
 /**
- * Clear Bing cached items so next access refreshes from API.
+ * Clear Bing cached items so the next access refreshes from the API.
+ * @returns {Promise<void>}
  */
 export async function clearBingCache() {
     const storeData = (await getFromStore(BING_STORAGE_KEY)) || {};

@@ -10,7 +10,12 @@ export {
   applyFilterConfig,
   FILTER_DEFAULTS,
 } from "./rendering/filter.js";
-export { applyWallpaperPosition } from "./rendering/position.js";
+export {
+  applyWallpaperPosition,
+  getActiveMediaMetrics,
+  measureActiveMediaMetrics,
+  computeCoverOverflow,
+} from "./rendering/position.js";
 export { wallpaperRenderer } from "./rendering/renderer.js";
 export * from "./sources/index.js";
 export * from "./effects/motion/index.js";

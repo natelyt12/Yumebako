@@ -9,13 +9,11 @@ import {
   removeFromCollection,
   removeMultipleFromCollection,
 } from "/src/wallpaper/backend/sources/api/collectionDb.js";
-import { wallpaperRenderer } from "/src/wallpaper/backend/rendering/renderer.js";
 import {
   getSettings,
   getDefaultWallpaperEffects,
   DEFAULT_COLLECTION_SOURCE_ORDER,
 } from "/src/core/storageHandler.js";
-import { showNotification } from "/src/core/ui.js";
 import {
   generateImageThumbnail,
   generateVideoThumbnail,
@@ -29,28 +27,34 @@ import {
   formatDate,
   formatNumber,
   getPicreSourceLabel,
-  escapeHtml,
 } from "./cardMeta.js";
 import { withUnsplashUtm } from "./api/unsplashAPI.js";
 
 const FALLBACK_THUMB = "/image/fallback.jpg";
+// Giới hạn dung lượng tối đa cho phép tải lên video cục bộ (500 MB).
 const VIDEO_HARD_LIMIT = 500 * 1024 * 1024;
+// Ngưỡng cảnh báo khi tải lên video dung lượng lớn (100 MB).
 const VIDEO_WARN_LIMIT = 100 * 1024 * 1024;
 
 /** Ordering modes offered by the Collection source settings. */
 const SORT_MODES = new Set(["effects", "video", "date", "source"]);
 
-/** True when the collection entry holds a video. */
+/**
+ * True when the collection entry holds a video.
+ * @param {Object} item
+ * @returns {boolean}
+ */
 function isVideoItem(item) {
   return item?.mediaType === "video" || Boolean(item?.type?.includes("video"));
 }
 
 /**
  * Upload date of a collection item, in ms.
+ * Newer records embed the save timestamp in their id (`<ms>_<rand>`).
+ * Items with no date sort as 0 so they never masquerade as the newest.
  *
- * Newer records embed the save timestamp in their id (`<ms>_<rand>`), which is
- * the only date older records ever had; `metadata.addedAt` wins when present.
- * Items with no date at all sort as 0 so they never masquerade as the newest.
+ * @param {Object} item
+ * @returns {number}
  */
 function itemAddedAt(item) {
   const meta = item?.metadata || item?.raw?.metadata || {};
@@ -65,7 +69,11 @@ function itemAddedAt(item) {
   return stamp ?? 0;
 }
 
-/** Group id used by `sortMode: "source"`; local uploads belong to `collection`. */
+/**
+ * Group id used by `sortMode: "source"`; local uploads belong to `collection`.
+ * @param {Object} item
+ * @returns {string}
+ */
 function itemGroupId(item) {
   const provider = String(
     item?.metadata?.provider || item?.raw?.metadata?.provider || "",
@@ -76,39 +84,15 @@ function itemGroupId(item) {
   return provider;
 }
 
-/** Open a native file picker and resolve with the chosen files (empty on cancel). */
-function pickMediaFiles() {
-  return new Promise((resolve) => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "image/*,video/*";
-    input.multiple = true;
-
-    input.addEventListener("change", () =>
-      resolve(Array.from(input.files || [])),
-    );
-    input.addEventListener("cancel", () => resolve([]));
-
-    input.click();
-  });
-}
-
 /**
  * CollectionSource.js
  * ---------------------------------------------------------------------------
- * Switcher source backed by the personal IndexedDB collection.
+ * Headless Switcher source backed by the personal IndexedDB collection.
  *
- * It produces object URLs from each item's stored thumbnail (the list entry
- * carries no full-size blob — see `collectionDb.js`), and applies items through
- * the Collection provider so the per-wallpaper effect profile is kept.
- *
- * Its items grow through one door: the **upload button** in the bottom bar
- * (`WallpaperSwitcher.requestUpload`), which opens the file picker inside a real
- * user gesture — the thing browsers require to show a file dialog.
- *
- * That is why the bottom bar shows this source's upload button instead of the
- * "get more" control: only a real user gesture may open a file dialog, and a
- * card slot cannot provide one.
+ * Produces cached Object URLs from each entry's stored thumbnail (the list entry
+ * carries no full-size blob — see `collectionDb.js`), imports user-selected media
+ * files headlessly (`importFiles(files)`), and builds pure render payloads and
+ * structured metadata descriptors.
  */
 export class CollectionSource extends BaseSource {
   static id = "collection";
@@ -117,6 +101,7 @@ export class CollectionSource extends BaseSource {
   /** Object URL per collection record, so a refresh reuses them (see `_resolveThumb`). */
   _thumbUrls = new Map();
 
+  /** @returns {Array<Object>} */
   get actions() {
     return [
       SOURCE_ACTIONS.download,
@@ -125,6 +110,7 @@ export class CollectionSource extends BaseSource {
     ];
   }
 
+  /** @returns {boolean} */
   get canGrow() {
     return true;
   }
@@ -135,52 +121,78 @@ export class CollectionSource extends BaseSource {
   }
 
   /**
-   * Open the file picker and store whatever the user picked.
-   * Called from the upload button, i.e. inside a user gesture.
-   * @returns {Promise<Array<Object>>} The items that were just added.
+   * Import user-selected files into the personal collection without touching the DOM
+   * or showing UI toast notifications.
+   *
+   * @param {File[]|FileList} files
+   * @returns {Promise<{ addedCards: Array<Object>, warnings: Array<{ file: string, code: string }>, errors: Array<{ file: string, code: string, cause?: unknown }> }>}
    */
-  async fetchMore() {
-    if (this.isLoading) return null;
+  async importFiles(files) {
+    const fileList = Array.from(files || []).filter(Boolean);
+    if (fileList.length === 0 || this.isLoading) {
+      return { addedCards: [], warnings: [], errors: [] };
+    }
+
     this.isLoading = true;
     try {
-      const files = await pickMediaFiles();
-      if (files.length === 0) return null;
-
       const preparedList = [];
-      for (const file of files) {
-        const record = await this._prepareLocalFile(file);
-        if (record) preparedList.push(record);
+      const warnings = [];
+      const errors = [];
+
+      for (const file of fileList) {
+        const result = await this._prepareLocalFile(file);
+        if (result.warning) warnings.push(result.warning);
+        if (result.error) errors.push(result.error);
+        if (result.record) preparedList.push(result.record);
       }
 
-      if (preparedList.length === 0) return null;
+      if (preparedList.length === 0) {
+        return { addedCards: [], warnings, errors };
+      }
 
-      // Lưu nguyên lô vào IndexedDB cùng một lúc (1 transaction duy nhất)
+      // Persist the entire batch in one IndexedDB transaction.
       const savedRecords = await addBatchToCollection(preparedList);
-
-      showNotification(
-        t("sp.api.collection.upload_success", { count: savedRecords.length }),
-        "success",
-      );
-
-      return savedRecords.map((raw) => this._toCarouselItem(raw));
+      const addedCards = savedRecords.map((raw) => this._toCarouselItem(raw));
+      return { addedCards, warnings, errors };
     } finally {
       this.isLoading = false;
     }
   }
 
   /**
-   * Chuẩn bị metadata và thumbnail cho file tải lên.
-   * @returns {Promise<Object|null>}
+   * Headless continuation hook: imports `files` when supplied by Layer 1/2,
+   * otherwise returns `null` (Layer 3 never opens `<input type="file">`).
+   *
+   * @param {File[]|FileList|null} [files=null]
+   * @returns {Promise<Array<Object>|null>}
    */
-  async _prepareLocalFile(file) {
-    const isVideo = file.type.startsWith("video/");
-
-    if (isVideo && file.size > VIDEO_HARD_LIMIT) {
-      showNotification(t("sp.api.local.video_too_large"), "error");
+  async fetchMore(files = null) {
+    if (!files || (Array.isArray(files) && files.length === 0)) {
       return null;
     }
+    const { addedCards } = await this.importFiles(files);
+    return addedCards.length > 0 ? addedCards : null;
+  }
+
+  /**
+   * Validate size constraints and generate metadata + thumbnail for one uploaded file.
+   * @param {File} file
+   * @returns {Promise<{ record: Object|null, warning: { file: string, code: string }|null, error: { file: string, code: string, cause?: unknown }|null }>}
+   * @private
+   */
+  async _prepareLocalFile(file) {
+    const isVideo = Boolean(file?.type?.startsWith("video/"));
+    let warning = null;
+
+    if (isVideo && file.size > VIDEO_HARD_LIMIT) {
+      return {
+        record: null,
+        warning: null,
+        error: { file: file.name, code: "video_too_large" },
+      };
+    }
     if (isVideo && file.size > VIDEO_WARN_LIMIT) {
-      showNotification(t("sp.api.local.video_large_warning"), "warning");
+      warning = { file: file.name, code: "video_large_warning" };
     }
 
     try {
@@ -192,35 +204,35 @@ export class CollectionSource extends BaseSource {
         : await getImageDimensions(file);
 
       return {
-        type: isVideo ? "local_video" : "local_image",
-        blob: file,
-        thumbnail,
-        metadata: {
-          width,
-          height,
-          size: file.size,
-          source: "local",
-          mimeType: file.type,
+        record: {
+          type: isVideo ? "local_video" : "local_image",
+          blob: file,
+          thumbnail,
+          metadata: {
+            width,
+            height,
+            size: file.size,
+            source: "local",
+            mimeType: file.type,
+          },
         },
+        warning,
+        error: null,
       };
-    } catch (error) {
-      console.error(`[Collection] Failed to process "${file.name}":`, error);
-      showNotification(
-        t("sp.api.collection.upload_error", { file: file.name }),
-        "error",
-      );
-      return null;
+    } catch (err) {
+      console.error(`[Collection] Failed to process "${file.name}":`, err);
+      return {
+        record: null,
+        warning,
+        error: { file: file.name, code: "upload_error", cause: err },
+      };
     }
   }
 
   /**
-   * Every collection entry becomes an item whose media stays in the app.
-   *
-   * The window is rebuilt from scratch, but its object URLs are not. The items
-   * on screen are never rebuilt along with it, so revoking every URL here would
-   * leave their <img> pointing at a dead address and mint a new generation of
-   * URLs that nothing ever displays. Each URL is therefore cached per record
-   * (see `_resolveThumb`) and only the ones whose record is gone are released.
+   * Read the collection from IndexedDB and reuse live cached thumbnail Object URLs,
+   * revoking only URLs whose entries were removed.
+   * @returns {Promise<Array<Object>>}
    */
   async fetchItems() {
     const collection = await getCollection();
@@ -231,11 +243,9 @@ export class CollectionSource extends BaseSource {
   }
 
   /**
-   * Thứ tự trong Collection, theo `collectionConfig.sortMode`:
-   * - `effects` (mặc định): nhiều tùy chỉnh nhất lên đầu; cùng số lượng thì video trước ảnh.
-   * - `video`: video (nhiều → ít tùy chỉnh), rồi ảnh (nhiều → ít tùy chỉnh).
-   * - `date`: theo ngày thêm vào; `sortOldestFirst` đảo thành cũ nhất trước.
-   * - `source`: gom nhóm theo thứ tự ưu tiên `sourceOrder`, trong nhóm sort theo hiệu ứng.
+   * Sort collection cards according to `collectionConfig.sortMode`
+   * (`effects`, `video`, `date`, or `source`).
+   *
    * @param {Array<Object>} items
    * @returns {Array<Object>}
    */
@@ -277,7 +287,7 @@ export class CollectionSource extends BaseSource {
         buckets.delete(group);
       }
 
-      // Providers outside the five defaults keep their effect order, last.
+      // Providers outside the configured order keep their effect order last.
       const rest = [];
       buckets.forEach((bucket) => rest.push(...bucket));
       return [...ordered, ...sortCardsByCustomizations(rest)];
@@ -296,14 +306,14 @@ export class CollectionSource extends BaseSource {
       ];
     }
 
-    // `effects`: most customized first; on equal counts the stable sort keeps
-    // the videos-then-images base order.
+    // `effects`: most customized first; stable sort keeps videos-then-images base order.
     return sortCardsByCustomizations([...videos, ...images]);
   }
 
   /**
-   * Revoke the cached URL of every record that left the collection.
+   * Revoke cached thumbnail URLs for records that left the collection.
    * @param {Set<string>} liveIds
+   * @protected
    */
   _releaseUnusedThumbs(liveIds) {
     this._thumbUrls.forEach((url, id) => {
@@ -313,18 +323,35 @@ export class CollectionSource extends BaseSource {
     });
   }
 
-  /** Media already lives in IndexedDB, so the thumbnail is free to build. */
+  /**
+   * Evict a cached thumbnail Object URL so `prepareThumb` can rebuild it.
+   * @param {string|number} itemId
+   */
+  releaseThumb(itemId) {
+    if (itemId === undefined || itemId === null) return;
+    const key = String(itemId);
+    const url = this._thumbUrls.get(key);
+    if (!url) return;
+    URL.revokeObjectURL(url);
+    this._thumbUrls.delete(key);
+  }
+
+  /**
+   * Ensure `item.thumbnailUrl` points to a valid live Object URL or non-blob fallback.
+   * @param {Object} item
+   * @returns {Promise<string>}
+   */
   async prepareThumb(item) {
     if (!item?.id) return FALLBACK_THUMB;
     const idStr = String(item.id);
 
-    // 1. Nếu đã có URL còn sống trong session hiện tại
+    // 1. Live Object URL already cached in this session.
     if (this._thumbUrls.has(idStr)) {
       item.thumbnailUrl = this._thumbUrls.get(idStr);
       return item.thumbnailUrl;
     }
 
-    // 2. Nếu là URL từ xa (không phải blob chết)
+    // 2. Non-blob remote URL.
     if (
       typeof item.thumbnailUrl === "string" &&
       !item.thumbnailUrl.startsWith("blob:")
@@ -332,13 +359,17 @@ export class CollectionSource extends BaseSource {
       return item.thumbnailUrl;
     }
 
-    // 3. Tái tạo living Object URL từ thumbnail của chính entry trong list
-    // (thumbnail nằm trong `data:collection`, không cần đọc blob gốc nữa)
+    // 3. Rebuild Object URL from the entry's stored thumbnail Blob.
     const raw = item.raw || (await getCollectionItem(item.id));
     item.thumbnailUrl = this._resolveThumb(raw);
     return item.thumbnailUrl;
   }
 
+  /**
+   * Return whether `item` is the currently active desktop wallpaper.
+   * @param {Object} item
+   * @returns {boolean}
+   */
   isActive(item) {
     const config = getSettings().wallpaperConfig || {};
     return (
@@ -348,13 +379,19 @@ export class CollectionSource extends BaseSource {
     );
   }
 
-  async apply(item, { firstRun = false } = {}) {
-    if (!item?.id) return;
+  /**
+   * Build a pure render payload (`{ id, blob, type, width, height, effects, credit }`)
+   * without touching DOM elements or `wallpaperRenderer`.
+   *
+   * @param {Object} item
+   * @returns {Promise<Object|null>}
+   */
+  async getRenderPayload(item) {
+    if (!item?.id) return null;
 
-    // Media lives in its own record, so applying a wallpaper reads exactly one
-    // file instead of re-cloning the whole collection.
-    const blob = await getCollectionBlob(item.id);
-    if (!blob) return;
+    // Media lives in its own record, so applying reads exactly one Blob.
+    const blob = await this.getBlob(item);
+    if (!blob) return null;
 
     const isVideo =
       blob.type.startsWith("video/") ||
@@ -362,38 +399,42 @@ export class CollectionSource extends BaseSource {
       item.raw?.type === "local_video" ||
       item.raw?.type === "video";
 
-    return await wallpaperRenderer.apply(
-      {
-        blob,
-        id: item.id,
-        type: isVideo ? "video" : "image",
-        effects:
-          item.effects || item.raw?.effects || getDefaultWallpaperEffects(),
-      },
-      { firstRun },
-    );
+    return {
+      id: item.id,
+      blob,
+      type: isVideo ? "video" : "image",
+      width: item.width || 0,
+      height: item.height || 0,
+      effects:
+        item.effects || item.raw?.effects || getDefaultWallpaperEffects(),
+      credit: this.getAttribution(item),
+    };
   }
 
-  /** Media already lives in IndexedDB, so no fetch is needed. */
+  /**
+   * Resolve the full-size media Blob from `mediaData`.
+   * @param {Object} item
+   * @returns {Promise<Blob|null>}
+   */
   async getBlob(item) {
     return getCollectionBlob(item?.id);
   }
 
-  /** Xóa hoàn toàn thẻ khỏi database bộ sưu tập và giải phóng URL */
+  /**
+   * Delete a single entry from the collection store and revoke its cached thumbnail URL.
+   * @param {Object} card
+   * @returns {Promise<void>}
+   */
   async deleteItem(card) {
     if (!card?.id) return;
     await removeFromCollection(card.id);
-    const cachedUrl = this._thumbUrls.get(String(card.id));
-    if (cachedUrl) {
-      URL.revokeObjectURL(cachedUrl);
-      this._thumbUrls.delete(String(card.id));
-    }
+    this.releaseThumb(card.id);
   }
 
   /**
-   * Batch deletion: revoke the cached thumbs and rewrite the collection array
-   * once (`removeMultipleFromCollection`), mirroring the batched upload path.
+   * Batch deletion: revoke cached thumbs and rewrite the collection array once.
    * @param {Array<Object>} cards
+   * @returns {Promise<void>}
    */
   async deleteItems(cards = []) {
     if (!Array.isArray(cards) || cards.length === 0) return;
@@ -401,19 +442,16 @@ export class CollectionSource extends BaseSource {
     const ids = cards.map((card) => card?.id).filter(Boolean);
     if (ids.length === 0) return;
 
-    ids.forEach((id) => {
-      const key = String(id);
-      const cachedUrl = this._thumbUrls.get(key);
-      if (cachedUrl) {
-        URL.revokeObjectURL(cachedUrl);
-        this._thumbUrls.delete(key);
-      }
-    });
-
+    ids.forEach((id) => this.releaseThumb(id));
     await removeMultipleFromCollection(ids);
   }
 
-  /** Map one collection record onto the persisted item shape. */
+  /**
+   * Map one stored collection record onto the standard `CardItem` shape.
+   * @param {Object} raw
+   * @returns {Object}
+   * @private
+   */
   _toCarouselItem(raw) {
     const metadata = raw?.metadata || {};
     const sourceUrl = /^https?:\/\//i.test(metadata.source || "")
@@ -434,8 +472,6 @@ export class CollectionSource extends BaseSource {
       width: metadata.width || 0,
       height: metadata.height || 0,
       size: metadata.size || 0,
-      // `toCarouselItem` defaults this to "now"; a saved record keeps the date
-      // it was actually added so the date sort is meaningful.
       addedAt:
         Number(metadata.addedAt) ||
         Number(String(raw.id).split("_")[0]) ||
@@ -445,7 +481,11 @@ export class CollectionSource extends BaseSource {
     });
   }
 
-  /** Collection entries are local files; detect the media type defensively. */
+  /**
+   * Detect whether a stored collection record represents a video.
+   * @param {Object} raw
+   * @returns {boolean}
+   */
   isVideo(raw) {
     return (
       raw?.type === "local_video" ||
@@ -454,7 +494,12 @@ export class CollectionSource extends BaseSource {
     );
   }
 
-  /** Thumbnails live in the list entry; the full blob is no longer inline. */
+  /**
+   * Resolve or mint a thumbnail Object URL for `raw`.
+   * @param {Object} raw
+   * @returns {string}
+   * @private
+   */
   _resolveThumb(raw) {
     if (!raw?.id) return FALLBACK_THUMB;
 
@@ -470,8 +515,10 @@ export class CollectionSource extends BaseSource {
   }
 
   /**
-   * Build a readable label for a record that has no explicit title, e.g.
-   * "Ảnh • Wallhaven" or "Video • Local".
+   * Build a readable fallback title for records without an explicit title.
+   * @param {Object} raw
+   * @returns {string}
+   * @private
    */
   _buildTitle(raw) {
     if (!raw) return "";
@@ -520,8 +567,15 @@ export class CollectionSource extends BaseSource {
     return srcVal ? `${mediaType} • ${srcVal}` : mediaType;
   }
 
-  // ─── Chip Info (Collapsed & Hover Expand) ─────────────────────────────────
+  // ─── Pure Structured Metadata ─────────────────────────────────────────────
 
+  /**
+   * Extract a clean Bing title from saved collection metadata.
+   * @param {Object} meta
+   * @param {Object} card
+   * @returns {string}
+   * @private
+   */
   _getCleanBingTitle(meta, card) {
     const rawTitle = meta?.title?.trim() || card?.title?.trim();
     if (rawTitle && !/^info$/i.test(rawTitle) && !/^bing\b/i.test(rawTitle)) {
@@ -536,7 +590,11 @@ export class CollectionSource extends BaseSource {
     return rawTitle && !/^info$/i.test(rawTitle) ? rawTitle : "Bing";
   }
 
-  /** Unsplash credit for a collection copy (kept in the stored metadata). */
+  /**
+   * Unsplash credit for a saved collection copy.
+   * @param {Object} card
+   * @returns {{ name: string, profileUrl: string, photoUrl: string, unsplashUrl: string }|null}
+   */
   getAttribution(card) {
     const meta = card?.metadata || {};
     if ((meta.provider || "") !== "unsplash") return null;
@@ -553,36 +611,44 @@ export class CollectionSource extends BaseSource {
     };
   }
 
-  getChipSummary(card) {
-    if (!card) return "";
+  /**
+   * Return pure structured summary metadata for a collection card (zero HTML).
+   * @param {Object} card
+   * @returns {import("./BaseSource.js").MetaData|null}
+   */
+  getMetaData(card) {
+    if (!card) return null;
     const meta = card.metadata || {};
     const provider = meta.provider || (card.local ? "local" : "");
     const badge = getResolutionBadge(card.width, card.height);
+    const resolution = formatResolution(card.width, card.height);
     const size = formatFileSize(card.size);
+    const segments = [];
 
-    // TH 1: Ảnh lưu từ bên ngoài (Unsplash, Bing, Wallhaven, Picre...)
+    // Case 1: Saved from an external provider (Unsplash, Bing, Wallhaven, Picre, ...)
     if (provider && provider !== "local") {
       if (provider === "unsplash") {
         const author = meta.user?.name || "";
-        const photoBy = t("sp.meta.photo_by", "Photo by");
-        const parts = [
-          author
-            ? `<span>${escapeHtml(photoBy)} <strong>${escapeHtml(author)}</strong></span>`
-            : `<span>Unsplash</span>`,
-        ];
-        if (badge)
-          parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
-        return parts.join('<span class="card-meta-sep">•</span>');
+        if (author) {
+          segments.push({
+            type: "author",
+            prefix: t("sp.meta.photo_by", "Photo by"),
+            name: author,
+          });
+        } else {
+          segments.push({ type: "text", text: "Unsplash" });
+        }
+        if (badge) segments.push({ type: "badge", text: badge });
+        return { segments, badge, resolution, size };
       }
 
       if (provider === "bing") {
         const title = this._getCleanBingTitle(meta, card);
         const dateStr = formatDate(meta.startDate || card.startDate);
-        const parts = [`<span>${escapeHtml(title)}</span>`];
-        if (dateStr) parts.push(`<span>${escapeHtml(dateStr)}</span>`);
-        else if (badge)
-          parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
-        return parts.join('<span class="card-meta-sep">•</span>');
+        segments.push({ type: "text", text: title });
+        if (dateStr) segments.push({ type: "text", text: dateStr });
+        else if (badge) segments.push({ type: "badge", text: badge });
+        return { segments, badge, resolution, size };
       }
 
       if (provider === "wallhaven") {
@@ -591,49 +657,50 @@ export class CollectionSource extends BaseSource {
           meta.title ||
           meta.category ||
           t("sp.meta.random", "Ngẫu nhiên");
-        const parts = [`<span>${escapeHtml(query)}</span>`];
-        if (badge)
-          parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
-        return parts.join('<span class="card-meta-sep">•</span>');
+        segments.push({ type: "text", text: query });
+        if (badge) segments.push({ type: "badge", text: badge });
+        return { segments, badge, resolution, size };
       }
 
       if (provider === "picre") {
         const platform = getPicreSourceLabel(meta.source || card.sourceUrl);
-        const parts = [`<span>${escapeHtml(platform)}</span>`];
-        if (badge)
-          parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
-        return parts.join('<span class="card-meta-sep">•</span>');
+        segments.push({ type: "text", text: platform });
+        if (badge) segments.push({ type: "badge", text: badge });
+        return { segments, badge, resolution, size };
       }
 
       const name = meta.providerName || provider;
-      const parts = [`<span>${escapeHtml(name)}</span>`];
-      if (badge)
-        parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
-      return parts.join('<span class="card-meta-sep">•</span>');
+      segments.push({ type: "text", text: name });
+      if (badge) segments.push({ type: "badge", text: badge });
+      return { segments, badge, resolution, size };
     }
 
-    // TH 2: Tải lên từ máy tính
+    // Case 2: Uploaded from the user's device
     const isVideo = card.mediaType === "video" || card.type?.includes("video");
     const typeLabel = t(
       `sp.meta.${isVideo ? "type_video" : "type_image"}`,
       isVideo ? "Video" : "Hình ảnh",
     );
-    const parts = [`<span>${escapeHtml(typeLabel)}</span>`];
-    if (badge)
-      parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
-    else if (size) parts.push(`<span>${escapeHtml(size)}</span>`);
+    segments.push({ type: "text", text: typeLabel });
+    if (badge) segments.push({ type: "badge", text: badge });
+    else if (size) segments.push({ type: "text", text: size });
 
-    return parts.join('<span class="card-meta-sep">•</span>');
+    return { segments, badge, resolution, size };
   }
 
-  getChipDetails(card) {
+  /**
+   * Return pure structured detail rows for a collection card (zero HTML).
+   * @param {Object} card
+   * @returns {import("./BaseSource.js").MetaDetailRow[]}
+   */
+  getMetaDetails(card) {
     if (!card) return [];
     const details = [];
     const meta = card.metadata || {};
     const provider = meta.provider || (card.local ? "local" : "");
     const isVideo = card.mediaType === "video" || card.type?.includes("video");
 
-    // TH 1: Ảnh lưu từ bên ngoài
+    // Case 1: Saved from an external provider
     if (provider && provider !== "local") {
       if (provider === "unsplash") {
         const author = meta.user?.name;
@@ -641,16 +708,27 @@ export class CollectionSource extends BaseSource {
         if (author) {
           const authorLabel = username ? `${author} (@${username})` : author;
           const authorLink = meta.user?.link;
-          details.push({
-            label: t("sp.meta.author", "Tác giả"),
-            value: authorLink
-              ? `<a href="${escapeHtml(withUnsplashUtm(authorLink))}" target="_blank" rel="noopener noreferrer">${escapeHtml(authorLabel)}</a>`
-              : authorLabel,
-            html: Boolean(authorLink),
-          });
+          if (authorLink) {
+            details.push({
+              kind: "link",
+              key: "author",
+              label: t("sp.meta.author", "Tác giả"),
+              text: authorLabel,
+              url: withUnsplashUtm(authorLink),
+            });
+          } else {
+            details.push({
+              kind: "text",
+              key: "author",
+              label: t("sp.meta.author", "Tác giả"),
+              value: authorLabel,
+            });
+          }
         }
         if (meta.user?.location || meta.location) {
           details.push({
+            kind: "text",
+            key: "location",
             label: t("sp.meta.location", "Địa điểm"),
             value: meta.user?.location || meta.location,
           });
@@ -659,6 +737,8 @@ export class CollectionSource extends BaseSource {
         const title = this._getCleanBingTitle(meta, card);
         if (title) {
           details.push({
+            kind: "text",
+            key: "title",
             label: t("sp.meta.title", "Tiêu đề"),
             value: title,
           });
@@ -666,12 +746,16 @@ export class CollectionSource extends BaseSource {
         const dateStr = formatDate(meta.startDate);
         if (dateStr) {
           details.push({
+            kind: "text",
+            key: "date_released",
             label: t("sp.meta.date_released", "Ngày phát hành"),
             value: dateStr,
           });
         }
         if (meta.copyright) {
           details.push({
+            kind: "text",
+            key: "copyright",
             label: t("sp.meta.copyright", "Bản quyền"),
             value: meta.copyright,
             stacked: true,
@@ -682,67 +766,82 @@ export class CollectionSource extends BaseSource {
           (meta.query && meta.query.trim()) ||
           t("sp.meta.random", "Ngẫu nhiên");
         details.push({
+          kind: "text",
+          key: "query",
           label: t("sp.meta.query", "Từ khóa"),
           value: queryVal,
         });
         if (meta.category) {
           const catKey = `sp.api.wallhaven.cat_${meta.category.toLowerCase()}`;
           details.push({
+            kind: "text",
+            key: "category",
             label: t("sp.meta.category", "Phân loại"),
             value: t(catKey, meta.category),
           });
         }
         if (meta.favorites !== undefined || meta.views !== undefined) {
-          const stats = [];
+          const items = [];
           if (meta.favorites !== undefined) {
-            stats.push(
-              `<span class="meta_stat_item"><i data-icon="heart"></i> <span>${escapeHtml(formatNumber(meta.favorites))}</span></span>`,
-            );
+            items.push({
+              metric: "favorites",
+              icon: "heart",
+              value: formatNumber(meta.favorites),
+            });
           }
           if (meta.views !== undefined) {
-            stats.push(
-              `<span class="meta_stat_item"><i data-icon="eye"></i> <span>${escapeHtml(formatNumber(meta.views))}</span></span>`,
-            );
+            items.push({
+              metric: "views",
+              icon: "eye",
+              value: formatNumber(meta.views),
+            });
           }
-          details.push({
-            label: t("sp.meta.favorites", "Yêu thích"),
-            value: stats.join(""),
-            html: true,
-          });
+          if (items.length > 0) {
+            details.push({
+              kind: "stats",
+              key: "stats",
+              label: t("sp.meta.favorites", "Yêu thích"),
+              items,
+            });
+          }
         }
       } else if (provider === "picre") {
         const platform = getPicreSourceLabel(meta.source || card.sourceUrl);
         if (platform) {
           details.push({
+            kind: "text",
+            key: "platform",
             label: t("sp.meta.platform", "Nền tảng"),
             value: platform,
           });
         }
       }
 
-      // Thông số kỹ thuật & Nguồn lưu
       const badge = getResolutionBadge(card.width, card.height);
       const res = formatResolution(card.width, card.height);
       if (res) {
-        const badgeHtml = badge
-          ? ` <span class="meta_badge">${escapeHtml(badge)}</span>`
-          : "";
         details.push({
+          kind: "resolution",
+          key: "resolution",
           label: t("sp.meta.resolution", "Độ phân giải"),
-          value: `${escapeHtml(res)}${badgeHtml}`,
-          html: true,
+          value: res,
+          ...(badge ? { badge } : {}),
         });
       }
 
       const size = formatFileSize(card.size);
       if (size) {
         details.push({
+          kind: "text",
+          key: "filesize",
           label: t("sp.meta.filesize", "Dung lượng"),
           value: size,
         });
       }
 
       details.push({
+        kind: "text",
+        key: "source",
         label: t("sp.meta.source", "Nguồn ảnh"),
         value: meta.providerName || provider,
       });
@@ -752,6 +851,8 @@ export class CollectionSource extends BaseSource {
       );
       if (dateSaved) {
         details.push({
+          kind: "text",
+          key: "date_saved",
           label: t("sp.meta.date_saved", "Ngày lưu"),
           value: dateSaved,
         });
@@ -760,16 +861,20 @@ export class CollectionSource extends BaseSource {
       return details;
     }
 
-    // TH 2: Tải lên từ máy tính
+    // Case 2: Uploaded from the user's device
     const fileName = meta.name || card.title || "";
     if (fileName) {
       details.push({
+        kind: "text",
+        key: "filename",
         label: t("sp.meta.filename", "Tên file"),
         value: fileName,
       });
     }
 
     details.push({
+      kind: "text",
+      key: "media_type",
       label: t("sp.meta.media_type", "Loại media"),
       value: t(
         `sp.meta.${isVideo ? "type_video" : "type_image"}`,
@@ -778,6 +883,8 @@ export class CollectionSource extends BaseSource {
     });
 
     details.push({
+      kind: "text",
+      key: "source",
       label: t("sp.meta.source", "Nguồn gốc"),
       value: t("sp.meta.local_device", "Trên máy tính"),
     });
@@ -785,19 +892,20 @@ export class CollectionSource extends BaseSource {
     const badge = getResolutionBadge(card.width, card.height);
     const res = formatResolution(card.width, card.height);
     if (res) {
-      const badgeHtml = badge
-        ? ` <span class="meta_badge">${escapeHtml(badge)}</span>`
-        : "";
       details.push({
+        kind: "resolution",
+        key: "resolution",
         label: t("sp.meta.resolution", "Độ phân giải"),
-        value: `${escapeHtml(res)}${badgeHtml}`,
-        html: true,
+        value: res,
+        ...(badge ? { badge } : {}),
       });
     }
 
     const size = formatFileSize(card.size);
     if (size) {
       details.push({
+        kind: "text",
+        key: "filesize",
         label: t("sp.meta.filesize", "Dung lượng"),
         value: size,
       });
@@ -808,6 +916,8 @@ export class CollectionSource extends BaseSource {
     );
     if (dateAdded) {
       details.push({
+        kind: "text",
+        key: "date_added",
         label: t("sp.meta.date_added", "Ngày thêm"),
         value: dateAdded,
       });

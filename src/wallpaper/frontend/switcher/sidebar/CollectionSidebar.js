@@ -143,10 +143,6 @@ export function createCollectionSidebar({ dataControl }) {
             row.className = "btn coll_sort_row";
             row.dataset.source = id;
             row.tabIndex = 0;
-            row.title = t(
-                "sp.api.collection.sort_reorder_hint",
-                "Kéo để đổi thứ tự ưu tiên",
-            );
             row.innerHTML = `
                 <span class="coll_sort_grip" aria-hidden="true"><i data-icon="dragHandle"></i></span>
                 <span class="coll_sort_label"></span>
@@ -258,19 +254,7 @@ export function createCollectionSidebar({ dataControl }) {
     // the gap, then the new order is persisted on release.
     let drag = null;
 
-    orderList.addEventListener("pointerdown", (e) => {
-        if (e.pointerType === "mouse" && e.button !== 0) return;
-        const row = e.target.closest(".coll_sort_row");
-        if (!row) return;
-
-        e.preventDefault();
-        const rect = row.getBoundingClientRect();
-        drag = { row, grabOffset: e.clientY - rect.top, translate: 0 };
-        row.classList.add("is-dragging");
-        row.focus({ preventScroll: true });
-    });
-
-    window.addEventListener("pointermove", (e) => {
+    function onPointerMove(e) {
         if (!drag) return;
         const { row } = drag;
 
@@ -303,10 +287,14 @@ export function createCollectionSidebar({ dataControl }) {
         const layoutTop = rect.top - drag.translate;
         drag.translate = e.clientY - drag.grabOffset - layoutTop;
         row.style.transform = `translateY(${drag.translate}px)`;
-    });
+    }
 
     function endDrag() {
         if (!drag) return;
+        window.removeEventListener("pointermove", onPointerMove);
+        window.removeEventListener("pointerup", endDrag);
+        window.removeEventListener("pointercancel", endDrag);
+
         const { row } = drag;
         // Capture before clearing the grab transform so the row snaps from the
         // place it was released, and the rest of the list from its old slots.
@@ -322,8 +310,21 @@ export function createCollectionSidebar({ dataControl }) {
         commitSourceOrder();
     }
 
-    window.addEventListener("pointerup", endDrag);
-    window.addEventListener("pointercancel", endDrag);
+    orderList.addEventListener("pointerdown", (e) => {
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        const row = e.target.closest(".coll_sort_row");
+        if (!row) return;
+
+        e.preventDefault();
+        const rect = row.getBoundingClientRect();
+        drag = { row, grabOffset: e.clientY - rect.top, translate: 0 };
+        row.classList.add("is-dragging");
+        row.focus({ preventScroll: true });
+
+        window.addEventListener("pointermove", onPointerMove);
+        window.addEventListener("pointerup", endDrag);
+        window.addEventListener("pointercancel", endDrag);
+    });
 
     /* ── Audio ────────────────────────────────────────────────────────────── */
 

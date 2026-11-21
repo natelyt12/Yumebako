@@ -44,6 +44,7 @@ export class SwitcherSidebar {
     );
 
     this.views = new Map();
+    this.viewFactories = new Map();
     this.currentSourceId = null;
 
     this.drawer = new Drawer({
@@ -71,40 +72,52 @@ export class SwitcherSidebar {
   init() {
     if (!this.sidebarEl || !this.bodyEl) return;
 
-    // Initialize source views
-    this.views.set(
-      "wallhaven",
+    // Register lazy factories so provider sidebar DOM/listeners only mount on first open.
+    this.viewFactories.set("wallhaven", () =>
       createWallhavenSidebar({ dataControl: this.dataControl, sidebar: this }),
     );
-    this.views.set(
-      "collection",
+    this.viewFactories.set("collection", () =>
       createCollectionSidebar({ dataControl: this.dataControl, sidebar: this }),
     );
-    this.views.set(
-      "bing",
+    this.viewFactories.set("bing", () =>
       createBingSidebar({ dataControl: this.dataControl, sidebar: this }),
     );
-    this.views.set(
-      "unsplash",
+    this.viewFactories.set("unsplash", () =>
       createUnsplashSidebar({ dataControl: this.dataControl, sidebar: this }),
     );
-    this.views.set(
-      "picre",
+    this.viewFactories.set("picre", () =>
       createPicreSidebar({ dataControl: this.dataControl, sidebar: this }),
     );
 
-    // Keep each view's action row for the drawer footer. Mounting it outside
-    // the scrolling body keeps the buttons pinned to the bottom while content
-    // scrolls, without layering another tinted surface behind them.
-    for (const view of this.views.values()) {
-      const actions = view.el.querySelector(".source_sidebar_actions");
-      if (actions) {
-        view.actionsEl = actions;
-        actions.remove();
-      }
-    }
-
     renderIcons(this.sidebarEl);
+  }
+
+  /**
+   * Lazily instantiate and mount a provider sidebar view on first open.
+   * @param {string} sourceId
+   * @returns {Object|null}
+   * @private
+   */
+  _getOrCreateView(sourceId) {
+    if (this.views.has(sourceId)) return this.views.get(sourceId);
+    const factory = this.viewFactories.get(sourceId);
+    if (!factory) return null;
+
+    const view = factory();
+    if (!view) return null;
+
+    // Keep each view's action row for the drawer footer so buttons stay pinned
+    // to the bottom while content scrolls.
+    const actions = view.el?.querySelector(".source_sidebar_actions");
+    if (actions) {
+      view.actionsEl = actions;
+      actions.remove();
+      renderIcons(actions);
+    }
+    if (view.el) renderIcons(view.el);
+
+    this.views.set(sourceId, view);
+    return view;
   }
 
   get isOpen() {
@@ -124,7 +137,7 @@ export class SwitcherSidebar {
   open(sourceId = this.dataControl.activeSourceId) {
     if (!this.sidebarEl || !this.bodyEl) return;
 
-    const view = this.views.get(sourceId);
+    const view = this._getOrCreateView(sourceId);
     if (!view) {
       console.warn(
         `[SwitcherSidebar] No view registered for source: ${sourceId}`,

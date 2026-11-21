@@ -1,4 +1,5 @@
 import { ALL_EFFECTS } from "./registry.js";
+import { ParticleEffect } from "./ParticleEffect.js";
 import { getSettings } from "/src/core/storageHandler.js";
 import { getWavyParallaxState, getSmoothedMouse } from "/src/wallpaper/backend/effects/motion/index.js";
 
@@ -13,8 +14,16 @@ export class EffectsEngine {
         this.staticContainer = document.querySelector(".static_effect_container");
         this.dynamicLayers = new Map(); // id -> CanvasEntry
         this.staticLayers = new Map();
+        this._resizeTimer = null;
+        this._lastStateSignature = null;
 
-        window.addEventListener("resize", () => this.resize());
+        window.addEventListener("resize", () => {
+            if (this._resizeTimer) clearTimeout(this._resizeTimer);
+            this._resizeTimer = setTimeout(() => {
+                this._resizeTimer = null;
+                this.resize();
+            }, 120);
+        });
     }
 
     _createCanvas(container) {
@@ -39,25 +48,45 @@ export class EffectsEngine {
         return layer === "static" ? this.staticContainer : this.dynamicContainer;
     }
 
+    _renderEntryOnce(entry) {
+        if (!entry) return;
+        entry.ctx.clearRect(0, 0, entry.canvas.width, entry.canvas.height);
+        entry.effect.render();
+    }
+
     _startLoop(id, layer) {
         const layers = this._getLayerMap(layer);
         const entry = layers.get(id);
         if (!entry) return;
 
+        // Static effects without an `update` override only need a single draw (plus redraws on config/resize).
+        const isAnimated =
+            layer !== "static" ||
+            entry.effect.update !== ParticleEffect.prototype.update;
+        if (!isAnimated) {
+            this._renderEntryOnce(entry);
+            return;
+        }
+
         let active = true;
         entry.stop = () => { active = false; };
 
         const tick = () => {
+            if (!active) return;
+            const e = layers.get(id);
+            if (!e) return;
+
             const { amplitude } = getWavyParallaxState();
             // Use the wavy engine's already-smoothed mouse — Single Source of Truth for parallax
             const { mouseX, mouseY } = getSmoothedMouse();
 
-            const e = layers.get(id);
             e.ctx.clearRect(0, 0, e.canvas.width, e.canvas.height);
             if (e.effect.setMouse) e.effect.setMouse(mouseX, mouseY, amplitude);
             if (e.effect.update) e.effect.update();
             e.effect.render();
-            e.animId = requestAnimationFrame(tick);
+            if (active) {
+                e.animId = requestAnimationFrame(tick);
+            }
         };
         entry.animId = requestAnimationFrame(tick);
     }
@@ -73,13 +102,14 @@ export class EffectsEngine {
         const container = this._getContainer(layer);
         if (!container) return false;
 
+        this._lastStateSignature = null;
         const canvas = this._createCanvas(container);
         const ctx = canvas.getContext("2d");
         const mergedCfg = { ...(EffectClass.DEFAULTS || {}), ...(config || {}) };
         const effect = new EffectClass(canvas, ctx, mergedCfg);
         effect.init();
 
-        layers.set(id, { canvas, ctx, effect, animId: null, stop: null, type, config: mergedCfg });
+        layers.set(id, { canvas, ctx, effect, animId: null, stop: null, type, config: mergedCfg, layer });
         this._startLoop(id, layer);
         this._updateZIndices(layer);
         return true;
@@ -89,8 +119,9 @@ export class EffectsEngine {
         const layers = this._getLayerMap(layer);
         const entry = layers.get(id);
         if (!entry) return;
+        this._lastStateSignature = null;
         entry.stop?.();
-        cancelAnimationFrame(entry.animId);
+        if (entry.animId) cancelAnimationFrame(entry.animId);
         entry.canvas.remove();
         layers.delete(id);
         this._updateZIndices(layer);
@@ -100,12 +131,16 @@ export class EffectsEngine {
         const layers = this._getLayerMap(layer);
         const entry = layers.get(id);
         if (!entry) return;
+        this._lastStateSignature = null;
         entry.config = { ...entry.config, ...config };
         entry.effect.config = entry.config;
 
         // If 'count' (density) changed, re-initialize the effect to update particle array
         if (config.count !== undefined) {
             entry.effect.init();
+        }
+        if (layer === "static" && entry.effect.update === ParticleEffect.prototype.update) {
+            this._renderEntryOnce(entry);
         }
     }
 
@@ -114,6 +149,8 @@ export class EffectsEngine {
         const keys = [...layers.keys()];
         const idx = keys.indexOf(id);
         if (idx < 0) return;
+
+        this._lastStateSignature = null;
 
         if (direction === "up" && idx > 0) {
             [keys[idx - 1], keys[idx]] = [keys[idx], keys[idx - 1]];
@@ -131,6 +168,7 @@ export class EffectsEngine {
 
     reorderLayers(layer, orderOfIds) {
         const layers = this._getLayerMap(layer);
+        this._lastStateSignature = null;
         const newMap = new Map();
         orderOfIds.forEach(id => {
             if (layers.has(id)) {
@@ -156,22 +194,26 @@ export class EffectsEngine {
     }
 
     resize() {
-        const resizeLayer = (map) => {
+        const resizeLayer = (map, layer) => {
             for (const [, entry] of map) {
                 entry.canvas.width = window.innerWidth;
                 entry.canvas.height = window.innerHeight;
                 entry.effect.init?.();
+                if (layer === "static" && entry.effect.update === ParticleEffect.prototype.update) {
+                    this._renderEntryOnce(entry);
+                }
             }
         };
-        resizeLayer(this.dynamicLayers);
-        resizeLayer(this.staticLayers);
+        resizeLayer(this.dynamicLayers, "dynamic");
+        resizeLayer(this.staticLayers, "static");
     }
 
     stopAll() {
+        this._lastStateSignature = null;
         const clearLayer = (map) => {
             for (const [, entry] of map) {
                 entry.stop?.();
-                cancelAnimationFrame(entry.animId);
+                if (entry.animId) cancelAnimationFrame(entry.animId);
                 entry.canvas.remove();
             }
             map.clear();
@@ -181,10 +223,23 @@ export class EffectsEngine {
     }
 
     loadState(data, enabled) {
-        this.stopAll();
-        if (!data) return;
+        const isMasterEnabled = Boolean(data) && (enabled !== undefined ? enabled : (data.enabled !== false));
+        const signature = !isMasterEnabled
+            ? "disabled"
+            : JSON.stringify({
+                enabled: true,
+                dynamicEnabled: data.dynamicEnabled !== false,
+                staticEnabled: data.staticEnabled !== false,
+                dynamic: (data.dynamic || []).filter((e) => e.enabled !== false),
+                static: (data.static || []).filter((e) => e.enabled !== false),
+            });
 
-        const isMasterEnabled = enabled !== undefined ? enabled : (data.enabled !== false);
+        if (this._lastStateSignature !== null && this._lastStateSignature === signature) {
+            return;
+        }
+
+        this.stopAll();
+        this._lastStateSignature = signature;
         if (!isMasterEnabled) return;
 
         if (data.dynamicEnabled !== false) {
@@ -201,5 +256,6 @@ export class EffectsEngine {
                 }
             });
         }
+        this._lastStateSignature = signature;
     }
 }

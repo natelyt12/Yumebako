@@ -4,7 +4,6 @@ import { getSettings, saveSettings } from "/src/core/storageHandler.js";
 import { showNotification, confirmReset } from "/src/core/ui.js";
 import { initButtons } from "/src/core/ui/button.js";
 import { setDropdownValue } from "/src/core/ui/dropdown.js";
-import { clearUnsplashQueue } from "/src/wallpaper/backend/sources/api/unsplashAPI.js";
 
 const DEFAULT_CONFIG = {
   query: "",
@@ -139,7 +138,7 @@ export function createUnsplashSidebar({ dataControl, sidebar }) {
     checkDirty();
 
     try {
-      await clearUnsplashQueue();
+      await dataControl.clearSourceCache("unsplash");
       if (dataControl.activeSourceId === "unsplash") {
         await sidebar.reload("unsplash");
       }

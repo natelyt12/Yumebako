@@ -63,17 +63,11 @@ function toEntry(record, id) {
 }
 
 /**
- * Persist the list and announce it. Every writer funnels through here so the
- * `wallpaper-collection-updated` contract (fresh array, no extra reads needed)
- * stays true for in-memory consumers.
+ * Persist the collection list to IndexedDB (`appData`).
+ * Membership change notifications are emitted by Layer 2 (`DataControl`).
  */
 async function writeCollection(collection) {
   await saveToStore(COLLECTION_KEY, collection);
-  window.dispatchEvent(
-    new CustomEvent("wallpaper-collection-updated", {
-      detail: { collection },
-    }),
-  );
   return collection;
 }
 

@@ -4,21 +4,48 @@ import {
   formatResolution,
   getResolutionBadge,
   formatFileSize,
-  formatDate,
-  escapeHtml,
 } from "./cardMeta.js";
 
 /** @typedef {import("/src/wallpaper/backend/data/DataControl.js").CardItem} CardItem */
+
+/**
+ * @typedef {Object} MetaSegment
+ * @property {"text"|"author"|"badge"} type
+ * @property {string} [text]
+ * @property {string} [prefix]
+ * @property {string} [name]
+ */
+
+/**
+ * @typedef {Object} MetaData
+ * @property {MetaSegment[]} segments
+ * @property {string} badge
+ * @property {string} resolution
+ * @property {string} size
+ */
+
+/**
+ * @typedef {Object} MetaDetailRow
+ * @property {"text"|"link"|"resolution"|"stats"} kind
+ * @property {string} key
+ * @property {string} label
+ * @property {string} [value]
+ * @property {boolean} [stacked]
+ * @property {string} [text]
+ * @property {string} [url]
+ * @property {string} [badge]
+ * @property {Array<{ metric: string, icon: string, value: string }>} [items]
+ */
 
 /**
  * BaseSource.js
  * ---------------------------------------------------------------------------
  * Headless data-adapter contract for the Wallpaper Switcher.
  *
- * A Source knows nothing about the DOM and owns no list: it just *produces*
- * items and knows how to apply one of them as background. Which items exist,
- * in what order, for how long — that is managed by DataControl (../data/DataControl.js)
- * and persisted directly into BakoDB (src/core/db.js).
+ * A Source knows nothing about the DOM or the desktop renderer: it produces
+ * `CardItem` entries, builds pure render payloads (`getRenderPayload`), and
+ * returns structured metadata descriptors (`getMetaData`, `getMetaDetails`).
+ * Item lists, ordering, and persistence are managed by Layer 2 (`DataControl`).
  */
 export class BaseSource {
   /** @type {string} Unique source id, also used as the i18n key suffix. */
@@ -39,6 +66,7 @@ export class BaseSource {
    */
   static maxCards = Infinity;
 
+  /** @returns {number} */
   get maxCards() {
     return this.constructor.maxCards ?? Infinity;
   }
@@ -50,6 +78,7 @@ export class BaseSource {
     this._objectUrls = new Set();
   }
 
+  /** @returns {string} */
   get id() {
     return this.constructor.id;
   }
@@ -76,8 +105,7 @@ export class BaseSource {
 
   /**
    * Whether this provider has settings of its own (filters, an API key...)
-   * that the Switcher can offer to open. Sources without any report `false` so
-   * the button does not sit there doing nothing.
+   * that the Switcher can offer to open.
    */
   get hasProviderSettings() {
     return false;
@@ -85,16 +113,15 @@ export class BaseSource {
 
   /**
    * Whether the window must be re-read every time it is shown. Local feeds
-   * (the collection) change from other parts of the app; remote feeds keep the
-   * window they already materialized.
+   * (the collection) and rotating daily feeds (`bing`) change independently;
+   * static remote feeds keep the window they materialized.
    */
   get isDynamic() {
     return false;
   }
 
   /**
-   * Whether the source can be browsed right now. Sources that need user
-   * configuration (e.g. an API key) report false and their tab is hidden.
+   * Whether the source can be browsed right now.
    */
   get isAvailable() {
     return true;
@@ -104,8 +131,7 @@ export class BaseSource {
 
   /**
    * @abstract
-   * First item(s) of a window that has nothing yet. Usually one item: the
-   * wallpaper the user already has, or a fresh one when there is none.
+   * First item(s) of a window that has nothing yet.
    * @returns {Promise<CardItem[]>} Items, in display order.
    */
   async fetchItems() {
@@ -115,17 +141,14 @@ export class BaseSource {
   /**
    * @abstract
    * Next item(s), requested when the user reaches the trailing "+".
-   * @returns {Promise<CardItem[]|null>} Items to append, `[]` when the feed
-   *     has nothing left to give (the "+" item retires) or `null` when this
-   *     round was aborted and may simply be retried (a cancelled file picker).
+   * @returns {Promise<CardItem[]|null>}
    */
   async fetchMore() {
     return null;
   }
 
   /**
-   * Make sure the item can be drawn: the carousel only ever renders
-   * thumbnails, never full-size images.
+   * Ensure the item has a drawable thumbnail URL.
    * @param {CardItem} item
    * @returns {Promise<string|null>} The item's `thumbnailUrl`.
    */
@@ -134,12 +157,13 @@ export class BaseSource {
   }
 
   /**
+   * Release a cached thumbnail Object URL for `itemId` so recovery can rebuild it.
+   * @param {string|number} _itemId
+   */
+  releaseThumb(_itemId) {}
+
+  /**
    * Canonical ordering for this source's window.
-   *
-   * DataControl applies it when a source is loaded and again after `fetchMore()`
-   * appends items, so both consumers (the carousel strip and the manage grid)
-   * see the same order without either one re-sorting on its own. Default keeps
-   * the producer order untouched.
    * @param {CardItem[]} items
    * @returns {CardItem[]}
    */
@@ -147,40 +171,60 @@ export class BaseSource {
     return Array.isArray(items) ? items : [];
   }
 
-  // ─── Applying ─────────────────────────────────────────────────────────────
+  // ─── Render Payloads & Lifecycle ──────────────────────────────────────────
 
   /**
    * @abstract
-   * Apply the given card item as the desktop background.
+   * Build a pure render payload (`{ id, blob, type, effects, credit, ... }`)
+   * without touching the DOM or WallpaperRenderer.
    * @param {CardItem} _item
-   * @param {Object} [_options]
-   * @param {boolean} [_options.firstRun] - Play the entrance animation instead of a fade.
-   * @returns {Promise<void>}
+   * @returns {Promise<Object|null>}
    */
-  async apply(_item, _options) {
-    throw new Error(`[${this.id}] apply() must be implemented by the source.`);
+  async getRenderPayload(_item) {
+    throw new Error(
+      `[${this.id}] getRenderPayload() must be implemented by the source.`,
+    );
   }
 
-  /** Whether the given item is currently the applied background. */
+  /**
+   * Optional hook invoked by DataControl after the renderer commits `item`.
+   * @param {CardItem} _item
+   * @param {Object} _payload
+   * @returns {Promise<void>|void}
+   */
+  async onApplied(_item, _payload) {}
+
+  /**
+   * Clear any persisted `applied` wallpaper record owned by this source.
+   * @returns {Promise<void>}
+   */
+  async clearApplied() {}
+
+  /**
+   * Clear provider-level cached queues or feed snapshots.
+   * @returns {Promise<void>}
+   */
+  async clearCache() {}
+
+  /**
+   * Whether the given item is currently the applied background.
+   * @param {CardItem} _item
+   * @returns {boolean}
+   */
   isActive(_item) {
     return false;
   }
 
-  // ─── Item helpers (used by the action buttons) ────────────────────────────
+  // ─── Item helpers ─────────────────────────────────────────────────────────
 
   /**
-   * Release whatever per-item cache this source holds. Called by the store
-   * when an item leaves the window, so nothing outlives the item.
+   * Release per-item caches held by this source.
    * @param {string} _itemId
    */
   releaseItem(_itemId) {}
 
   /**
    * Delete several items at once.
-   *
-   * Sources that can batch (the Collection writes its whole array in one
-   * IndexedDB transaction) override this; the default keeps per-item deletion
-   * for sources whose records live elsewhere.
    * @param {CardItem[]} items
    * @returns {Promise<void>}
    */
@@ -203,14 +247,17 @@ export class BaseSource {
     return null;
   }
 
-  /** Canonical page URL of an item, opened by the "view source" action. */
+  /**
+   * Canonical page URL of an item, opened by the "view source" action.
+   * @param {CardItem} item
+   * @returns {string}
+   */
   getSourceUrl(item) {
     return item?.sourceUrl || "";
   }
 
   /**
-   * Attribution shown wherever the photo is displayed (photographer name +
-   * links). Only sources that require it (Unsplash) override this.
+   * Attribution shown wherever the photo is displayed (e.g. Unsplash).
    * @param {CardItem} _item
    * @returns {{name: string, profileUrl: string, photoUrl: string, unsplashUrl?: string}|null}
    */
@@ -223,7 +270,7 @@ export class BaseSource {
   /**
    * Build an item in the persisted shape for carousel cards.
    * @param {Record<string, any>} raw - Raw data from the provider API.
-   * @param {Partial<CardItem>}  [overrides] - Fields to override on the default card shape.
+   * @param {Partial<CardItem>} [overrides] - Fields to override on the default card shape.
    * @returns {CardItem}
    */
   toCarouselItem(raw, overrides = {}) {
@@ -249,9 +296,6 @@ export class BaseSource {
       ...overrides,
     };
 
-    // Bloom is image-only. Old profiles may still carry a value, so drop it for
-    // videos on the way in — the effect chips and the editor then read a clean
-    // profile instead of advertising an effect that is never rendered.
     if (item.mediaType === "video" && item.effects?.filter) {
       item.effects.filter.bloom = 0;
     }
@@ -259,7 +303,12 @@ export class BaseSource {
     return item;
   }
 
-  /** Create (and track) an object URL for a blob, or null if not a blob. */
+  /**
+   * Create and track an Object URL for a Blob, or return null if invalid.
+   * @param {Blob} blob
+   * @returns {string|null}
+   * @protected
+   */
   _createObjectUrl(blob) {
     if (!(blob instanceof Blob)) return null;
     const url = URL.createObjectURL(blob);
@@ -267,59 +316,63 @@ export class BaseSource {
     return url;
   }
 
-  // ─── Chip Info (Collapsed & Hover Expand) ─────────────────────────────────
+  // ─── Pure Structured Metadata ─────────────────────────────────────────────
 
   /**
-   * Trả về HTML chuỗi tóm tắt cho chip thu gọn ở thanh Top Bar.
+   * Return pure structured summary metadata for the collapsed chip (zero HTML).
    * @param {CardItem} card
-   * @returns {string}
+   * @returns {MetaData|null}
    */
-  getChipSummary(card) {
-    if (!card) return "";
+  getMetaData(card) {
+    if (!card) return null;
     const badge = getResolutionBadge(card.width, card.height);
-    const res = formatResolution(card.width, card.height);
+    const resolution = formatResolution(card.width, card.height);
     const size = formatFileSize(card.size);
 
-    const parts = [];
-    if (size) parts.push(escapeHtml(size));
-    if (badge)
-      parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
-    else if (res) parts.push(escapeHtml(res));
+    /** @type {MetaSegment[]} */
+    const segments = [];
+    if (size) segments.push({ type: "text", text: size });
+    if (badge) segments.push({ type: "badge", text: badge });
+    else if (resolution) segments.push({ type: "text", text: resolution });
 
-    return parts.join('<span class="card-meta-sep">•</span>');
+    return { segments, badge, resolution, size };
   }
 
   /**
-   * Trả về danh sách chi tiết (Label - Value) cho dropdown mở rộng khi hover.
+   * Return pure structured detail rows for the expanded card info view (zero HTML).
    * @param {CardItem} card
-   * @returns {Array<{ label: string, value: string, stacked?: boolean }>}
+   * @returns {MetaDetailRow[]}
    */
-  getChipDetails(card) {
+  getMetaDetails(card) {
     if (!card) return [];
+    /** @type {MetaDetailRow[]} */
     const details = [];
 
     const badge = getResolutionBadge(card.width, card.height);
     const res = formatResolution(card.width, card.height);
     if (res) {
-      const badgeHtml = badge
-        ? ` <span class="meta_badge">${escapeHtml(badge)}</span>`
-        : "";
       details.push({
+        kind: "resolution",
+        key: "resolution",
         label: t("sp.meta.resolution", "Độ phân giải"),
-        value: `${escapeHtml(res)}${badgeHtml}`,
-        html: true,
+        value: res,
+        ...(badge ? { badge } : {}),
       });
     }
 
     const size = formatFileSize(card.size);
     if (size) {
       details.push({
+        kind: "text",
+        key: "filesize",
         label: t("sp.meta.filesize", "Dung lượng"),
         value: size,
       });
     }
 
     details.push({
+      kind: "text",
+      key: "source",
       label: t("sp.meta.source", "Nguồn ảnh"),
       value: this.name,
     });

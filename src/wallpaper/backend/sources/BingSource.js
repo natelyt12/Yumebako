@@ -1,6 +1,11 @@
 import { RemoteSource } from "./RemoteSource.js";
 import { SOURCE_ACTIONS } from "./sourceActions.js";
-import { fetchBingDaily8, BING_STORAGE_KEY } from "/src/wallpaper/backend/sources/api/bingAPI.js";
+import {
+    fetchBingDaily8,
+    clearBingCache,
+    BING_STORAGE_KEY,
+} from "/src/wallpaper/backend/sources/api/bingAPI.js";
+import { uniqueCards, stripCardBlobs } from "../data/cardUtils.js";
 import { getFromStore, saveToStore } from "/src/core/db.js";
 import { getSettings } from "/src/core/storageHandler.js";
 import { t } from "/src/core/i18n.js";
@@ -9,7 +14,6 @@ import {
     getResolutionBadge,
     formatFileSize,
     formatDate,
-    escapeHtml,
 } from "./cardMeta.js";
 
 /**
@@ -28,10 +32,10 @@ function getTodayDateString() {
  * BingSource.js
  * ---------------------------------------------------------------------------
  * Switcher source that provides Microsoft Bing daily wallpapers.
- * - Always maintains a fixed rolling window of the 8 latest daily wallpapers.
- * - Automatically checks application date upon opening to fetch fresh wallpapers.
- * - No manual "fetch more" button (canGrow = false).
- * - Single-Phase Pipeline: downloads high-resolution (4K/1080p) and caches blobs in mediaData.
+ * - Maintains a rolling window of up to 8 latest daily wallpapers.
+ * - Automatically checks the local date on activation to fetch fresh wallpapers.
+ * - No manual "fetch more" button (`canGrow = false`).
+ * - Single-Phase Pipeline: downloads high-resolution (4K/1080p) and caches blobs in `mediaData`.
  */
 export class BingSource extends RemoteSource {
     static id = "bing";
@@ -40,7 +44,7 @@ export class BingSource extends RemoteSource {
     static storageKey = BING_STORAGE_KEY;
     static maxCards = Infinity;
 
-    /** Volatile: DataControl always calls fetchItems() to check the date on tab activation. */
+    /** Volatile: DataControl always calls `fetchItems()` to check the date on tab activation. */
     get isDynamic() {
         return true;
     }
@@ -65,16 +69,30 @@ export class BingSource extends RemoteSource {
     }
 
     /**
-     * Always loads the 8 latest daily wallpapers.
-     * Uses cached cards if still on the same date and same resolution;
-     * otherwise queries Bing API, runs the Single-Phase Pipeline, and caches.
+     * Hydrate thumbnail Object URLs in parallel and release stale ones.
+     * @param {Array<Object>} cachedItems
+     * @returns {Promise<Array<Object>>}
+     * @private
+     */
+    async _hydrateCachedItems(cachedItems) {
+        await Promise.all(
+            cachedItems.map((item) => this.prepareThumb(item).catch(() => null)),
+        );
+        this._releaseUnusedThumbs(
+            new Set(cachedItems.map((i) => String(i.id))),
+        );
+        return cachedItems;
+    }
+
+    /**
+     * Load the 8 latest daily wallpapers.
+     * Reuses cached cards when date and resolution match; otherwise fetches from
+     * Bing API, executes the Single-Phase Pipeline safely with `Promise.allSettled`,
+     * deduplicates, strips transient blob URLs before saving, and releases stale thumbs.
      *
      * @returns {Promise<Array<Object>>}
      */
     async fetchItems() {
-        this._releaseAllThumbs();
-        this.blobCache.clear();
-
         const key = this.constructor.storageKey;
         const storeData = (await getFromStore(key)) || {
             items: [],
@@ -83,6 +101,10 @@ export class BingSource extends RemoteSource {
             current: null,
         };
 
+        const cachedItems = uniqueCards(
+            Array.isArray(storeData.items) ? storeData.items : [],
+        );
+
         const settings = getSettings();
         const config = settings.bingConfig || {};
         const resolution = config.resolution || "1080p";
@@ -90,77 +112,114 @@ export class BingSource extends RemoteSource {
 
         const isSameDate = storeData.lastDate === todayStr;
         const isSameConfig = storeData.lastResolution === resolution;
-        const hasValidCachedItems = Array.isArray(storeData.items) && storeData.items.length > 0;
+        const hasValidCachedItems = cachedItems.length > 0;
 
-        // 1. Nếu cùng ngày và cùng độ phân giải, dùng ngay danh sách trong IndexedDB (0ms trễ)
+        // 1. Same date and resolution: hydrate cached items immediately.
         if (isSameDate && isSameConfig && hasValidCachedItems) {
-            for (const item of storeData.items) {
-                await this.prepareThumb(item);
-            }
-            return storeData.items;
+            return this._hydrateCachedItems(cachedItems);
         }
 
-        // 2. Sang ngày mới, lần đầu khởi động, hoặc vừa đổi cài đặt: Tải mới 8 ảnh
+        // 2. New day, first boot, or resolution changed: fetch fresh daily wallpapers.
         try {
             const rawItems = await fetchBingDaily8({ resolution, strict: true });
             if (!rawItems || rawItems.length === 0) {
                 if (hasValidCachedItems) {
-                    for (const item of storeData.items) {
-                        await this.prepareThumb(item);
-                    }
-                    return storeData.items;
+                    return this._hydrateCachedItems(cachedItems);
                 }
+                this._releaseUnusedThumbs(new Set());
                 return [];
             }
 
-            const items = rawItems.map((entry) => this.toCarouselItem(entry, {
-                id: String(entry.id),
-                url: entry.url,
-                sourceUrl: entry.sourceUrl || "https://www.bing.com",
-                title: entry.title || "Bing Wallpaper",
-                category: "Bing",
-                thumbnailUrl: entry.thumbnailUrl || entry.url,
-                width: entry.width || (resolution === "uhd" ? 3840 : 1920),
-                height: entry.height || (resolution === "uhd" ? 2160 : 1080),
-                size: entry.size || 0,
-                copyright: entry.copyright || "",
-                startDate: entry.startDate || "",
-                raw: entry,
-            }));
+            const items = uniqueCards(
+                rawItems.map((entry) =>
+                    this.toCarouselItem(entry, {
+                        id: String(entry.id),
+                        url: entry.url,
+                        sourceUrl: entry.sourceUrl || "https://www.bing.com",
+                        title: entry.title || "Bing Wallpaper",
+                        category: "Bing",
+                        thumbnailUrl: entry.thumbnailUrl || entry.url,
+                        width: entry.width || (resolution === "uhd" ? 3840 : 1920),
+                        height: entry.height || (resolution === "uhd" ? 2160 : 1080),
+                        size: entry.size || 0,
+                        copyright: entry.copyright || "",
+                        startDate: entry.startDate || "",
+                        raw: entry,
+                    }),
+                ),
+            );
 
-            // Chạy Single-Phase Pipeline song song cho 8 ảnh: tải blob gốc & sinh thumbnail 16:9
-            await Promise.all(items.map((item) => this.processSinglePhasePipeline(item)));
+            // Execute Single-Phase Pipeline across all items without failing the whole batch on one error.
+            const settled = await Promise.allSettled(
+                items.map((item) =>
+                    this.processSinglePhasePipeline(item).then(() => item),
+                ),
+            );
 
-            // Chuẩn bị mảng để lưu vào IndexedDB (reset blob URL thành null theo Anti-Pattern 3)
-            const cleanItems = items.map((item) => ({
-                ...item,
-                thumbnailUrl: null,
-            }));
+            const succeeded = [];
+            let firstError = null;
+            for (const outcome of settled) {
+                if (outcome.status === "fulfilled" && outcome.value) {
+                    succeeded.push(outcome.value);
+                } else if (outcome.status === "rejected" && !firstError) {
+                    firstError = outcome.reason;
+                }
+            }
 
-            storeData.items = cleanItems;
+            if (succeeded.length === 0) {
+                if (hasValidCachedItems) {
+                    return this._hydrateCachedItems(cachedItems);
+                }
+                this._releaseUnusedThumbs(new Set());
+                throw firstError || new Error("Failed to fetch Bing daily wallpapers");
+            }
+
+            const finalItems = uniqueCards(succeeded);
+            this._releaseUnusedThumbs(
+                new Set(finalItems.map((i) => String(i.id))),
+            );
+
+            storeData.items = finalItems.map(stripCardBlobs);
             storeData.lastDate = todayStr;
             storeData.lastResolution = resolution;
             await saveToStore(key, storeData);
 
-            return items;
+            return finalItems;
         } catch (err) {
             console.error("[BingSource] Failed to fetch 8 daily wallpapers from Bing:", err);
             if (hasValidCachedItems) {
-                for (const item of storeData.items) {
-                    await this.prepareThumb(item);
-                }
-                return storeData.items;
+                return this._hydrateCachedItems(cachedItems);
             }
+            this._releaseUnusedThumbs(new Set());
             throw err;
         }
     }
 
-    /** Title of the wallpaper restored from its persisted `applied` record. */
+    /**
+     * Clear Bing's persisted daily snapshot and release in-memory caches.
+     * @returns {Promise<void>}
+     */
+    async clearCache() {
+        await clearBingCache();
+        this._releaseAllThumbs();
+        this.blobCache.clear();
+    }
+
+    /**
+     * Title of the wallpaper restored from its persisted `applied` record.
+     * @param {Object} applied
+     * @returns {string}
+     */
     getSeedTitle(applied) {
         return this._getCleanTitle(applied);
     }
 
-    /** Trích xuất tiêu đề thực tế của ảnh Bing, tránh trường hợp API trả về "Info" */
+    /**
+     * Extract a clean subject title for a Bing card, avoiding generic "Info" titles.
+     * @param {Object} card
+     * @returns {string}
+     * @private
+     */
     _getCleanTitle(card) {
         const rawTitle = card?.title?.trim();
         if (rawTitle && !/^info$/i.test(rawTitle) && !/^bing\b/i.test(rawTitle)) {
@@ -174,34 +233,45 @@ export class BingSource extends RemoteSource {
         return (rawTitle && !/^info$/i.test(rawTitle)) ? rawTitle : "Bing";
     }
 
-    // ─── Chip Info (Collapsed & Hover Expand) ─────────────────────────────────
+    // ─── Pure Structured Metadata ─────────────────────────────────────────────
 
-    getChipSummary(card) {
-        if (!card) return "";
+    /**
+     * Return pure structured summary metadata for a Bing card (zero HTML).
+     * @param {Object} card
+     * @returns {import("./BaseSource.js").MetaData|null}
+     */
+    getMetaData(card) {
+        if (!card) return null;
         const title = this._getCleanTitle(card);
         const dateStr = formatDate(card.startDate || card.raw?.startDate);
         const badge = getResolutionBadge(card.width, card.height);
+        const resolution = formatResolution(card.width, card.height);
+        const size = formatFileSize(card.size);
 
-        const parts = [
-            `<span>${escapeHtml(title)}</span>`,
-        ];
-
+        const segments = [{ type: "text", text: title }];
         if (dateStr) {
-            parts.push(`<span>${escapeHtml(dateStr)}</span>`);
+            segments.push({ type: "text", text: dateStr });
         } else if (badge) {
-            parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
+            segments.push({ type: "badge", text: badge });
         }
 
-        return parts.join('<span class="card-meta-sep">•</span>');
+        return { segments, badge, resolution, size };
     }
 
-    getChipDetails(card) {
+    /**
+     * Return pure structured detail rows for a Bing card (zero HTML).
+     * @param {Object} card
+     * @returns {import("./BaseSource.js").MetaDetailRow[]}
+     */
+    getMetaDetails(card) {
         if (!card) return [];
         const details = [];
 
         const title = this._getCleanTitle(card);
         if (title) {
             details.push({
+                kind: "text",
+                key: "title",
                 label: t("sp.meta.title", "Tiêu đề"),
                 value: title,
             });
@@ -210,6 +280,8 @@ export class BingSource extends RemoteSource {
         const dateStr = formatDate(card.startDate || card.raw?.startDate);
         if (dateStr) {
             details.push({
+                kind: "text",
+                key: "date_released",
                 label: t("sp.meta.date_released", "Ngày phát hành"),
                 value: dateStr,
             });
@@ -218,17 +290,20 @@ export class BingSource extends RemoteSource {
         const badge = getResolutionBadge(card.width, card.height);
         const res = formatResolution(card.width, card.height);
         if (res) {
-            const badgeHtml = badge ? ` <span class="meta_badge">${escapeHtml(badge)}</span>` : "";
             details.push({
+                kind: "resolution",
+                key: "resolution",
                 label: t("sp.meta.resolution", "Độ phân giải"),
-                value: `${escapeHtml(res)}${badgeHtml}`,
-                html: true,
+                value: res,
+                ...(badge ? { badge } : {}),
             });
         }
 
         const size = formatFileSize(card.size);
         if (size) {
             details.push({
+                kind: "text",
+                key: "filesize",
                 label: t("sp.meta.filesize", "Dung lượng"),
                 value: size,
             });
@@ -237,6 +312,8 @@ export class BingSource extends RemoteSource {
         const copyright = card.copyright || card.raw?.copyright;
         if (copyright) {
             details.push({
+                kind: "text",
+                key: "copyright",
                 label: t("sp.meta.copyright", "Bản quyền"),
                 value: copyright,
                 stacked: true,
@@ -244,6 +321,8 @@ export class BingSource extends RemoteSource {
         }
 
         details.push({
+            kind: "text",
+            key: "source",
             label: t("sp.meta.source", "Nguồn ảnh"),
             value: "Microsoft Bing",
         });

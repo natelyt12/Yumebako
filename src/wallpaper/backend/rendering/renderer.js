@@ -1,25 +1,47 @@
 import { applyOnloadAnimation } from "/src/wallpaper/backend/effects/onload/index.js";
-import { dataControl } from "/src/wallpaper/backend/data/DataControl.js";
 import {
   getSettings,
-  saveSettings,
   subscribe,
   getDefaultWallpaperEffects,
 } from "/src/core/storageHandler.js";
 import { t } from "/src/core/i18n.js";
-import { escapeHtml } from "../sources/cardMeta.js";
 import { applyWallpaperFilters } from "./filter.js";
-import { applyWallpaperPosition } from "./position.js";
+import {
+  applyWallpaperPosition,
+  getActiveMediaMetrics,
+  measureActiveMediaMetrics,
+  setActiveMediaNaturalSize,
+} from "./position.js";
 
 /**
  * renderer.js
  * ---------------------------------------------------------------------------
- * Handles drawing the wallpaper to the DOM (`.image` and `.video` layers).
- * Completely independent from fetching logic.
+ * Stateless Layer 4 desktop renderer for the `.image`, `.video`, and `.overlay`
+ * DOM layers. Completely independent from DataControl state persistence and
+ * Layer 3 source fetching logic.
  */
 
+// Thời gian mờ dần lớp phủ chuyển cảnh khi đổi hình nền (ms).
 const OVERLAY_FADE_MS = 400;
 
+/**
+ * Escape HTML special characters for safe credit markup insertion.
+ * @param {any} str
+ * @returns {string}
+ */
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+/**
+ * Stateless desktop wallpaper renderer.
+ */
 class WallpaperRenderer {
   constructor() {
     this.globalUI = null;
@@ -27,11 +49,15 @@ class WallpaperRenderer {
     this.currentBlobUrl = null;
     this.currentType = null;
     this.currentId = null;
+    this.currentCardUrl = null;
     this._renderToken = 0;
     this._applyToken = 0;
     this.isBoundToDataControl = false;
   }
 
+  /**
+   * Cache core desktop wallpaper DOM layer references on first use.
+   */
   initUI() {
     if (this.globalUI) return;
     this.globalUI = {
@@ -41,6 +67,11 @@ class WallpaperRenderer {
     };
   }
 
+  /**
+   * Fade the transition overlay to full opacity before swapping the wallpaper.
+   * @returns {Promise<void>}
+   * @private
+   */
   async _fadeToOverlay() {
     this.initUI();
     const overlay = this.globalUI?.overlay;
@@ -68,7 +99,16 @@ class WallpaperRenderer {
     });
   }
 
-  async apply(data, { firstRun = false } = {}) {
+  /**
+   * Render a pure wallpaper payload onto the desktop layers.
+   *
+   * @param {Object} data - Render payload (`{ id, blob, type, effects, width, height }`).
+   * @param {Object} [options]
+   * @param {boolean} [options.firstRun=false] - Play entrance animation instead of overlay fade.
+   * @param {((payload: Object) => void)|null} [options.onCommit=null] - Callback invoked once fade/decode succeeds and the render token is still valid.
+   * @returns {Promise<boolean>}
+   */
+  async apply(data, { firstRun = false, onCommit = null } = {}) {
     this.initUI();
     const ui = this.globalUI;
     if (!ui) return false;
@@ -78,20 +118,28 @@ class WallpaperRenderer {
       return false;
     }
 
-    if (!firstRun && this.currentId && data.id && this.currentId === data.id) {
+    if (
+      !firstRun &&
+      this.currentId &&
+      data.id &&
+      this.currentId === data.id &&
+      (!data.url || data.url === this.currentCardUrl)
+    ) {
       return true;
     }
 
     const token = ++this._renderToken;
 
     if (!firstRun) await this._fadeToOverlay();
-    // Nếu đã có request apply mới hơn trong lúc fade overlay -> huỷ request cũ ngay
+    // Abort stale render if a newer apply request arrived while fading the overlay.
     if (token !== this._renderToken) return false;
 
     const oldBlob = this.currentBlobUrl;
-    let newBlobUrl = URL.createObjectURL(data.blob);
+    const newBlobUrl = URL.createObjectURL(data.blob);
+    let naturalWidth = Number(data.width) || 0;
+    let naturalHeight = Number(data.height) || 0;
 
-    // Giải mã bất đồng bộ ngoài Main Thread để triệt tiêu hiện tượng khựng khung hình
+    // Decode off the main thread to avoid frame hitches when swapping large images.
     if (data.type !== "video" && newBlobUrl) {
       try {
         const decoder = new Image();
@@ -99,23 +147,28 @@ class WallpaperRenderer {
         if (typeof decoder.decode === "function") {
           await decoder.decode();
         }
+        if (decoder.naturalWidth > 0 && decoder.naturalHeight > 0) {
+          naturalWidth = decoder.naturalWidth;
+          naturalHeight = decoder.naturalHeight;
+        }
       } catch {
-        // Fallback tự nhiên nếu giải mã gặp lỗi
+        // Fall back to regular browser decoding if Image.decode() fails.
       }
     }
 
-    // Nếu trong lúc giải mã đã có một request hình nền mới hơn -> huỷ ngay bản cũ để tránh đè giao diện
+    // Abort stale render if a newer request superseded this one during decode.
     if (token !== this._renderToken) {
       URL.revokeObjectURL(newBlobUrl);
       return false;
     }
 
     this.currentId = data.id || null;
+    this.currentCardUrl = data.url || null;
     this.currentType = data.type;
     this.currentBlobUrl = newBlobUrl;
     this.hasActiveBackground = true;
 
-    // Áp dụng bộ hiệu ứng riêng của hình nền này trong lúc overlay đang che kín màn hình
+    // Apply this card's effect profile while the overlay still covers the viewport.
     const effects = data.effects || getDefaultWallpaperEffects();
     const isVideo = data.type === "video";
     // Filter.js reads this to skip bloom on video wallpapers everywhere.
@@ -123,37 +176,17 @@ class WallpaperRenderer {
     applyWallpaperFilters(effects.filter, { isVideo });
     applyWallpaperPosition(effects.position);
 
-    dataControl.isApplyingCardEffects = true;
-    try {
-      const currentConf = getSettings().wallpaperConfig || {};
-      saveSettings({
-        wallpaperPosition: effects.position,
-        wallpaperConfig: {
-          ...currentConf,
-          source: dataControl.activeSourceId || currentConf.source,
-          activeWallpaperId: data.id,
-          activeCollectionItemId:
-            dataControl.activeSourceId === "collection"
-              ? data.id
-              : currentConf.activeCollectionItemId,
-          brightness: effects.filter?.brightness ?? 1,
-          contrast: effects.filter?.contrast ?? 1,
-          saturate: effects.filter?.saturate ?? 1,
-          // Bloom is image-only: videos always run with it off.
-          bloom: isVideo ? 0 : effects.filter?.bloom ?? 0,
-          rgbShift: effects.filter?.rgbShift ?? 0,
-          blur: effects.filter?.blur ?? 0,
-          mode: effects.position?.mode || currentConf.mode || "cover",
-        },
-        wavy: effects.wavy,
-        particles: effects.particles,
-        onload: effects.onload,
-      });
-    } finally {
-      dataControl.isApplyingCardEffects = false;
+    setActiveMediaNaturalSize({
+      width: naturalWidth,
+      height: naturalHeight,
+      isVideo,
+    });
+
+    if (typeof onCommit === "function") {
+      onCommit(data);
     }
 
-    if (data.type === "video") {
+    if (isVideo) {
       const collectionConfig = getSettings().collectionConfig || {};
       const soundEnabled = Boolean(collectionConfig.videoSound);
       const volume = Math.max(
@@ -206,22 +239,48 @@ class WallpaperRenderer {
     return true;
   }
 
-  bindDataControl() {
-    if (this.isBoundToDataControl) return;
+  /**
+   * Connect this stateless renderer to a DataControl instance without creating
+   * a static Layer 4 -> Layer 2 module dependency.
+   *
+   * @param {Object} dc - DataControl event emitter & payload/commit adapter.
+   */
+  bindDataControl(dc) {
+    if (!dc || this.isBoundToDataControl) return;
     this.isBoundToDataControl = true;
 
-    dataControl.on("card:hard", async ({ card, sourceId, firstRun }) => {
+    if (typeof dc.setMediaMetricsProvider === "function") {
+      dc.setMediaMetricsProvider(() => getActiveMediaMetrics());
+    }
+    if (typeof dc.setMediaMetricsMeasurer === "function") {
+      dc.setMediaMetricsMeasurer(() => measureActiveMediaMetrics());
+    }
+
+    dc.on("card:hard", async ({ card, sourceId, firstRun }) => {
       if (!card) return;
+      if (
+        !firstRun &&
+        this.currentId &&
+        card.id &&
+        String(this.currentId) === String(card.id) &&
+        (!card.url || card.url === this.currentCardUrl)
+      ) {
+        return;
+      }
       const token = ++this._applyToken;
-      const source =
-        dataControl.sources.get(sourceId) || dataControl.activeSource;
-      if (!source) return;
       try {
-        const result = await source.apply(card, {
+        const payload = await dc.resolveRenderPayload(card, sourceId);
+        if (!payload || token !== this._applyToken) return;
+        if (!payload.url && card.url) payload.url = card.url;
+
+        const result = await this.apply(payload, {
           firstRun: Boolean(firstRun),
+          onCommit: () => {
+            void dc.commitAppliedCard(card, payload, sourceId);
+          },
         });
         if (result === false || token !== this._applyToken) return;
-        this.updateCredit(source, card);
+        this.updateCredit(payload.credit || null);
       } catch (err) {
         if (token !== this._applyToken) return;
         console.error(
@@ -231,17 +290,43 @@ class WallpaperRenderer {
         );
       }
     });
+
+    dc.on("card:effects_changed", ({ card, effects }) => {
+      if (!effects) return;
+      if (
+        card?.id &&
+        this.currentId &&
+        String(card.id) !== String(this.currentId)
+      ) {
+        return;
+      }
+      const isVideo =
+        card?.mediaType === "video" || this.currentType === "video";
+      if (effects.filter) {
+        applyWallpaperFilters(effects.filter, { isVideo });
+      }
+      if (effects.position) {
+        applyWallpaperPosition(effects.position);
+      }
+    });
   }
 
   /**
-   * Show/hide the photo attribution on the wallpaper. Sources that require
-   * credit (Unsplash) implement `getAttribution`; everyone else returns null.
+   * Show or hide the photo attribution overlay on the desktop wallpaper.
+   * Accepts either a plain credit descriptor or `(source, card)` for compatibility.
+   *
+   * @param {{ name?: string, profileUrl?: string, photoUrl?: string, unsplashUrl?: string }|Object|null} creditOrSource
+   * @param {Object} [maybeCard]
    */
-  updateCredit(source, card) {
+  updateCredit(creditOrSource, maybeCard) {
     const el = document.getElementById("wallpaper_credit");
     if (!el) return;
 
-    const credit = source?.getAttribution?.(card) || null;
+    const credit =
+      typeof creditOrSource?.getAttribution === "function"
+        ? creditOrSource.getAttribution(maybeCard) || null
+        : creditOrSource || null;
+
     if (!credit) {
       el.classList.remove("is-visible");
       el.setAttribute("aria-hidden", "true");
@@ -252,16 +337,21 @@ class WallpaperRenderer {
     const photoBy = escapeHtml(t("sp.meta.photo_by", "Photo by"));
     const onWord = escapeHtml(t("sp.meta.on", "on"));
     const authorLabel = escapeHtml(credit.name || "");
-    const unsplashUrl =
-      credit.unsplashUrl || credit.photoUrl || "https://unsplash.com";
-    const unsplash = `<a href="${escapeHtml(unsplashUrl)}" target="_blank" rel="noopener noreferrer">Unsplash</a>`;
+    const rawUnsplashUrl = String(
+      credit.unsplashUrl || credit.photoUrl || "https://unsplash.com",
+    ).trim();
+    const unsplash = /^https?:\/\//i.test(rawUnsplashUrl)
+      ? `<a href="${escapeHtml(rawUnsplashUrl)}" target="_blank" rel="noopener noreferrer">Unsplash</a>`
+      : "Unsplash";
 
     if (!authorLabel) {
       // No photographer name (e.g. a seed card): link to the source only.
       el.innerHTML = `<span>${unsplash}</span>`;
     } else {
-      const author = credit.profileUrl
-        ? `<a href="${escapeHtml(credit.profileUrl)}" target="_blank" rel="noopener noreferrer">${authorLabel}</a>`
+      const rawProfileUrl =
+        typeof credit.profileUrl === "string" ? credit.profileUrl.trim() : "";
+      const author = /^https?:\/\//i.test(rawProfileUrl)
+        ? `<a href="${escapeHtml(rawProfileUrl)}" target="_blank" rel="noopener noreferrer">${authorLabel}</a>`
         : authorLabel;
       el.innerHTML = `<span>${photoBy} ${author} ${onWord} ${unsplash}</span>`;
     }

@@ -6,19 +6,16 @@ import {
     formatResolution,
     getResolutionBadge,
     formatFileSize,
-    escapeHtml,
 } from "./cardMeta.js";
 
 /**
  * PicreSource.js
  * ---------------------------------------------------------------------------
- * Switcher source for pic.re (anime wallpapers). The service only exposes a
- * single random image endpoint, so it maps perfectly onto the lazy model:
- * one request per revealed card.
+ * Switcher source for pic.re (anime wallpapers). The service exposes a single
+ * random image endpoint, mapping cleanly onto one request per revealed card.
  *
- * pic.re returns no thumbnail, so items would otherwise have to decode the
- * full resolution image. `generateThumbnail` makes the base class download it
- * once and derive a small JPEG — that blob is then reused for apply/download.
+ * pic.re returns no thumbnail, so `generateThumbnail` makes the base class
+ * download the full image once and derive a compact JPEG thumbnail.
  */
 export class PicreSource extends RemoteSource {
     static id = "picre";
@@ -27,10 +24,15 @@ export class PicreSource extends RemoteSource {
     static storageKey = "provider_state:picre";
     static generateThumbnail = true;
 
+    /** @returns {boolean} */
     get hasProviderSettings() {
         return true;
     }
 
+    /**
+     * Fetch one random Picre wallpaper record.
+     * @returns {Promise<Object|null>}
+     */
     async fetchItem() {
         const meta = await fetchPicreMeta();
         if (!meta?.image) return null;
@@ -49,39 +51,53 @@ export class PicreSource extends RemoteSource {
         });
     }
 
-    /** Title of the wallpaper restored from its persisted `current` record. */
+    /**
+     * Title of the wallpaper restored from its persisted `applied` record.
+     * @param {Object} applied
+     * @returns {string}
+     */
     getSeedTitle(applied) {
         return getPicreSourceLabel(applied.source) || "Picre";
     }
 
-    // ─── Chip Info (Collapsed & Hover Expand) ─────────────────────────────────
+    // ─── Pure Structured Metadata ─────────────────────────────────────────────
 
-    getChipSummary(card) {
-        if (!card) return "";
+    /**
+     * Return pure structured summary metadata for a Picre card (zero HTML).
+     * @param {Object} card
+     * @returns {import("./BaseSource.js").MetaData|null}
+     */
+    getMetaData(card) {
+        if (!card) return null;
         const platform = getPicreSourceLabel(card.sourceUrl || card.source) || "Picre";
         const badge = getResolutionBadge(card.width, card.height);
+        const resolution = formatResolution(card.width, card.height);
         const size = formatFileSize(card.size);
 
-        const parts = [
-            `<span>${escapeHtml(platform)}</span>`,
-        ];
-
+        const segments = [{ type: "text", text: platform }];
         if (badge) {
-            parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
+            segments.push({ type: "badge", text: badge });
         } else if (size) {
-            parts.push(`<span>${escapeHtml(size)}</span>`);
+            segments.push({ type: "text", text: size });
         }
 
-        return parts.join('<span class="card-meta-sep">•</span>');
+        return { segments, badge, resolution, size };
     }
 
-    getChipDetails(card) {
+    /**
+     * Return pure structured detail rows for a Picre card (zero HTML).
+     * @param {Object} card
+     * @returns {import("./BaseSource.js").MetaDetailRow[]}
+     */
+    getMetaDetails(card) {
         if (!card) return [];
         const details = [];
 
         const platform = getPicreSourceLabel(card.sourceUrl || card.source);
         if (platform) {
             details.push({
+                kind: "text",
+                key: "platform",
                 label: t("sp.meta.platform", "Nền tảng"),
                 value: platform,
             });
@@ -90,23 +106,28 @@ export class PicreSource extends RemoteSource {
         const badge = getResolutionBadge(card.width, card.height);
         const res = formatResolution(card.width, card.height);
         if (res) {
-            const badgeHtml = badge ? ` <span class="meta_badge">${escapeHtml(badge)}</span>` : "";
             details.push({
+                kind: "resolution",
+                key: "resolution",
                 label: t("sp.meta.resolution", "Độ phân giải"),
-                value: `${escapeHtml(res)}${badgeHtml}`,
-                html: true,
+                value: res,
+                ...(badge ? { badge } : {}),
             });
         }
 
         const size = formatFileSize(card.size);
         if (size) {
             details.push({
+                kind: "text",
+                key: "filesize",
                 label: t("sp.meta.filesize", "Dung lượng"),
                 value: size,
             });
         }
 
         details.push({
+            kind: "text",
+            key: "source",
             label: t("sp.meta.source", "Nguồn ảnh"),
             value: "pic.re",
         });

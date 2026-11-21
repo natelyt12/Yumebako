@@ -13,11 +13,13 @@ import {
   subscribe,
 } from "/src/core/storageHandler.js";
 import {
-  resolveCardMeta,
   escapeHtml,
-} from "../../../backend/sources/cardMeta.js";
+  formatMetaSummaryHtml,
+  formatMetaDetailRows,
+} from "../metaFormatter.js";
 import { SwitcherSidebar } from "../sidebar/SwitcherSidebar.js";
 import { createManageGrid } from "../manage/manageGrid.js";
+import { handleCardActionResult } from "../actionResultHandler.js";
 import {
   CUSTOMIZE_TABS,
   EFFECT_CATALOG,
@@ -117,6 +119,11 @@ export class SwitcherBar {
     this._customizeDotsScheduled = false;
     /** Coalesce the effect-key subscriptions into one top-bar refresh per tick. */
     this._topEffectsScheduled = false;
+    /** Coalesce expanded meta measurements to one rAF. */
+    this._metaHeightRafId = null;
+    /** Card awaiting deferred `metaBodyEl` detail rendering until settle or hover. */
+    this._deferredMetaCard = null;
+    this._metaDetailsDirty = false;
   }
 
   /**
@@ -140,7 +147,15 @@ export class SwitcherBar {
     this.syncState(this.dataControl.getState(), true);
     if (this.metaWrapperEl) {
       this.metaWrapperEl.addEventListener("mouseenter", () => {
-        this._updateMetaExpandedHeight();
+        if (this._metaDetailsDirty) {
+          this._renderMetaDetails(
+            this._deferredMetaCard ||
+              this.dataControl.softCard ||
+              this.dataControl.activeCard,
+          );
+        } else {
+          this._updateMetaExpandedHeight();
+        }
       });
     }
     if (this.dataControl.activeCard) {
@@ -152,12 +167,12 @@ export class SwitcherBar {
     // Subscribe to DataControl events
     this.dataControl.on("state:change", (state) => this.syncState(state));
     this.dataControl.on("card:soft", ({ card }) => {
-      this.syncMetaInfo(card);
+      this.syncMetaInfo(card, { includeDetails: false });
       this.hideActions();
       this._setTopEffectsVisible(false);
     });
     this.dataControl.on("card:hard", ({ card }) => {
-      this.syncMetaInfo(card);
+      this.syncMetaInfo(card, { includeDetails: true });
       this.renderActions(card);
       this._setTopEffectsVisible(Boolean(card), card);
       // Membership decides whether this card can be customized here.
@@ -179,18 +194,14 @@ export class SwitcherBar {
       this.renderActions(card);
       this._setTopEffectsVisible(Boolean(card), card);
     });
+    this.dataControl.on("collection:updated", () => {
+      void this.syncCustomizeAvailability();
+    });
 
     return this;
   }
 
   _bindEvents() {
-    // Collection membership decides whether the active card can be customized,
-    // and it changes from several places (star toggle, manage grid, delete).
-    // The DB announces every write, so one listener keeps the chip honest.
-    window.addEventListener("wallpaper-collection-updated", () => {
-      void this.syncCustomizeAvailability();
-    });
-
     // Manage Wallpapers button (left slot): opens fullscreen submenu sliding upwards
     this.manageBtn?.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -800,7 +811,7 @@ export class SwitcherBar {
    * Enable/disable the top-bar "Customize this wallpaper" button. Effects are
    * written back onto the wallpaper's Collection record, so a card that has no
    * saved copy has nothing to customize: the button stops opening the panel,
-   * swaps to a "no entry" icon and explains itself in its tooltip / aria-label.
+   * swaps to a "no entry" icon and shows the localized hint text.
    * @param {boolean} available
    * @private
    */
@@ -818,11 +829,6 @@ export class SwitcherBar {
     btn.classList.toggle("is-disabled", !available);
     if (btn.getAttribute("aria-disabled") !== String(!available)) {
       btn.setAttribute("aria-disabled", String(!available));
-    }
-    // Only the accessible name — a native `title` tooltip would fight the label
-    // that already opens on hover.
-    if (btn.getAttribute("aria-label") !== text) {
-      btn.setAttribute("aria-label", text);
     }
 
     const label = btn.querySelector(".wallpaper_top_effect_text");
@@ -906,7 +912,6 @@ export class SwitcherBar {
           class="wallpaper_top_effect_tab"
           role="button"
           tabindex="0"
-          aria-label="${escapeHtml(t(def.labelKey, def.label))}"
           data-effect-id="${def.id}"
         >
           <i data-icon="${def.icon}"></i>
@@ -1140,7 +1145,8 @@ export class SwitcherBar {
     const isLoading =
       status === "fetching" ||
       status === "switching" ||
-      Boolean(this.switcher?._isSwapping);
+      Boolean(this.switcher?._isSwapping) ||
+      Boolean(this.switcher?._isImporting);
 
     this.loaderEl.classList.toggle("is-hidden", !isLoading);
     this.loaderEl.setAttribute("aria-hidden", String(!isLoading));
@@ -1152,12 +1158,16 @@ export class SwitcherBar {
    * Đồng bộ thông tin ảnh đang chọn lên Top Bar.
    * Sử dụng kiến trúc Morphing Container (biến hình từ chip thu gọn sang panel chi tiết khi hover).
    * @param {Object|null} [card]
+   * @param {{ includeDetails?: boolean }} [options]
    */
   syncMetaInfo(
     card = this.dataControl.softCard || this.dataControl.activeCard,
+    { includeDetails = true } = {},
   ) {
     if (!this.metaWrapperEl) return;
     if (!card) {
+      this._deferredMetaCard = null;
+      this._metaDetailsDirty = false;
       if (this.metaHeaderEl) this.metaHeaderEl.innerHTML = "";
       if (this.metaSizerEl) this.metaSizerEl.innerHTML = "";
       if (this.metaBodyEl) this.metaBodyEl.innerHTML = "";
@@ -1170,66 +1180,93 @@ export class SwitcherBar {
     const source =
       this.dataControl.activeSource ||
       this.dataControl.sources.get(this.dataControl.activeSourceId);
-    let summaryHtml = "";
-    if (source && typeof source.getChipSummary === "function") {
-      summaryHtml = source.getChipSummary(card);
-    }
-
-    // Fallback tương thích nếu nguồn chưa định nghĩa getChipSummary
-    if (!summaryHtml) {
-      const meta = resolveCardMeta(this.dataControl.activeSourceId, card);
-      const parts = [];
-      if (meta.leftHtml)
-        parts.push(`<div class="wallpaper_meta_part">${meta.leftHtml}</div>`);
-      if (meta.rightHtml)
-        parts.push(`<div class="wallpaper_meta_part">${meta.rightHtml}</div>`);
-      summaryHtml = parts.join('<span class="wallpaper_meta_sep">•</span>');
+    const metaData =
+      source && typeof source.getMetaData === "function"
+        ? source.getMetaData(card)
+        : null;
+    let summaryHtml = formatMetaSummaryHtml(metaData);
+    if (!summaryHtml && card.title) {
+      summaryHtml = `<span>${escapeHtml(card.title)}</span>`;
     }
 
     const summaryContentHtml = `<div class="meta_summary_content">${summaryHtml}</div>`;
+    let changed = false;
     if (
       this.metaHeaderEl &&
       this.metaHeaderEl.innerHTML !== summaryContentHtml
     ) {
       this.metaHeaderEl.innerHTML = summaryContentHtml;
+      changed = true;
     }
     if (this.metaSizerEl && this.metaSizerEl.innerHTML !== summaryContentHtml) {
       this.metaSizerEl.innerHTML = summaryContentHtml;
     }
 
-    // Tạo nội dung chi tiết cho phần thân morph khi hover
-    if (this.metaBodyEl) {
-      const details =
-        source && typeof source.getChipDetails === "function"
-          ? source.getChipDetails(card)
-          : [];
+    if (includeDetails) {
+      const bodyChanged = this._renderMetaDetails(card, { renderIconNow: false });
+      changed = changed || bodyChanged;
+    } else {
+      this._deferredMetaCard = card;
+      this._metaDetailsDirty = true;
+    }
 
-      if (details.length > 0) {
-        const rowsHtml = details
-          .map((item) => {
-            const stackedClass = item.stacked ? " is-stacked" : "";
-            const valueHtml = item.html ? item.value : escapeHtml(item.value);
-            return `
+    if (changed) {
+      renderIcons(this.metaWrapperEl);
+    }
+  }
+
+  /**
+   * Populate the expanded hover detail list (`metaBodyEl`) and update layout dimensions.
+   * @param {Object|null} card
+   * @param {{ renderIconNow?: boolean }} [options]
+   * @returns {boolean} True when `metaBodyEl` HTML changed.
+   * @private
+   */
+  _renderMetaDetails(card, { renderIconNow = true } = {}) {
+    this._deferredMetaCard = card || null;
+    this._metaDetailsDirty = false;
+    if (!this.metaBodyEl) return false;
+    if (!card) {
+      const hadContent = this.metaBodyEl.innerHTML !== "";
+      if (hadContent) this.metaBodyEl.innerHTML = "";
+      return hadContent;
+    }
+
+    const source =
+      this.dataControl.activeSource ||
+      this.dataControl.sources.get(this.dataControl.activeSourceId);
+    const details =
+      source && typeof source.getMetaDetails === "function"
+        ? formatMetaDetailRows(source.getMetaDetails(card))
+        : [];
+
+    if (details.length > 0) {
+      const rowsHtml = details
+        .map((item) => {
+          const stackedClass = item.stacked ? " is-stacked" : "";
+          const valueHtml = item.html ? item.value : escapeHtml(item.value);
+          return `
                         <div class="meta_detail_row${stackedClass}">
                             <span class="meta_label">${escapeHtml(item.label)}</span>
                             <span class="meta_value">${valueHtml}</span>
                         </div>
                     `;
-          })
-          .join("");
+        })
+        .join("");
 
-        const bodyHtml = `<div class="meta_details_list">${rowsHtml}</div>`;
-        if (this.metaBodyEl.innerHTML !== bodyHtml) {
-          this.metaBodyEl.innerHTML = bodyHtml;
-        }
-
-        this._updateMetaExpandedHeight();
-      } else {
-        this.metaBodyEl.innerHTML = "";
+      const bodyHtml = `<div class="meta_details_list">${rowsHtml}</div>`;
+      const changed = this.metaBodyEl.innerHTML !== bodyHtml;
+      if (changed) {
+        this.metaBodyEl.innerHTML = bodyHtml;
+        if (renderIconNow) renderIcons(this.metaBodyEl);
       }
+      this._updateMetaExpandedHeight();
+      return changed;
     }
 
-    renderIcons(this.metaWrapperEl);
+    const hadContent = this.metaBodyEl.innerHTML !== "";
+    if (hadContent) this.metaBodyEl.innerHTML = "";
+    return hadContent;
   }
 
   /**
@@ -1239,7 +1276,13 @@ export class SwitcherBar {
    */
   _updateMetaExpandedHeight() {
     if (!this.metaBodyEl || !this.metaCardEl) return;
-    const update = () => {
+    if (this._metaHeightRafId !== null) {
+      cancelAnimationFrame(this._metaHeightRafId);
+    }
+    this._metaHeightRafId = requestAnimationFrame(() => {
+      this._metaHeightRafId = null;
+      if (!this.metaBodyEl || !this.metaCardEl) return;
+
       // 1. Tính toán bề rộng cần thiết cho các dòng 1 hàng (bỏ qua dòng is-stacked)
       const rows = this.metaBodyEl.querySelectorAll(
         ".meta_detail_row:not(.is-stacked)",
@@ -1275,9 +1318,7 @@ export class SwitcherBar {
         // Viền trên 1px + viền dưới 1px = 2px
         this.metaCardEl.style.setProperty("--meta-expanded-h", `${h + 2}px`);
       }
-    };
-    update();
-    requestAnimationFrame(update);
+    });
   }
 
   /* ── Action Buttons ────────────────────────────────────────────────────── */
@@ -1321,7 +1362,7 @@ export class SwitcherBar {
     clearTimeout(this._actionsClearTimer);
     this._actionsClearTimer = null;
 
-    const source = this.switcher?.activeSource;
+    const source = this.dataControl.activeSource || this.switcher?.activeSource;
     const actions = source?.actions || [];
 
     if (!card || actions.length === 0) {
@@ -1415,7 +1456,7 @@ export class SwitcherBar {
    * Thực thi một hành động trên thẻ.
    */
   async _executeAction(action, card, triggerBtn = null) {
-    const source = this.switcher?.activeSource;
+    const source = this.dataControl.activeSource || this.switcher?.activeSource;
     const context = {
       source,
       dataControl: this.dataControl,
@@ -1432,9 +1473,10 @@ export class SwitcherBar {
       } else if (action.id === "removeFromCarousel") {
         await this._handleDeleteCard(card, false, triggerBtn);
       } else if (typeof action.run === "function") {
-        await action.run(card, context);
+        const result = await action.run(card, context);
+        handleCardActionResult(action.id, result, card);
         // Sau khi thêm/xóa khỏi BST, cập nhật lại trạng thái nút
-        if (action.id === "add") {
+        if (action.id === "add" && result?.ok !== false) {
           this.renderActions(card);
           // A card that just entered the collection can be customized from the
           // source it was found in; one just removed can no longer be.
@@ -1446,6 +1488,20 @@ export class SwitcherBar {
         `[SwitcherBar] Error executing action [${action.id}]:`,
         err,
       );
+      if (action.id === "add") {
+        showNotification(
+          t("sp.api.collection.add_error", "Lỗi khi thêm vào bộ sưu tập"),
+          "error",
+        );
+      } else if (action.id === "download") {
+        showNotification(
+          t(
+            "sp.api.collection.download_error",
+            "Không tìm thấy dữ liệu ảnh để tải",
+          ),
+          "error",
+        );
+      }
     }
   }
 
@@ -1569,9 +1625,8 @@ export class SwitcherBar {
       this.dataControl.activeSourceId ||
       this.switcher?.activeSourceId;
     const source =
-      (this.switcher?.sources &&
-        this.switcher.sources.find((s) => s.id === id)) ||
       this.dataControl.sources.get(id) ||
+      this.dataControl.activeSource ||
       this.switcher?.activeSource;
 
     const isCollection = id === "collection";
@@ -1637,6 +1692,7 @@ export class SwitcherBar {
       this.dataControl?.isBusy ||
       (this.dataControl?.status && this.dataControl.status !== "idle") ||
       this.switcher?._isSwapping ||
+      this.switcher?._isImporting ||
       this.switcher?.carousel?.isDeleting,
     );
   }

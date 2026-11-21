@@ -1,5 +1,4 @@
 import { t } from "/src/core/i18n.js";
-import { showNotification } from "/src/core/ui.js";
 import {
   addToCollection,
   removeFromCollection,
@@ -14,12 +13,16 @@ import {
 /**
  * sourceActions.js
  * ---------------------------------------------------------------------------
- * The action verbs the Switcher's bottom button row can offer. Each source
- * picks the subset that makes sense for its items via `BaseSource.actions`.
- * Actions receive `(card, context)` and are executed via SwitcherBar & DataControl.
+ * Headless action descriptors and collection persistence helpers for Switcher cards.
+ * Layer 3 never touches the DOM (`<a download>`, `window.open`), toast notifications
+ * (`showNotification`), or Layer 1 UI controllers (`switcher.bar`).
  */
 
-/** File extension matching a blob's mime type. */
+/**
+ * Resolve a file extension from a Blob's MIME type.
+ * @param {string} [mime=""]
+ * @returns {string}
+ */
 function extensionFor(mime = "") {
   if (mime.includes("png")) return "png";
   if (mime.includes("webp")) return "webp";
@@ -29,46 +32,61 @@ function extensionFor(mime = "") {
   return "jpg";
 }
 
-/** Save the card's media to disk. */
-async function download(card, { source }) {
-  const blob = await source.getBlob(card);
+/**
+ * Prepare a headless download descriptor (`{ ok, blob, filename }` or failure reason).
+ * @param {Object} card
+ * @param {{ source: Object }} context
+ * @returns {Promise<{ ok: boolean, blob?: Blob, filename?: string, reason?: string }>}
+ */
+async function download(card, { source } = {}) {
+  const blob = await source?.getBlob?.(card);
   if (!blob) {
-    showNotification(
-      t(
-        "sp.api.collection.download_error",
-        "Không tìm thấy dữ liệu ảnh để tải",
-      ),
-      "error",
-    );
-    return false;
+    return { ok: false, reason: "no_blob" };
   }
-
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `wallpaper_${card.id}.${extensionFor(blob.type)}`;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
 
   // Unsplash: a real file download is a "use" event. Safe no-op elsewhere.
   void trackDownloadOnce(card);
+
+  return {
+    ok: true,
+    blob,
+    filename: `wallpaper_${card.id}.${extensionFor(blob.type)}`,
+  };
 }
 
-/** Open the card's original page in a new tab. */
-function viewSource(card, { source }) {
-  const url = source.getSourceUrl(card);
-  // Unsplash requires UTM on links back to their site.
+/**
+ * Resolve the canonical external source page URL without opening a browser window.
+ * @param {Object} card
+ * @param {{ source: Object }} context
+ * @returns {{ ok: boolean, url: string }}
+ */
+function viewSource(card, { source } = {}) {
+  const rawUrl = source?.getSourceUrl?.(card) || card?.sourceUrl || "";
+  if (!rawUrl) return { ok: false, url: "" };
+
+  // Unsplash requires UTM parameters on links back to their site.
   const isUnsplash =
     source?.id === "unsplash" || card?.metadata?.provider === "unsplash";
-  window.open(isUnsplash ? withUnsplashUtm(url) : url, "_blank");
+  const url = isUnsplash ? withUnsplashUtm(rawUrl) : rawUrl;
+  return { ok: Boolean(url), url };
 }
 
-/** Only a card that came from a page has one to show: local files do not. */
+/**
+ * True when the card has an HTTP(S) canonical source page.
+ * @param {Object} card
+ * @returns {boolean}
+ */
 function hasSourcePage(card) {
   return /^https?:\/\//i.test(card?.sourceUrl || "");
 }
 
-/** Tìm bản ghi tương ứng trong bộ sưu tập (nếu có). */
+/**
+ * Find the matching collection entry for `card`, if any.
+ * @param {Object} card
+ * @param {Object|null} source
+ * @param {Array<Object>} collection
+ * @returns {Object|null}
+ */
 export function findCollectionEntry(card, source, collection) {
   if (!Array.isArray(collection) || collection.length === 0 || !card)
     return null;
@@ -77,10 +95,12 @@ export function findCollectionEntry(card, source, collection) {
     ? source.getSourceUrl(card)
     : card.sourceUrl || "";
   const cardUrl = card.url || "";
-  const cardId = String(card.id || "");
+  const cardId =
+    card.id !== undefined && card.id !== null ? String(card.id) : "";
 
   return (
     collection.find((entry) => {
+      if (!entry) return false;
       const meta = entry.metadata || {};
       const entrySource = meta.source || "";
       const entryUrl = meta.url || "";
@@ -90,20 +110,35 @@ export function findCollectionEntry(card, source, collection) {
         return true;
       if (cardUrl && (entryUrl === cardUrl || entrySource === cardUrl))
         return true;
-      if (cardId && (entryId === cardId || meta.id === cardId)) return true;
+      if (
+        cardId &&
+        (entryId === cardId ||
+          String(entry.id ?? "") === cardId ||
+          String(meta.id ?? "") === cardId ||
+          String(meta.wallpaperId ?? "") === cardId)
+      )
+        return true;
 
       return false;
     }) || null
   );
 }
 
-/** Kiểm tra xem một thẻ đã tồn tại trong bộ sưu tập chưa. */
+/**
+ * Check whether `card` already exists in `collection`.
+ * @param {Object} card
+ * @param {Object|null} source
+ * @param {Array<Object>} collection
+ * @returns {boolean}
+ */
 export function isCardInCollection(card, source, collection) {
   return Boolean(findCollectionEntry(card, source, collection));
 }
 
 /**
  * Copy one card's media into the personal collection.
+ * @param {Object} card
+ * @param {Object} source
  * @returns {Promise<boolean>} true when the card was stored.
  */
 async function addCardToCollection(card, source) {
@@ -116,9 +151,7 @@ async function addCardToCollection(card, source) {
     ? await generateVideoThumbnail(blob)
     : await generateImageThumbnail(blob);
 
-  // Unsplash: saving the photo locally is also a "use". `trackDownloadOnce`
-  // sets the flag synchronously so the metadata below records it and a later
-  // download from the collection will not re-send the tracking request.
+  // Unsplash: saving the photo locally is also a "use".
   void trackDownloadOnce(card);
 
   await addToCollection({
@@ -148,55 +181,55 @@ async function addCardToCollection(card, source) {
   return true;
 }
 
-/** Toggle thêm hoặc xóa ảnh khỏi bộ sưu tập cá nhân. */
-async function toggleCollection(card, context) {
-  const { source } = context;
+/**
+ * Headless toggle: add or remove `card` from the personal collection.
+ * @param {Object} card
+ * @param {Object} [context]
+ * @returns {Promise<{ ok: boolean, action: "added"|"removed"|"cancelled"|"add", id?: string, reason?: string }>}
+ */
+async function toggleCollection(card, context = {}) {
+  const { source, dataControl } = context;
   const collection = await getCollection();
   const existing = findCollectionEntry(card, source, collection);
 
   if (existing) {
-    // Dropping the saved copy also drops its customizations, so it goes
-    // through the same warning the Collection delete action shows. The guard
-    // lives in the UI layer; without it (headless calls) we remove directly.
     if (typeof context.confirmRemove === "function") {
       const confirmed = await context.confirmRemove(card, existing);
-      if (!confirmed) return;
+      if (!confirmed) return { ok: false, action: "cancelled" };
     }
     await removeFromCollection(existing.id);
-    showNotification(
-      t("sp.api.collection.remove_success", "Đã xóa khỏi bộ sưu tập"),
-      "info",
-    );
-    return;
+    dataControl?.emit?.("collection:updated", {
+      action: "removed",
+      id: existing.id,
+      card,
+    });
+    return { ok: true, action: "removed", id: existing.id };
   }
 
   const added = await addCardToCollection(card, source);
   if (!added) {
-    showNotification(
-      t(
-        "sp.api.collection.no_blob_to_add",
-        "Không có dữ liệu ảnh để thêm vào bộ sưu tập",
-      ),
-      "warning",
-    );
-    return;
+    return { ok: false, action: "add", reason: "no_blob" };
   }
 
-  showNotification(
-    t("sp.api.collection.add_success", "Đã thêm vào bộ sưu tập thành công!"),
-    "success",
-  );
+  dataControl?.emit?.("collection:updated", {
+    action: "added",
+    card,
+  });
+  return { ok: true, action: "added" };
 }
 
 /**
- * Bulk add: copy every card that is not already in the collection yet.
- * Used by the manage view's multi-select mode (history / infinite sources).
+ * Shared batch-add helper returning structured counts (`addedCount`, `skippedCount`, `failedCount`).
+ * Deduplicates both against the existing collection and within the input `cards` batch.
+ *
  * @param {Array<Object>} cards
  * @param {Object} source
- * @returns {Promise<number>} how many cards were added
+ * @returns {Promise<{ addedCount: number, skippedCount: number, failedCount: number }>}
  */
-export async function addCardsToCollection(cards, source) {
-  if (!Array.isArray(cards) || cards.length === 0) return 0;
+export async function addCardsBatchToCollection(cards, source) {
+  if (!Array.isArray(cards) || cards.length === 0 || !source) {
+    return { addedCount: 0, skippedCount: 0, failedCount: 0 };
+  }
 
   let collection = [];
   try {
@@ -205,49 +238,99 @@ export async function addCardsToCollection(cards, source) {
     console.error("[sourceActions] Failed to read collection:", err);
   }
 
-  let added = 0;
+  const localCollection = Array.isArray(collection) ? [...collection] : [];
+  const seenBatchKeys = new Set();
+  let addedCount = 0;
+  let skippedCount = 0;
+  let failedCount = 0;
+
   for (const card of cards) {
-    if (!card || isCardInCollection(card, source, collection)) continue;
+    if (!card) {
+      skippedCount++;
+      continue;
+    }
+
+    const batchKeys = [];
+    if (card.id !== undefined && card.id !== null && card.id !== "") {
+      batchKeys.push(`id:${card.id}`);
+    }
+    const rawSourceUrl = source?.getSourceUrl
+      ? source.getSourceUrl(card)
+      : card.sourceUrl || "";
+    const normalizedSourceUrl =
+      typeof rawSourceUrl === "string" ? rawSourceUrl.trim() : "";
+    const normalizedCardUrl =
+      typeof card.url === "string" ? card.url.trim() : "";
+
+    if (normalizedSourceUrl) {
+      batchKeys.push(`url:${normalizedSourceUrl}`);
+    }
+    if (normalizedCardUrl && normalizedCardUrl !== normalizedSourceUrl) {
+      batchKeys.push(`url:${normalizedCardUrl}`);
+    }
+
+    if (
+      batchKeys.some((key) => seenBatchKeys.has(key)) ||
+      isCardInCollection(card, source, localCollection)
+    ) {
+      skippedCount++;
+      continue;
+    }
+    batchKeys.forEach((key) => seenBatchKeys.add(key));
+
     try {
-      if (await addCardToCollection(card, source)) added++;
+      const stored = await addCardToCollection(card, source);
+      if (stored) {
+        addedCount++;
+        localCollection.push({
+          id: card.id,
+          metadata: {
+            id: card.id,
+            source: normalizedSourceUrl || normalizedCardUrl || source.id,
+            url: normalizedCardUrl,
+          },
+        });
+      } else {
+        failedCount++;
+      }
     } catch (err) {
+      failedCount++;
       console.error("[sourceActions] Failed to add card to collection:", err);
     }
   }
-  return added;
+
+  return { addedCount, skippedCount, failedCount };
 }
 
 /**
- * Drop the card from the carousel window.
+ * Headless carousel removal descriptor runner (delegates to DataControl if provided).
+ * @param {Object} _card
+ * @param {Object} [context]
+ * @returns {Promise<boolean>}
  */
-async function removeFromCarousel(card, context) {
-  if (context?.switcher?.bar) {
-    await context.switcher.bar._handleDeleteCard(card, false);
-  } else if (context?.dataControl) {
-    await context.dataControl.deleteCard();
+async function removeFromCarousel(_card, context = {}) {
+  if (typeof context?.dataControl?.deleteCard === "function") {
+    return context.dataControl.deleteCard();
   }
+  return false;
 }
 
 /**
- * Delete the card's media from the personal collection.
+ * Headless collection deletion descriptor runner (delegates to DataControl if provided).
+ * @param {Object} _card
+ * @param {Object} [context]
+ * @returns {Promise<boolean>}
  */
-async function remove(card, context) {
-  if (context?.switcher?.bar) {
-    await context.switcher.bar._handleDeleteCard(card, true);
-  } else if (context?.dataControl) {
-    await context.dataControl.deleteCard();
+async function remove(_card, context = {}) {
+  if (typeof context?.dataControl?.deleteCard === "function") {
+    return context.dataControl.deleteCard();
   }
+  return false;
 }
 
 /**
- * A wallpaper that has not landed yet must not be removed.
- *
- * The apply that is on its way finishes by writing the card's id back into the
- * store as the applied wallpaper. If the card has been removed by then, that id
- * points at nothing: the media of the wallpaper on the desktop gets freed, and
- * the store believes it is showing something it no longer holds. Both remove
- * verbs therefore wait for the swap to be over.
- *
+ * Guard preventing deletion while a card is still pending apply settlement.
+ * @param {Object} card
  * @returns {true|{ disabled: true, reason: string }}
  */
 function isSettled(card) {

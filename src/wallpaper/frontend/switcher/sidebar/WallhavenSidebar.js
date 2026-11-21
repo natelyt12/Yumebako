@@ -4,7 +4,6 @@ import { getSettings, saveSettings } from "/src/core/storageHandler.js";
 import { showNotification, confirmReset, showConfirm } from "/src/core/ui.js";
 import { initButtons } from "/src/core/ui/button.js";
 import { setDropdownValue } from "/src/core/ui/dropdown.js";
-import { clearWallhavenQueue } from "/src/wallpaper/backend/sources/api/wallhavenAPI.js";
 
 /**
  * WallhavenSidebar.js
@@ -252,7 +251,7 @@ export function createWallhavenSidebar({ dataControl, sidebar }) {
     checkDirty();
 
     try {
-      await clearWallhavenQueue();
+      await dataControl.clearSourceCache("wallhaven");
       if (dataControl.activeSourceId === "wallhaven") {
         await sidebar.reload("wallhaven");
       }

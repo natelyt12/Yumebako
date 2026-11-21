@@ -178,7 +178,7 @@ export function createFiltersPanel({ isVideo = false } = {}) {
     if (!(await confirmReset())) return;
     for (const [id, slider] of Object.entries(sliders)) {
       if (id in FILTER_DEFAULTS) {
-        slider.value = FILTER_DEFAULTS[id];
+        slider.setValueNoAnim(FILTER_DEFAULTS[id]);
       }
     }
     setPreview();

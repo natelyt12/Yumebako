@@ -16,6 +16,40 @@ const RGB_FILTER_ID = "wallpaper_rgb_shift";
 /** @type {{ svg: SVGElement, red: SVGElement, blue: SVGElement }|null} */
 let rgbFilter = null;
 
+/** Cached connected desktop layer references to avoid `querySelectorAll` per slider tick. */
+let cachedLayers = null;
+/** @type {HTMLElement|null} */
+let cachedBloomContainer = null;
+
+function getFilterLayers() {
+  if (
+    cachedLayers &&
+    cachedLayers.all.length > 0 &&
+    cachedLayers.all.every((el) => el.isConnected)
+  ) {
+    return cachedLayers;
+  }
+
+  const all = Array.from(document.querySelectorAll(".image, .video"));
+  const main = [];
+  const bloom = [];
+  for (const el of all) {
+    if (el.parentElement?.classList.contains("bloom_container")) {
+      bloom.push(el);
+    } else {
+      main.push(el);
+    }
+  }
+  cachedLayers = { all, main, bloom };
+  return cachedLayers;
+}
+
+function getBloomContainer() {
+  if (cachedBloomContainer?.isConnected) return cachedBloomContainer;
+  cachedBloomContainer = document.querySelector(".bloom_container");
+  return cachedBloomContainer;
+}
+
 /**
  * Build (once) the hidden SVG filter used by the RGB-shift slider.
  *
@@ -119,13 +153,16 @@ export function applyFilterConfig(config, { isVideo = isVideoWallpaper() } = {})
 
   // The bloom layer is a blurred, screen-blended copy of the same media, so it
   // only takes the saturation — running the full chain again would double up.
-  document.querySelectorAll(".image, .video").forEach((el) => {
-    el.style.filter = el.parentElement?.classList.contains("bloom_container")
-      ? `saturate(${saturate})`
-      : filterStr;
-  });
+  const { main, bloom } = getFilterLayers();
+  for (let i = 0; i < main.length; i++) {
+    main[i].style.filter = filterStr;
+  }
+  const bloomFilterStr = `saturate(${saturate})`;
+  for (let i = 0; i < bloom.length; i++) {
+    bloom[i].style.filter = bloomFilterStr;
+  }
 
-  const bloomContainer = document.querySelector(".bloom_container");
+  const bloomContainer = getBloomContainer();
   if (bloomContainer) {
     bloomContainer.style.opacity = isVideo
       ? "0"

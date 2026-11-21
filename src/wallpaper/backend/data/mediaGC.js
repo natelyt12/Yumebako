@@ -1,4 +1,8 @@
-import { getAllKeys, getAllFromStore, removeFromStore } from "/src/core/db.js";
+import {
+  getAllKeys,
+  getAllFromStore,
+  removeManyFromStore,
+} from "/src/core/db.js";
 import { getSettings } from "/src/core/storageHandler.js";
 
 /**
@@ -10,13 +14,28 @@ import { getSettings } from "/src/core/storageHandler.js";
  * - Runs asynchronously after page load when the browser is idle to avoid frame drops.
  */
 
+/** @type {import("./DataControl.js").DataControl|null} */
+let dataControlRef = null;
+
+/**
+ * Inject the active DataControl instance used by MediaGC without creating a
+ * circular static import between `DataControl.js` and `mediaGC.js`.
+ *
+ * @param {import("./DataControl.js").DataControl|null} dc
+ */
+export function setMediaGCDataControl(dc) {
+    dataControlRef = dc || null;
+}
+
 /**
  * Scan the application state and IndexedDB `appData` store to collect all
  * wallpaper IDs that are actively referenced.
  *
+ * @param {Object} [options]
+ * @param {import("./DataControl.js").DataControl|null} [options.dataControl=dataControlRef]
  * @returns {Promise<Set<string>|null>} Set of valid ID strings, or null if appData failed to read.
  */
-export async function collectValidMediaIds() {
+export async function collectValidMediaIds({ dataControl = dataControlRef } = {}) {
     const validIds = new Set();
 
     // 1. Current active wallpaper IDs in settings
@@ -33,8 +52,8 @@ export async function collectValidMediaIds() {
     }
 
     // 2. Currently loaded cards in memory (DataControl)
-    if (window.dataControl?.items && Array.isArray(window.dataControl.items)) {
-        for (const card of window.dataControl.items) {
+    if (dataControl?.items && Array.isArray(dataControl.items)) {
+        for (const card of dataControl.items) {
             if (card?.id) validIds.add(String(card.id));
         }
     }
@@ -47,6 +66,15 @@ export async function collectValidMediaIds() {
     }
 
     for (const entry of allAppData) {
+        // Dynamic sources (`collection`, `bing`) never persist `carousel:*` snapshots;
+        // ignore stale legacy records so orphaned blobs are not pinned.
+        if (
+            entry?.key === "carousel:collection" ||
+            entry?.key === "carousel:bing"
+        ) {
+            continue;
+        }
+
         const val = entry?.value;
         if (!val) continue;
 
@@ -79,12 +107,14 @@ export async function collectValidMediaIds() {
  * Run a full sweep of the `mediaData` store, purging any orphaned media blobs.
  * Prints a single diagnostic log line to the console upon completion.
  *
- * @returns {Promise<{ deleted: number, kept: number }>}
+ * @param {Object} [options]
+ * @param {import("./DataControl.js").DataControl|null} [options.dataControl=dataControlRef]
+ * @returns {Promise<{ deleted: number, kept: number, deferred?: boolean, aborted?: boolean, error?: unknown }>}
  */
-export async function runMediaGC() {
+export async function runMediaGC({ dataControl = dataControlRef } = {}) {
     // If DataControl is currently busy fetching/swapping, defer GC
-    if (window.dataControl?.isBusy) {
-        setTimeout(() => runMediaGC(), 4000);
+    if (dataControl?.isBusy) {
+        setTimeout(() => runMediaGC({ dataControl }), 4000);
         return { deleted: 0, kept: 0, deferred: true };
     }
 
@@ -95,13 +125,13 @@ export async function runMediaGC() {
             return { deleted: 0, kept: 0 };
         }
 
-        const validIds = await collectValidMediaIds();
+        const validIds = await collectValidMediaIds({ dataControl });
         if (validIds === null) {
             console.warn("[MediaGC] Could not read appData store. Aborting GC to prevent false-positive deletion.");
             return { deleted: 0, kept: 0, aborted: true };
         }
 
-        let deletedCount = 0;
+        const keysToDelete = [];
         let keptCount = 0;
 
         for (const key of mediaKeys) {
@@ -112,8 +142,7 @@ export async function runMediaGC() {
             if (match) {
                 const id = match[1];
                 if (!validIds.has(id)) {
-                    await removeFromStore(strKey, "mediaData");
-                    deletedCount++;
+                    keysToDelete.push(strKey);
                 } else {
                     keptCount++;
                 }
@@ -122,10 +151,14 @@ export async function runMediaGC() {
 
             // Purge legacy / orphaned keys
             if (strKey.startsWith("wallpaper_media:")) {
-                await removeFromStore(strKey, "mediaData");
-                deletedCount++;
+                keysToDelete.push(strKey);
             }
         }
+
+        if (keysToDelete.length > 0) {
+            await removeManyFromStore(keysToDelete, "mediaData");
+        }
+        const deletedCount = keysToDelete.length;
 
         if (deletedCount > 0) {
             console.info(`[MediaGC] Cleaned up ${deletedCount} orphaned media item(s). Active items: ${keptCount}.`);
@@ -144,9 +177,11 @@ export async function runMediaGC() {
  * Schedule the Media GC to execute in the background once all startup operations
  * and rendering are complete, utilizing `requestIdleCallback` when available.
  *
- * @param {number} [delayMs=2500] Initial delay after load before scheduling idle callback.
+ * @param {number} [delayMs=2500] - Initial delay after load before scheduling idle callback.
+ * @param {Object} [options]
+ * @param {import("./DataControl.js").DataControl|null} [options.dataControl=dataControlRef]
  */
-export function scheduleMediaGC(delayMs = 2500) {
+export function scheduleMediaGC(delayMs = 2500, { dataControl = dataControlRef } = {}) {
     if (typeof window === "undefined") return;
 
     // Expose for testing and manual debugging in DevTools console
@@ -154,9 +189,9 @@ export function scheduleMediaGC(delayMs = 2500) {
 
     const trigger = () => {
         if ("requestIdleCallback" in window) {
-            window.requestIdleCallback(() => runMediaGC(), { timeout: 10000 });
+            window.requestIdleCallback(() => runMediaGC({ dataControl }), { timeout: 10000 });
         } else {
-            setTimeout(() => runMediaGC(), 1500);
+            setTimeout(() => runMediaGC({ dataControl }), 1500);
         }
     };
 
@@ -166,4 +201,3 @@ export function scheduleMediaGC(delayMs = 2500) {
         window.addEventListener("load", () => setTimeout(trigger, delayMs), { once: true });
     }
 }
-

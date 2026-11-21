@@ -11,20 +11,10 @@ const UNSPLASH_STORAGE_KEY = "provider_state:unsplash";
 export const UNSPLASH_WORKER_URL = "https://ymbproxy.mmbell.workers.dev";
 export const UNSPLASH_CLIENT_TOKEN = "AnhBinhDepZai";
 
-async function fetchImageBlob(url) {
-  try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return await response.blob();
-  } catch (error) {
-    console.error("[unsplashAPI] Error fetching image blob:", error);
-    return null;
-  }
-}
-
 /**
- * Báo cáo lượt tải về Unsplash theo chính sách API (Unsplash Download Tracking).
+ * Report an Unsplash download event per API guidelines (Unsplash Download Tracking).
  * @param {string} downloadLocationUrl
+ * @returns {Promise<void>}
  */
 export async function trackUnsplashDownload(downloadLocationUrl) {
   if (!downloadLocationUrl) return;
@@ -136,10 +126,10 @@ export async function trackDownloadOnce(card) {
 }
 
 /**
- * Tải danh sách ảnh Unsplash từ Cloudflare Worker Proxy.
- * Đọc tham số query, topics, orientation từ unsplashConfig.
+ * Fetch a batch of curated Unsplash photos from the Cloudflare Worker proxy.
+ * Reads `query`, `topic`, and `orientation` from `unsplashConfig`.
  *
- * @returns {Promise<Array>} Danh sách bản ghi ảnh Unsplash đã được chuẩn hóa.
+ * @returns {Promise<Array>} Normalized Unsplash photo records.
  */
 export async function fetchUnsplashQueue() {
   try {
@@ -193,6 +183,10 @@ export async function fetchUnsplashQueue() {
   }
 }
 
+/**
+ * Clear the persisted Unsplash photo queue so the next fetch queries fresh results.
+ * @returns {Promise<void>}
+ */
 export async function clearUnsplashQueue() {
   let storeData = (await getFromStore(UNSPLASH_STORAGE_KEY)) || {
     queue: [],
@@ -200,92 +194,4 @@ export async function clearUnsplashQueue() {
   };
   storeData.queue = [];
   await saveToStore(UNSPLASH_STORAGE_KEY, storeData);
-}
-
-export async function getUnsplashData(refresh = false) {
-  try {
-    let storeData = (await getFromStore(UNSPLASH_STORAGE_KEY)) || {
-      queue: [],
-      applied: null,
-    };
-    if (!storeData.queue) storeData.queue = [];
-
-    if (!refresh && storeData.applied) {
-      if (
-        !storeData.applied.blob ||
-        !(storeData.applied.blob instanceof Blob)
-      ) {
-        const blob = await fetchImageBlob(storeData.applied.image);
-        if (!blob) {
-          return {
-            error: t("sp.api.unsplash.corrupted_data", "Dữ liệu bị hỏng"),
-          };
-        }
-        storeData.applied.blob = blob;
-        await saveToStore(UNSPLASH_STORAGE_KEY, storeData);
-      }
-      return storeData.applied;
-    }
-
-    if (storeData.queue.length === 0) {
-      try {
-        storeData.queue = await fetchUnsplashQueue();
-        storeData.queue_total = storeData.queue.length;
-      } catch (err) {
-        return { error: err.message };
-      }
-    }
-
-    if (storeData.queue.length === 0) {
-      return {
-        error: t(
-          "sp.api.unsplash.no_result",
-          "Không tìm thấy kết quả từ Unsplash.",
-        ),
-      };
-    }
-
-    const nextItem = storeData.queue.shift();
-    if (
-      !nextItem ||
-      !nextItem.urls ||
-      (!nextItem.urls.regular && !nextItem.urls.full)
-    ) {
-      return { error: t("sp.api.unsplash.corrupted_data", "Dữ liệu bị hỏng") };
-    }
-
-    const imageUrl = nextItem.urls.full || nextItem.urls.regular;
-    const blob = await fetchImageBlob(imageUrl);
-    if (!blob) {
-      return { error: t("sp.api.error", "Lỗi tải ảnh từ Unsplash") };
-    }
-
-    storeData.applied = {
-      image: imageUrl,
-      blob: blob,
-      source: nextItem.links?.html || "https://unsplash.com",
-      width: nextItem.width,
-      height: nextItem.height,
-      size: blob.size,
-      last_updated: Date.now(),
-      category: "Unsplash",
-      author_name: nextItem.user?.name || "Unknown",
-      author_url: nextItem.user?.link || nextItem.user?.links?.html,
-      description: nextItem.description || "",
-      download_location: nextItem.links?.download_location || "",
-      queue_left: storeData.queue.length,
-      queue_total: storeData.queue_total || 30,
-    };
-
-    await saveToStore(UNSPLASH_STORAGE_KEY, storeData);
-
-    // NOTE: tracking is intentionally NOT fired here. Pulling a photo out of
-    // the queue is not a user action, so reporting it would violate Unsplash's
-    // "download on use" guideline. Tracking is fired by the real actions
-    // (apply / download / add to collection) via `trackDownloadOnce`.
-    return storeData.applied;
-  } catch (error) {
-    console.error("[unsplashAPI] Error in getUnsplashData:", error);
-    return { error: t("sp.api.error", "Lỗi tải ảnh từ Unsplash") };
-  }
 }

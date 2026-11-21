@@ -1,5 +1,35 @@
-import { ParticleEffect } from "../ParticleEffect.js";
+import { ParticleEffect, parseColorRgb } from "../ParticleEffect.js";
 import { t } from "/src/core/i18n.js";
+
+const SNOW_SPRITE_SIZE = 64;
+
+function buildSnowSprite(rgb, blur, isSoft) {
+    const c = document.createElement("canvas");
+    c.width = SNOW_SPRITE_SIZE;
+    c.height = SNOW_SPRITE_SIZE;
+    const sCtx = c.getContext("2d");
+    const h = SNOW_SPRITE_SIZE / 2;
+
+    if (isSoft) {
+        const grad = sCtx.createRadialGradient(h, h, 0, h, h, h);
+        grad.addColorStop(0, `rgba(${rgb}, 1)`);
+        grad.addColorStop(0.5, `rgba(${rgb}, 0.3)`);
+        grad.addColorStop(1, `rgba(${rgb}, 0)`);
+        sCtx.fillStyle = grad;
+    } else {
+        const innerR = blur === 0 ? h * 0.99 : h * Math.max(0, 0.7 - 0.35 * blur);
+        const grad = sCtx.createRadialGradient(h, h, innerR, h, h, h);
+        grad.addColorStop(0, `rgba(${rgb}, 1)`);
+        grad.addColorStop(0.7, `rgba(${rgb}, 0.6)`);
+        grad.addColorStop(1, `rgba(${rgb}, 0)`);
+        sCtx.fillStyle = grad;
+    }
+
+    sCtx.beginPath();
+    sCtx.arc(h, h, h, 0, Math.PI * 2);
+    sCtx.fill();
+    return c;
+}
 
 // ==========================================
 // SNOW EFFECT
@@ -92,55 +122,49 @@ export class SnowEffect extends ParticleEffect {
         });
     }
 
+    _ensureSprites(color, blur) {
+        const key = `${color || ""}|${blur}`;
+        if (this._spriteKey === key && this._sprites) return this._sprites;
+        this._spriteKey = key;
+        const rgb = parseColorRgb(color, "255, 255, 255");
+        this._sprites = {
+            soft: buildSnowSprite(rgb, blur, true),
+            sharp: buildSnowSprite(rgb, blur, false),
+        };
+        return this._sprites;
+    }
+
     render() {
         const { ctx, particles, config } = this;
         const opcMultiplier = this.config.opacity !== undefined ? this.config.opacity : SnowEffect.DEFAULTS.opacity;
         const sizeMultiplier = this.config.size !== undefined ? this.config.size : SnowEffect.DEFAULTS.size;
         const blurMultiplier = this.config.blur !== undefined ? this.config.blur : SnowEffect.DEFAULTS.blur;
 
-        // Resolve clean RGB for gradients
-        let rgb = "255, 255, 255";
-        if (config.color && config.color.startsWith("#")) {
-            const r = parseInt(config.color.slice(1, 3), 16);
-            const g = parseInt(config.color.slice(3, 5), 16);
-            const b = parseInt(config.color.slice(5, 7), 16);
-            rgb = `${r}, ${g}, ${b}`;
-        }
+        const { soft, sharp } = this._ensureSprites(config.color, blurMultiplier);
+        const amplitude = this.parallaxAmplitude !== undefined ? this.parallaxAmplitude : -30;
+        const mx = (this.mouseX || 0) * amplitude;
+        const my = (this.mouseY || 0) * (amplitude * 0.65);
 
-        particles.forEach((p) => {
+        for (let i = 0; i < particles.length; i++) {
+            const p = particles[i];
             const alpha = Math.min(1, Math.max(0, p.baseOpacity * opcMultiplier));
+            if (alpha <= 0.002) continue;
+
             const radius = p.radius * sizeMultiplier;
 
             // Parallax depth hierarchy (relative to wallpaper = 1.0):
             // Background (z≈0): ~0.3x | Midground (z≈0.7): ~1.5x | Foreground (z=1): 4.0x | isSoft: 6.0x
-            const amplitude = this.parallaxAmplitude !== undefined ? this.parallaxAmplitude : -30;
             const depthFactor = p.isSoft ? 6.0 : (0.3 + 3.7 * Math.pow(p.z, 1.4));
-            const offsetX = (this.mouseX || 0) * amplitude * depthFactor;
-            const offsetY = (this.mouseY || 0) * (amplitude * 0.65) * depthFactor;
-            const renderX = p.x + offsetX;
-            const renderY = p.y + offsetY;
+            const renderX = p.x + mx * depthFactor;
+            const renderY = p.y + my * depthFactor;
 
             const drawRadius = radius * (p.isSoft ? (1 + blurMultiplier * 0.2) : 1);
+            const sprite = p.isSoft ? soft : sharp;
 
-            if (p.isSoft) {
-                const gradient = ctx.createRadialGradient(renderX, renderY, 0, renderX, renderY, drawRadius);
-                gradient.addColorStop(0, `rgba(${rgb}, ${alpha})`);
-                gradient.addColorStop(0.5, `rgba(${rgb}, ${alpha * 0.3})`);
-                gradient.addColorStop(1, `rgba(${rgb}, 0)`);
-                ctx.fillStyle = gradient;
-            } else {
-                const innerR = blurMultiplier === 0 ? drawRadius * 0.99 : drawRadius * Math.max(0, 0.7 - 0.35 * blurMultiplier);
-                const gradient = ctx.createRadialGradient(renderX, renderY, innerR, renderX, renderY, drawRadius);
-                gradient.addColorStop(0, `rgba(${rgb}, ${alpha})`);
-                gradient.addColorStop(0.7, `rgba(${rgb}, ${alpha * 0.6})`);
-                gradient.addColorStop(1, `rgba(${rgb}, 0)`);
-                ctx.fillStyle = gradient;
-            }
-
-            ctx.beginPath();
-            ctx.arc(renderX, renderY, drawRadius, 0, Math.PI * 2);
-            ctx.fill();
-        });
+            ctx.globalAlpha = alpha;
+            ctx.drawImage(sprite, renderX - drawRadius, renderY - drawRadius, drawRadius * 2, drawRadius * 2);
+        }
+        ctx.globalAlpha = 1;
     }
 
     static getSettingsSpec() {

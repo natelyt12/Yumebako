@@ -1,22 +1,104 @@
 import { createSources } from "../sources/registry.js";
-import { getFromStore, saveToStore } from "/src/core/db.js";
-import { runMediaGC } from "./mediaGC.js";
+import {
+  getFromStore,
+  saveToStore,
+  removeFromStore,
+} from "/src/core/db.js";
+import { runMediaGC, setMediaGCDataControl } from "./mediaGC.js";
+import { uniqueCards, stripCardBlobs } from "./cardUtils.js";
 import { describeFetchError } from "./errors.js";
 import { t } from "/src/core/i18n.js";
 import {
   getCollection,
   updateCollectionItemEffects,
 } from "../sources/api/collectionDb.js";
-import { findCollectionEntry } from "../sources/sourceActions.js";
+import {
+  addCardsBatchToCollection,
+  findCollectionEntry,
+} from "../sources/sourceActions.js";
 import { invalidateEffectStates } from "../effects/effectStates.js";
-import { applyWallpaperFilters } from "../rendering/filter.js";
-import { applyWallpaperPosition } from "../rendering/position.js";
 import {
   getSettings,
   saveSettings,
   subscribe,
   getDefaultWallpaperEffects,
 } from "/src/core/storageHandler.js";
+
+export { uniqueCards };
+
+/**
+ * Merge partial or legacy card `effects` with `getDefaultWallpaperEffects()` so
+ * all five effect groups (`filter`, `position`, `wavy`, `particles`, `onload`)
+ * are always complete objects before persisting or saving to settings.
+ *
+ * @param {Object|null|undefined} rawEffects
+ * @returns {ReturnType<typeof getDefaultWallpaperEffects>}
+ */
+function normalizeWallpaperEffects(rawEffects) {
+  const defaults = getDefaultWallpaperEffects();
+  if (!rawEffects || typeof rawEffects !== "object") return defaults;
+
+  const filter =
+    rawEffects.filter && typeof rawEffects.filter === "object"
+      ? { ...defaults.filter, ...rawEffects.filter }
+      : defaults.filter;
+
+  const position =
+    rawEffects.position && typeof rawEffects.position === "object"
+      ? { ...defaults.position, ...rawEffects.position }
+      : defaults.position;
+
+  const wavy =
+    rawEffects.wavy && typeof rawEffects.wavy === "object"
+      ? {
+          ...defaults.wavy,
+          ...rawEffects.wavy,
+          config: {
+            ...defaults.wavy.config,
+            ...(rawEffects.wavy.config &&
+            typeof rawEffects.wavy.config === "object"
+              ? rawEffects.wavy.config
+              : {}),
+            motions: {
+              ...defaults.wavy.config.motions,
+              ...(rawEffects.wavy.config?.motions &&
+              typeof rawEffects.wavy.config.motions === "object"
+                ? rawEffects.wavy.config.motions
+                : {}),
+            },
+          },
+        }
+      : defaults.wavy;
+
+  const particles =
+    rawEffects.particles && typeof rawEffects.particles === "object"
+      ? {
+          ...defaults.particles,
+          ...rawEffects.particles,
+          dynamic: Array.isArray(rawEffects.particles.dynamic)
+            ? rawEffects.particles.dynamic
+            : defaults.particles.dynamic,
+          static: Array.isArray(rawEffects.particles.static)
+            ? rawEffects.particles.static
+            : defaults.particles.static,
+        }
+      : defaults.particles;
+
+  const onload =
+    rawEffects.onload && typeof rawEffects.onload === "object"
+      ? { ...defaults.onload, ...rawEffects.onload }
+      : defaults.onload;
+
+  return {
+    ...defaults,
+    ...rawEffects,
+    filter,
+    position,
+    wavy,
+    particles,
+    onload,
+  };
+}
 
 /**
  * A single wallpaper card item managed by DataControl.
@@ -40,42 +122,9 @@ import {
  */
 
 /**
- * Bỏ các thẻ trùng `id`, giữ bản xuất hiện đầu tiên.
- *
- * Nguồn ảnh remote có thể trả lại ảnh đã có (Wallhaven xếp `random` trả lại
- * đúng bức cũ khi bộ lọc cạn ảnh), và bản ghi trùng có thể đã nằm sẵn trong
- * `carousel:*` từ trước. Carousel đối chiếu thẻ theo id, nên một id xuất hiện
- * hai lần khiến hai slot cùng trỏ về một element DOM: một slot mất ảnh và phần
- * tử thừa nằm lại dải thành thẻ ma. Chặn ngay khi nạp/ghi để dải không bao giờ
- * nhận danh sách có trùng.
- *
- * Thẻ không có id được giữ nguyên — không có khoá thì không có gì để trùng.
- *
- * @param {CardItem[]} cards
- * @returns {CardItem[]}
- */
-function uniqueCards(cards) {
-  if (!Array.isArray(cards)) return [];
-
-  const seen = new Set();
-  const unique = [];
-  for (const card of cards) {
-    if (!card) continue;
-    const id = card.id;
-    if (id !== undefined && id !== null && id !== "") {
-      const key = String(id);
-      if (seen.has(key)) continue;
-      seen.add(key);
-    }
-    unique.push(card);
-  }
-  return unique;
-}
-
-/**
  * Named events emitted by DataControl.
  *
- * @typedef {"source:change" | "cards:loaded" | "card:soft" | "card:hard" | "card:added" | "card:deleted" | "card:pruned" | "feed:exhausted" | "feed:limit_reached" | "state:change" | "error"} DataControlEvent
+ * @typedef {"source:change" | "cards:loaded" | "card:soft" | "card:hard" | "card:effects_changed" | "card:added" | "card:deleted" | "card:pruned" | "collection:updated" | "feed:exhausted" | "feed:limit_reached" | "state:change" | "error"} DataControlEvent
  */
 
 /**
@@ -101,12 +150,13 @@ function uniqueCards(cards) {
 /**
  * DataControl.js
  * ---------------------------------------------------------------------------
- * TẦNG 2: Bộ não điều phối trung tâm (Single Source of Truth)
+ * Layer 2: Central Single Source of Truth (SSOT) for Wallpaper Switcher state.
  *
- * Chịu trách nhiệm:
- *   1. Quản lý trạng thái hiện tại (active source, soft index, hard index, cards).
- *   2. Đọc/Ghi mảng thẻ sạch trực tiếp từ src/core/db.js (BakoDB/appData).
- *   3. Cơ chế Pub/Sub (Event Emitter) cho UI Carousel, SwitcherBar và Desktop Renderer.
+ * Responsibilities:
+ *   1. Manage active source, soft/hard indices, and deduplicated card lists.
+ *   2. Read and persist sanitized card arrays in `src/core/db.js` (`appData`).
+ *   3. Expose the Layer 2 facade API for Layer 1 UI and mediate render payloads
+ *      & settings commits for Layer 4 (`WallpaperRenderer`).
  */
 export class DataControl {
   constructor() {
@@ -115,17 +165,16 @@ export class DataControl {
     /** @type {string|null} */
     this.activeSourceId = null;
 
-    /** Mảng các thẻ wallpaper của source hiện hành
-     * @type {CardItem[]} */
+    /** Active source wallpaper card array. @type {CardItem[]} */
     this.items = [];
-    /** Hard index — chốt khi cuộn dừng hẳn. @type {number} */
+    /** Hard index — settled when scrolling stops. @type {number} */
     this.currentIndex = 0;
-    /** Soft index — đang lướt qua (chưa chốt). @type {number} */
+    /** Soft index — previewed during scroll. @type {number} */
     this.softIndex = 0;
 
     /** @type {boolean} */
     this.isBusy = false;
-    /** Cờ đánh dấu khi renderer đang nạp effect của card vào settings để tránh ghi đè ngược */
+    /** Guard flag set while committing active card effects into settings to prevent feedback loops. */
     this.isApplyingCardEffects = false;
     /** @type {"idle" | "fetching" | "deleting" | "switching"} */
     this.status = "idle";
@@ -134,6 +183,12 @@ export class DataControl {
     this._listeners = new Map();
 
     this._switchToken = 0;
+    /** @type {(() => Object)|null} */
+    this._mediaMetricsProvider = null;
+    /** @type {(() => Promise<Object>)|null} */
+    this._mediaMetricsMeasurer = null;
+    /** @type {Set<string>} */
+    this._cleanedDynamicCarouselKeys = new Set();
 
     this._initSources();
   }
@@ -185,15 +240,17 @@ export class DataControl {
     }
   }
 
-  /* ── Khởi tạo ──────────────────────────────────────────────────────────── */
+  /* ── Initialization ────────────────────────────────────────────────────── */
 
+  /** @private */
   _initSources() {
     const sourceList = createSources();
     sourceList.forEach((src) => this.sources.set(src.id, src));
   }
 
   /**
-   * Khởi động DataControl với nguồn mặc định từ settings.
+   * Initialize DataControl with the saved active source and register settings listeners.
+   * @returns {Promise<DataControl>}
    */
   async init() {
     const settings = getSettings();
@@ -204,42 +261,50 @@ export class DataControl {
 
     await this.switchSource(initialSourceId);
 
-    // Lắng nghe thay đổi hiệu ứng từ UI Settings để tự động cập nhật vào hình nền active
-    subscribe("wallpaperConfig", (conf) => {
-      if (this.isApplyingCardEffects || !conf) return;
-      this.updateActiveCardEffects({
-        filter: {
-          brightness: conf.brightness,
-          blur: conf.blur,
-          contrast: conf.contrast,
-          saturate: conf.saturate,
-          bloom: conf.bloom,
-          rgbShift: conf.rgbShift,
-        },
+    // Sync active card effects whenever Customize UI updates global settings.
+    // Guard the synchronous initial callback that `subscribe()` fires so startup
+    // does not trigger 5 redundant `updateActiveCardEffects()` writes before `card:hard`.
+    let isInitialSubscribe = true;
+    try {
+      subscribe("wallpaperConfig", (conf) => {
+        if (isInitialSubscribe || this.isApplyingCardEffects || !conf) return;
+        this.updateActiveCardEffects({
+          filter: {
+            brightness: conf.brightness,
+            blur: conf.blur,
+            contrast: conf.contrast,
+            saturate: conf.saturate,
+            bloom: conf.bloom,
+            rgbShift: conf.rgbShift,
+          },
+        });
       });
-    });
 
-    subscribe("wallpaperPosition", (pos) => {
-      if (this.isApplyingCardEffects || !pos) return;
-      this.updateActiveCardEffects({ position: pos });
-    });
+      subscribe("wallpaperPosition", (pos) => {
+        if (isInitialSubscribe || this.isApplyingCardEffects || !pos) return;
+        this.updateActiveCardEffects({ position: pos });
+      });
 
-    subscribe("wavy", (wavy) => {
-      if (this.isApplyingCardEffects || !wavy) return;
-      this.updateActiveCardEffects({ wavy });
-    });
+      subscribe("wavy", (wavy) => {
+        if (isInitialSubscribe || this.isApplyingCardEffects || !wavy) return;
+        this.updateActiveCardEffects({ wavy });
+      });
 
-    subscribe("particles", (particles) => {
-      if (this.isApplyingCardEffects || !particles) return;
-      this.updateActiveCardEffects({ particles });
-    });
+      subscribe("particles", (particles) => {
+        if (isInitialSubscribe || this.isApplyingCardEffects || !particles)
+          return;
+        this.updateActiveCardEffects({ particles });
+      });
 
-    subscribe("onload", (onload) => {
-      if (this.isApplyingCardEffects || !onload) return;
-      this.updateActiveCardEffects({ onload });
-    });
+      subscribe("onload", (onload) => {
+        if (isInitialSubscribe || this.isApplyingCardEffects || !onload) return;
+        this.updateActiveCardEffects({ onload });
+      });
+    } finally {
+      isInitialSubscribe = false;
+    }
 
-    // Kh?i ??ng h?nh n?n ch?t ? t?m m?n h?nh c?ng hi?u ?ng entrance animation (T?ng 2 SSOT)
+    // Trigger initial desktop wallpaper render with entrance animation.
     const initialCard = this.activeCard;
     if (initialCard) {
       this.emit("card:hard", {
@@ -253,24 +318,29 @@ export class DataControl {
     return this;
   }
 
-  /* ── Getters truy vấn trạng thái ──────────────────────────────────────── */
+  /* ── State Getters ─────────────────────────────────────────────────────── */
 
+  /** @returns {import("../sources/BaseSource.js").BaseSource|null} */
   get activeSource() {
     return this.sources.get(this.activeSourceId) || null;
   }
 
+  /** @returns {CardItem|null} */
   get activeCard() {
     return this.items[this.currentIndex] || null;
   }
 
+  /** @returns {CardItem|null} */
   get softCard() {
     return this.items[this.softIndex] || null;
   }
 
+  /** @returns {number} */
   get cardCount() {
     return this.items.length;
   }
 
+  /** @returns {Array<{ id: string, name: string, canGrow: boolean, hasExtraSettings: boolean }>} */
   get tabs() {
     return Array.from(this.sources.values()).map((src) => ({
       id: src.id,
@@ -281,7 +351,7 @@ export class DataControl {
   }
 
   /**
-   * Ảnh chụp toàn bộ trạng thái (Dùng cho Status Monitor & Action Buttons).
+   * Snapshot of the current DataControl state for UI monitors and action controls.
    * @returns {DataControlState}
    */
   getState() {
@@ -303,12 +373,300 @@ export class DataControl {
     };
   }
 
-  /* ── Thao tác chuyển đổi Nguồn (Source) ─────────────────────────────────── */
+  /* ── Layer 4 Renderer Adapter & Metrics Contracts ──────────────────────── */
 
   /**
-   * Chuyển tab nguồn sang `sourceId`.
+   * Register the Layer 4 active media geometry provider without importing `rendering/`.
+   * Called by `WallpaperRenderer.bindDataControl(dataControl)`.
+   *
+   * @param {(() => import("../rendering/position.js").ActiveMediaMetrics)|null} provider
+   */
+  setMediaMetricsProvider(provider) {
+    this._mediaMetricsProvider =
+      typeof provider === "function" ? provider : null;
+  }
+
+  /**
+   * Register the Layer 4 active media async measurer without importing `rendering/`.
+   * Called by `WallpaperRenderer.bindDataControl(dataControl)`.
+   *
+   * @param {(() => Promise<import("../rendering/position.js").ActiveMediaMetrics>)|null} measurer
+   */
+  setMediaMetricsMeasurer(measurer) {
+    this._mediaMetricsMeasurer =
+      typeof measurer === "function" ? measurer : null;
+  }
+
+  /**
+   * Return active desktop media dimensions and fit mode via Layer 4 provider.
+   * @returns {import("../rendering/position.js").ActiveMediaMetrics}
+   */
+  getActiveMediaMetrics() {
+    if (this._mediaMetricsProvider) {
+      return this._mediaMetricsProvider();
+    }
+    return {
+      width: 0,
+      height: 0,
+      naturalWidth: 0,
+      naturalHeight: 0,
+      isVideo: false,
+      fitMode: getSettings().wallpaperPosition?.mode || "cover",
+    };
+  }
+
+  /**
+   * Measure active desktop media dimensions (probing natural image size if needed)
+   * via Layer 4 without Layer 1 querying `.image` / `.video` DOM directly.
+   *
+   * @returns {Promise<import("../rendering/position.js").ActiveMediaMetrics>}
+   */
+  async measureActiveMediaMetrics() {
+    if (this._mediaMetricsMeasurer) {
+      return this._mediaMetricsMeasurer();
+    }
+    return this.getActiveMediaMetrics();
+  }
+
+  /**
+   * Resolve a pure render payload from Layer 3 for `WallpaperRenderer.apply()`.
+   *
+   * @param {CardItem} card
+   * @param {string} [sourceId=this.activeSourceId]
+   * @returns {Promise<Object|null>}
+   */
+  async resolveRenderPayload(card, sourceId = this.activeSourceId) {
+    const source = this.sources.get(sourceId) || this.activeSource;
+    if (!source || !card) return null;
+
+    const payload = await source.getRenderPayload(card);
+    if (
+      payload &&
+      !payload.credit &&
+      typeof source.getAttribution === "function"
+    ) {
+      payload.credit = source.getAttribution(card);
+    }
+    return payload;
+  }
+
+  /**
+   * Commit a rendered wallpaper payload into `storageHandler.js` settings and
+   * notify the owning Layer 3 source (`source.onApplied`).
+   * Runs inside `isApplyingCardEffects` guard to prevent reactive write-backs.
+   *
+   * @param {CardItem} card
+   * @param {Object} payload
+   * @param {string} [sourceId=this.activeSourceId]
+   * @returns {Promise<void>}
+   */
+  async commitAppliedCard(card, payload, sourceId = this.activeSourceId) {
+    if (!card || !payload) return;
+
+    const source = this.sources.get(sourceId) || this.activeSource;
+    const resolvedSourceId = source?.id || sourceId || this.activeSourceId;
+    const effects = normalizeWallpaperEffects(payload.effects || card.effects);
+    const isVideo = payload.type === "video";
+
+    this.isApplyingCardEffects = true;
+    try {
+      const currentConf = getSettings().wallpaperConfig || {};
+      saveSettings({
+        wallpaperPosition: effects.position,
+        wallpaperConfig: {
+          ...currentConf,
+          source: resolvedSourceId || currentConf.source,
+          activeWallpaperId: payload.id,
+          activeCollectionItemId:
+            resolvedSourceId === "collection"
+              ? payload.id
+              : currentConf.activeCollectionItemId,
+          brightness: effects.filter?.brightness ?? 1,
+          contrast: effects.filter?.contrast ?? 1,
+          saturate: effects.filter?.saturate ?? 1,
+          // Bloom is image-only: videos always run with it disabled.
+          bloom: isVideo ? 0 : effects.filter?.bloom ?? 0,
+          rgbShift: effects.filter?.rgbShift ?? 0,
+          blur: effects.filter?.blur ?? 0,
+          mode: effects.position?.mode || currentConf.mode || "cover",
+        },
+        wavy: effects.wavy,
+        particles: effects.particles,
+        onload: effects.onload,
+      });
+    } finally {
+      this.isApplyingCardEffects = false;
+    }
+
+    if (typeof source?.onApplied === "function") {
+      await source.onApplied(card, payload);
+    }
+  }
+
+  /* ── Layer 2 Facade APIs (for Layer 1 UI) ──────────────────────────────── */
+
+  /**
+   * Recover a failed card thumbnail by evicting stale cached URLs and delegating
+   * reconstruction to the owning Layer 3 source.
+   *
+   * @param {CardItem} card
+   * @returns {Promise<string|null>}
+   */
+  async recoverThumbnail(card) {
+    const source = this.sources.get(card?.source) || this.activeSource;
+    if (!source || !card?.id) return null;
+
+    card.thumbnailUrl = null;
+    if (typeof source.releaseThumb === "function") {
+      source.releaseThumb(card.id);
+    }
+
+    const url = await source.prepareThumb(card);
+    return url || null;
+  }
+
+  /**
+   * Clear provider-level cached queues or snapshots via the source's `clearCache()`.
+   *
+   * @param {string} [sourceId=this.activeSourceId]
+   * @returns {Promise<boolean>}
+   */
+  async clearSourceCache(sourceId = this.activeSourceId) {
+    const source = this.sources.get(sourceId);
+    if (!source || typeof source.clearCache !== "function") return false;
+    await source.clearCache();
+    return true;
+  }
+
+  /**
+   * Build a `Set<string>` containing all known identifiers (`entry.id`,
+   * `entry.metadata.id`, `entry.metadata.wallpaperId`) present in the personal collection.
+   *
+   * @returns {Promise<Set<string>>}
+   */
+  async getCollectionIdSet() {
+    const ids = new Set();
+    try {
+      const collection = await getCollection();
+      for (const entry of collection) {
+        if (!entry) continue;
+        if (entry.id !== undefined && entry.id !== null && entry.id !== "") {
+          ids.add(String(entry.id));
+        }
+        const metaId = entry.metadata?.id;
+        if (metaId !== undefined && metaId !== null && metaId !== "") {
+          ids.add(String(metaId));
+        }
+        const legacyId = entry.metadata?.wallpaperId;
+        if (legacyId !== undefined && legacyId !== null && legacyId !== "") {
+          ids.add(String(legacyId));
+        }
+      }
+    } catch (err) {
+      console.error("[DataControl] Failed to build collection ID set:", err);
+    }
+    return ids;
+  }
+
+  /**
+   * Check whether a card object or card ID currently exists in the personal collection.
+   *
+   * @param {string|number|CardItem} idOrCard
+   * @returns {Promise<boolean>}
+   */
+  async isInCollection(idOrCard) {
+    if (idOrCard && typeof idOrCard === "object") {
+      return this.isCardInCollection(idOrCard);
+    }
+    if (idOrCard === undefined || idOrCard === null || idOrCard === "") {
+      return false;
+    }
+    const idSet = await this.getCollectionIdSet();
+    return idSet.has(String(idOrCard));
+  }
+
+  /**
+   * Copy one or more cards into the personal collection, deduplicating against
+   * existing entries and within the batch, firing `trackDownloadOnce` when applicable,
+   * and emitting `"collection:updated"` if at least one card was stored.
+   *
+   * @param {CardItem[]} cards
+   * @param {import("../sources/BaseSource.js").BaseSource|null} [source=this.activeSource]
+   * @returns {Promise<{ addedCount: number, skippedCount: number, failedCount: number }>}
+   */
+  async addCardsToCollection(cards, source = this.activeSource) {
+    const result = await addCardsBatchToCollection(cards, source);
+    if (result.addedCount > 0) {
+      this.emit("collection:updated", {
+        action: "added",
+        addedCount: result.addedCount,
+      });
+    }
+    return result;
+  }
+
+  /**
+   * Import user-selected media files into the Collection via `CollectionSource.importFiles`,
+   * updating active state if `"collection"` is open and emitting `"collection:updated"`.
+   *
+   * @param {File[]|FileList} files
+   * @returns {Promise<{ addedCards: CardItem[], warnings: Array<{ file: string, code: string }>, errors: Array<{ file: string, code: string, cause?: unknown }> }>}
+   */
+  async importCollectionFiles(files) {
+    const collectionSource = this.sources.get("collection");
+    if (
+      !collectionSource ||
+      typeof collectionSource.importFiles !== "function"
+    ) {
+      return { addedCards: [], warnings: [], errors: [] };
+    }
+
+    const result = await collectionSource.importFiles(files);
+    if (result.addedCards.length > 0) {
+      if (this.activeSourceId === "collection") {
+        const activeIdBefore = this.activeCard?.id ?? null;
+        const merged = uniqueCards([...this.items, ...result.addedCards]);
+        this.items =
+          typeof collectionSource.sortItems === "function"
+            ? collectionSource.sortItems(merged)
+            : merged;
+
+        if (activeIdBefore != null) {
+          const sortedIndex = this.items.findIndex(
+            (item) => String(item.id) === String(activeIdBefore),
+          );
+          if (sortedIndex >= 0) {
+            this.currentIndex = sortedIndex;
+            this.softIndex = sortedIndex;
+          }
+        }
+
+        this.emit("card:added", {
+          newCard: result.addedCards[0] || null,
+          addedCards: result.addedCards,
+          allCards: this.items,
+          index: this.items.length - 1,
+          prunedCard: null,
+        });
+        this._notifyState();
+      }
+
+      this.emit("collection:updated", {
+        action: "imported",
+        addedCards: result.addedCards,
+      });
+    }
+
+    return result;
+  }
+
+  /* ── Source Switching ──────────────────────────────────────────────────── */
+
+  /**
+   * Switch the active wallpaper source tab to `sourceId`.
    * @param {string} sourceId
    * @param {number|null} [targetIndex=null]
+   * @returns {Promise<void>}
    */
   async switchSource(sourceId, targetIndex = null) {
     if (!this.sources.has(sourceId)) {
@@ -329,11 +687,17 @@ export class DataControl {
     });
 
     let storedItems = [];
-    /** Chỉ danh sách đọc từ `carousel:*` mới ghi đè ngược lại được. */
+    /** Only lists loaded from `carousel:*` should be written back on self-heal. */
     let storedInCarousel = false;
 
     if (this.activeSource?.isDynamic) {
-      // Nguồn biến động (như Collection), luôn lấy danh sách mới nhất từ DB
+      // Dynamic sources (`collection`, `bing`) own their authoritative DB store;
+      // clean up any legacy `carousel:${sourceId}` snapshot once per session.
+      if (!this._cleanedDynamicCarouselKeys.has(sourceId)) {
+        this._cleanedDynamicCarouselKeys.add(sourceId);
+        void removeFromStore(`carousel:${sourceId}`);
+      }
+
       try {
         const fetched = await this.activeSource.fetchItems();
         if (this._switchToken !== switchToken) return;
@@ -348,13 +712,13 @@ export class DataControl {
         );
       }
     } else {
-      // Đọc danh sách thẻ từ BakoDB (appData)
+      // Load persisted card list from BakoDB (`appData`).
       const rawStored = await getFromStore(`carousel:${sourceId}`);
       if (this._switchToken !== switchToken) return;
       storedItems = Array.isArray(rawStored) ? rawStored.filter(Boolean) : [];
       storedInCarousel = true;
 
-      // Phục hồi thumbnail hợp lệ (Object URL mới trong session hiện tại) cho các thẻ
+      // Rebuild valid session Object URLs for card thumbnails.
       if (
         this.activeSource &&
         typeof this.activeSource.prepareThumb === "function"
@@ -371,18 +735,16 @@ export class DataControl {
     if (this._switchToken !== switchToken) return;
 
     storedItems = storedItems.map((item) => {
-      if (item && !item.effects) {
-        item.effects = getDefaultWallpaperEffects();
+      if (item) {
+        item.effects = normalizeWallpaperEffects(item.effects);
       }
       return item;
     });
 
-    // Bản ghi trùng id (ảnh API trả lại, hoặc dữ liệu cũ còn sót trong
-    // `carousel:*`) không được đi vào dải — xem `uniqueCards()`.
+    // Deduplicate card IDs before entering the strip or persisting.
     const unique = uniqueCards(storedItems);
 
-    // Dữ liệu cũ còn trùng thì dọn luôn bản đã lưu: danh sách tự lành sau một
-    // lần mở, thay vì lần nào cũng phải sửa lại trong bộ nhớ.
+    // Self-heal persisted lists that contained legacy duplicate records.
     if (unique.length !== storedItems.length && storedInCarousel) {
       console.warn(
         `[DataControl] Dropped ${storedItems.length - unique.length} duplicate card(s) from [${sourceId}].`,
@@ -391,21 +753,20 @@ export class DataControl {
       if (this._switchToken !== switchToken) return;
     }
 
-    // Mỗi nguồn có thể tự quy định thứ tự chuẩn (Collection: video lên đầu).
-    // Áp tại đây một lần để carousel và lưới quản lý luôn khớp nhau.
+    // Apply canonical source ordering (e.g. Collection sort mode).
     this.items =
       typeof this.activeSource?.sortItems === "function"
         ? this.activeSource.sortItems(unique)
         : unique;
 
-    // Xác định vị trí index mục tiêu
+    // Resolve target index.
     let resolvedIndex = targetIndex;
     if (resolvedIndex === null || resolvedIndex === undefined) {
       const settings = getSettings();
       const config = settings.wallpaperConfig || {};
       const switcher = settings.wallpaperSwitcher || {};
 
-      // 1. Nếu nguồn này trùng với nguồn active của desktop, tìm thẻ đang hiển thị
+      // 1. If this source owns the active desktop wallpaper, focus that card.
       if (config.source === sourceId) {
         const activeId =
           sourceId === "collection"
@@ -419,7 +780,7 @@ export class DataControl {
         }
       }
 
-      // 2. Nếu chưa xác định được từ active wallpaper, kiểm tra index đã lưu riêng của nguồn này
+      // 2. Otherwise fall back to the saved per-source cursor index.
       if (resolvedIndex === null || resolvedIndex === undefined) {
         const savedIndex = switcher.sourceIndices?.[sourceId];
         if (typeof savedIndex === "number" && savedIndex >= 0) {
@@ -427,15 +788,13 @@ export class DataControl {
         }
       }
 
-      // 3. Fallback về 0
+      // 3. Fallback to index 0.
       if (resolvedIndex === null || resolvedIndex === undefined) {
         resolvedIndex = 0;
       }
     }
 
-    // A saved feed may outgrow a lowered cap (50 → 20): drop the oldest cards
-    // now so the strip and the counter agree on the very first open, not only
-    // after the next fetch. The cursor keeps following its card.
+    // Enforce `maxCards` cap on load so strip and counter match immediately.
     const cursorId = this.items[resolvedIndex]?.id ?? null;
     if (await this._trimToCap(sourceId)) {
       if (cursorId != null) {
@@ -464,10 +823,10 @@ export class DataControl {
     });
   }
 
-  /* ── Thao tác chọn Thẻ (Navigation & Selection) ────────────────────────── */
+  /* ── Navigation & Selection ────────────────────────────────────────────── */
 
   /**
-   * Cập nhật thẻ Soft khi tâm lướt qua.
+   * Update `softIndex` while the carousel is scrolling past cards.
    * @param {number} index
    */
   setSoftIndex(index) {
@@ -485,7 +844,7 @@ export class DataControl {
   }
 
   /**
-   * Chốt thẻ Hard khi cuộn đã dừng hẳn (settled).
+   * Settle `currentIndex` and emit `card:hard` so Layer 4 renders the card.
    * @param {number} index
    */
   setHardIndex(index) {
@@ -500,8 +859,9 @@ export class DataControl {
       card.effects = getDefaultWallpaperEffects();
     }
 
-    // Chỉ lưu vết vị trí index của nguồn hiện tại trên Switcher
-    // Hiệu ứng và activeWallpaperId sẽ được renderer lưu sau khi overlay đã che kín màn hình
+    // Persist switcher cursor index; active wallpaper config and effects are
+    // committed by `DataControl.commitAppliedCard()` once the renderer finishes
+    // fading the overlay and decoding the image.
     const currentSettings = getSettings();
     const currentSwitcher = currentSettings.wallpaperSwitcher || {};
     const sourceIndices = { ...(currentSwitcher.sourceIndices || {}) };
@@ -515,7 +875,6 @@ export class DataControl {
       },
     });
 
-    // Phát event card:hard để Renderer bắt đầu fade overlay và áp dụng hiệu ứng trong bóng tối
     this.emit("card:hard", {
       index,
       card,
@@ -524,10 +883,10 @@ export class DataControl {
     this._notifyState();
   }
 
-  /* ── Lấy thêm ảnh mới (Fetch More) ─────────────────────────────────────── */
+  /* ── Fetch More & FIFO Cap Management ──────────────────────────────────── */
 
   /**
-   * Lên lịch chạy dọn dẹp blob mồ côi trong IndexedDB (BakoDB/mediaData).
+   * Schedule background Media Garbage Collection in `mediaData`.
    * @private
    */
   _scheduleMediaGC() {
@@ -535,16 +894,20 @@ export class DataControl {
       typeof window !== "undefined" &&
       typeof window.requestIdleCallback === "function"
     ) {
-      window.requestIdleCallback(() => runMediaGC(), { timeout: 4000 });
+      window.requestIdleCallback(
+        () => runMediaGC({ dataControl: this }),
+        { timeout: 4000 },
+      );
     } else {
-      setTimeout(() => runMediaGC(), 1000);
+      setTimeout(() => runMediaGC({ dataControl: this }), 1000);
     }
   }
 
   /**
-   * Xác định vị trí thẻ sẽ bị loại bỏ khi danh sách đạt ngưỡng tối đa (FIFO).
-   * Bỏ qua thẻ đang được áp dụng trên màn hình Desktop (nếu có).
-   * @returns {number|null} Index của thẻ cần loại bỏ, hoặc null nếu không thể loại bỏ.
+   * Determine the oldest prunable card index under FIFO eviction,
+   * never evicting the card currently applied to the desktop.
+   *
+   * @returns {number|null} Candidate index, or null if no card can be pruned.
    */
   getPruneCandidateIndex() {
     if (this.items.length === 0) return null;
@@ -556,13 +919,11 @@ export class DataControl {
         wallpaperConfig.activeCollectionItemId
       : null;
 
-    // Nếu thẻ đầu tiên là ảnh Desktop đang áp dụng, bỏ qua và lấy thẻ tiếp theo
     let pruneIndex = 0;
     if (appliedId && this.items[0]?.id === appliedId && this.items.length > 1) {
       pruneIndex = 1;
     }
 
-    // Nếu tất cả các thẻ đều trùng appliedId, không thể loại bỏ
     if (appliedId && this.items[pruneIndex]?.id === appliedId) {
       return null;
     }
@@ -572,11 +933,6 @@ export class DataControl {
 
   /**
    * Trim the active source's window down to `maxCards` (oldest first).
-   *
-   * `requestMore` only enforces the cap while appending, so a list saved under
-   * a higher cap would never shrink. This runs on load so the stored feed and
-   * the counter match the current limit. Same rule as the FIFO there: the card
-   * applied to the desktop is never pruned.
    *
    * @param {string} sourceId
    * @returns {Promise<boolean>} true when at least one card was dropped.
@@ -612,11 +968,11 @@ export class DataControl {
   }
 
   /**
-   * Yêu cầu nguồn nạp thêm ảnh mới (khi người dùng đến ô '+' hoặc bấm nút).
-   * Tự động xoay vòng FIFO nếu số lượng ảnh chạm trần maxCards.
+   * Request more items from the active source, enforcing FIFO cap eviction when needed.
+   *
    * @param {Object} [options]
-   * @param {(card: CardItem, index: number) => Promise<void>|void} [options.onPruneActive] - Hook chạy hiệu ứng xóa khi thẻ bị cắt là thẻ đang active.
-   * @returns {Promise<CardItem|null>} Thẻ mới vừa nạp xong, hoặc null nếu hết/lỗi.
+   * @param {(card: CardItem, index: number) => Promise<void>|void} [options.onPruneActive]
+   * @returns {Promise<CardItem|null>} First newly added card, or null if exhausted/aborted/errored.
    */
   async requestMore({ onPruneActive } = {}) {
     if (this.isBusy || !this.activeSource?.canGrow) return null;
@@ -631,16 +987,13 @@ export class DataControl {
       if (this.activeSourceId !== currentSourceId) return null;
 
       if (!newItems || newItems.length === 0) {
-        // Nguồn đã cạn ảnh
         this.emit("feed:exhausted", { sourceId: this.activeSourceId });
         return null;
       }
 
       const validFresh = newItems.filter(Boolean);
 
-      // Chặn tuyệt đối thẻ trùng lặp ID với mảng thẻ hiện có — và trùng
-      // ngay trong cùng một batch, thứ mà bộ lọc theo `existingIds` không
-      // tự bắt được nếu id chỉ lặp lại giữa hai bản ghi mới.
+      // Deduplicate against existing cards and within the new batch itself.
       const existingIds = new Set(this.items.map((item) => String(item.id)));
       const uniqueFresh = validFresh.filter((item) => {
         const key = String(item.id);
@@ -650,12 +1003,11 @@ export class DataControl {
       });
 
       if (uniqueFresh.length === 0) {
-        // Toàn bộ ảnh trả về đều đã tồn tại trên dải -> coi như nguồn đã hết ảnh mới
         this.emit("feed:exhausted", { sourceId: this.activeSourceId });
         return null;
       }
 
-      // Xoay vòng FIFO nếu tổng số thẻ sau khi nạp vượt quá cap
+      // Apply FIFO eviction when appending would exceed `maxCards`.
       const cap = Number(this.activeSource?.maxCards);
       let prunedCard = null;
       if (Number.isFinite(cap)) {
@@ -695,9 +1047,7 @@ export class DataControl {
       const activeIdBeforeFetch = this.activeCard?.id ?? null;
       this.items.push(...uniqueFresh);
 
-      // Re-apply the source order after appending so a freshly uploaded video
-      // jumps to the top of the window instead of trailing at the end. The
-      // cursor follows the card it was on, not the index it used to hold.
+      // Re-apply source ordering while keeping the cursor pinned to the active card ID.
       if (typeof this.activeSource?.sortItems === "function") {
         this.items = this.activeSource.sortItems(this.items);
         if (activeIdBeforeFetch != null) {
@@ -760,11 +1110,14 @@ export class DataControl {
       this._notifyState();
     }
   }
-  /* ── Dọn dẹp lịch sử ảnh (Clear History) ───────────────────────────────── */
+
+  /* ── History Cleanup & Deletion ────────────────────────────────────────── */
 
   /**
-   * Dọn dẹp toàn bộ lịch sử cuộn ảnh của nguồn `sourceId`.
-   * Giữ lại duy nhất 1 thẻ ảnh nếu nguồn này đang được áp dụng trên màn hình Desktop.
+   * Clear carousel browse history for a static remote source `sourceId`.
+   * Preserves the single card currently applied to the desktop if any.
+   * Guarded against dynamic sources (`collection`, `bing`) whose items are not
+   * stored in `carousel:*` history.
    *
    * @param {string} [sourceId=this.activeSourceId]
    * @returns {Promise<boolean>}
@@ -773,7 +1126,7 @@ export class DataControl {
     if (this.isBusy || !sourceId) return false;
 
     const source = this.sources.get(sourceId);
-    if (!source) return false;
+    if (!source || source.isDynamic) return false;
 
     this.isBusy = true;
     this.status = "deleting";
@@ -796,7 +1149,6 @@ export class DataControl {
         return true;
       }
 
-      // Kiểm tra xem nguồn này có đang đặt hình nền cho Desktop không
       const wallpaperConfig = getSettings().wallpaperConfig || {};
       const isDesktopSource = wallpaperConfig.source === sourceId;
       const appliedId = isDesktopSource
@@ -804,16 +1156,13 @@ export class DataControl {
           wallpaperConfig.activeCollectionItemId
         : null;
 
-      // Tìm thẻ đang được desktop áp dụng (nếu có)
       let preservedCard = null;
       if (appliedId) {
         preservedCard = itemsToProcess.find((c) => c?.id === appliedId) || null;
       }
 
-      // Các thẻ bị loại bỏ
       const removedCards = itemsToProcess.filter((c) => c !== preservedCard);
 
-      // Giải phóng bộ nhớ RAM các thẻ bị loại bỏ
       for (const card of removedCards) {
         if (typeof source?.deleteItem === "function") {
           await source.deleteItem(card);
@@ -823,10 +1172,8 @@ export class DataControl {
       const remainingCards = preservedCard ? [preservedCard] : [];
       await this._persistCards(sourceId, remainingCards);
 
-      // Kích hoạt dọn dẹp GC chạy ngầm sau khi xóa lịch sử
       this._scheduleMediaGC();
 
-      // Cập nhật index đã lưu về 0
       const currentSwitcher = getSettings().wallpaperSwitcher || {};
       const sourceIndices = { ...(currentSwitcher.sourceIndices || {}) };
       sourceIndices[sourceId] = 0;
@@ -837,7 +1184,6 @@ export class DataControl {
         },
       });
 
-      // Nếu đây là nguồn đang mở trong carousel, cập nhật bộ nhớ tại chỗ và bắn sự kiện
       if (isCurrentlyActive) {
         this.items = remainingCards;
         this.currentIndex = 0;
@@ -871,13 +1217,12 @@ export class DataControl {
   }
 
   /**
-   * Xóa một thẻ khỏi danh sách và giải phóng dữ liệu trong IndexedDB.
+   * Delete a card from the active list and release its underlying resources.
+   *
    * @param {number} [targetIndex=this.currentIndex]
    * @param {Object} [options]
-   * @param {boolean} [options.preserveCursor=false] - Khi thẻ bị xóa không phải
-   *   thẻ đang chốt, giữ nguyên con trỏ thay vì nhảy về vùng vừa xóa. Dùng cho
-   *   lưới quản lý, nơi người dùng có thể xóa bất kỳ thẻ nào trong khi desktop
-   *   vẫn đang hiển thị một thẻ khác.
+   * @param {boolean} [options.preserveCursor=false] - Keep the active cursor on its
+   *   current card when deleting a non-active card (used by Manage Grid).
    * @returns {Promise<boolean>}
    */
   async deleteCard(
@@ -894,32 +1239,24 @@ export class DataControl {
     const cardToDelete = this.items[targetIndex];
 
     try {
-      // 1. Nếu source có logic xóa riêng (ví dụ CollectionDb) hoặc giải phóng RAM
       if (typeof this.activeSource?.deleteItem === "function") {
         await this.activeSource.deleteItem(cardToDelete);
       }
 
-      // 2. Xóa khỏi mảng dữ liệu và cập nhật IndexedDB
       this.items.splice(targetIndex, 1);
       await this._persistCards(this.activeSourceId, this.items);
 
-      // Xóa "bóng ma": Nếu dải thẻ đã rỗng, xóa luôn record current ở Data queue
-      if (this.items.length === 0) {
-        const storageKey = this.activeSource?.constructor?.storageKey;
-        if (storageKey) {
-          const storeData = await getFromStore(storageKey);
-          if (storeData && storeData.applied) {
-            storeData.applied = null;
-            await saveToStore(storageKey, storeData);
-          }
-        }
+      // Clear persisted `applied` record when the list becomes empty so deleted cards do not respawn.
+      if (
+        this.items.length === 0 &&
+        typeof this.activeSource?.clearApplied === "function"
+      ) {
+        await this.activeSource.clearApplied();
       }
 
-      // 4. Tính toán index kế cận (ưu tiên thẻ bên trái, khớp chuẩn xác với CarouselEngine)
       const previousIndex = this.currentIndex;
       let nextIndex;
       if (preserveCursor && targetIndex !== previousIndex) {
-        // Xóa ở chỗ khác trên dải thì không được kéo thẻ đang xem đi theo.
         nextIndex =
           targetIndex < previousIndex ? previousIndex - 1 : previousIndex;
       } else {
@@ -929,7 +1266,6 @@ export class DataControl {
       this.currentIndex = nextIndex;
       this.softIndex = nextIndex;
 
-      // Cập nhật lại index đã lưu cho nguồn này
       const currentSwitcher = getSettings().wallpaperSwitcher || {};
       const sourceIndices = { ...(currentSwitcher.sourceIndices || {}) };
       sourceIndices[this.activeSourceId] = nextIndex;
@@ -946,6 +1282,13 @@ export class DataControl {
         remainingItems: this.items,
         newIndex: nextIndex,
       });
+
+      if (this.activeSourceId === "collection") {
+        this.emit("collection:updated", {
+          action: "deleted",
+          deletedCard: cardToDelete,
+        });
+      }
 
       return true;
     } catch (err) {
@@ -968,14 +1311,10 @@ export class DataControl {
   }
 
   /**
-   * Xóa nhiều thẻ trong **một lượt**: một transaction DB (source tự gộp),
-   * một lần persist danh sách, một event `card:deleted`.
+   * Delete multiple cards in a single batch (one source transaction, one persist,
+   * one `card:deleted` event).
    *
-   * Dùng cho lưới quản lý khi chọn nhiều. Nếu thẻ đang chốt bị xóa thì con trỏ
-   * nhảy về thẻ bên trái gần nhất (giống `deleteCard`); nếu thẻ đang chốt còn
-   * sống, nó giữ nguyên vị trí theo `id`.
-   *
-   * @param {number[]} indices - Vị trí các thẻ cần xóa trong `items`.
+   * @param {number[]} indices - Card indices to delete from `this.items`.
    * @returns {Promise<boolean>}
    */
   async deleteCards(indices = []) {
@@ -998,7 +1337,6 @@ export class DataControl {
     const firstRemoved = uniqueIndices[0];
 
     try {
-      // 1. Source gộp việc xóa thành một lần ghi (Collection: một transaction).
       if (typeof this.activeSource?.deleteItems === "function") {
         await this.activeSource.deleteItems(cardsToDelete);
       } else if (typeof this.activeSource?.deleteItem === "function") {
@@ -1007,25 +1345,17 @@ export class DataControl {
         }
       }
 
-      // 2. Bỏ tất cả khỏi cửa sổ và persist đúng một lần.
       const removed = new Set(uniqueIndices);
       this.items = this.items.filter((_, index) => !removed.has(index));
       await this._persistCards(this.activeSourceId, this.items);
 
-      // 3. Cửa sổ rỗng: bỏ luôn "applied" để không hồi sinh thẻ cũ.
-      if (this.items.length === 0) {
-        const storageKey = this.activeSource?.constructor?.storageKey;
-        if (storageKey) {
-          const storeData = await getFromStore(storageKey);
-          if (storeData && storeData.applied) {
-            storeData.applied = null;
-            await saveToStore(storageKey, storeData);
-          }
-        }
+      if (
+        this.items.length === 0 &&
+        typeof this.activeSource?.clearApplied === "function"
+      ) {
+        await this.activeSource.clearApplied();
       }
 
-      // 4. Con trỏ: ưu tiên giữ nguyên thẻ đang chốt, nếu nó bị xóa thì lấy
-      //    thẻ bên trái của vùng vừa xóa.
       let nextIndex;
       if (activeId != null) {
         const stillThere = this.items.findIndex(
@@ -1060,6 +1390,13 @@ export class DataControl {
         newIndex: nextIndex,
       });
 
+      if (this.activeSourceId === "collection") {
+        this.emit("collection:updated", {
+          action: "deleted",
+          deletedCards: cardsToDelete,
+        });
+      }
+
       return true;
     } catch (err) {
       console.error(
@@ -1080,11 +1417,10 @@ export class DataControl {
     }
   }
 
-  /* ── Private Helpers ───────────────────────────────────────────────────── */
+  /* ── Collection & Effects Synchronization ──────────────────────────────── */
 
   /**
-   * The collection entry that holds a saved copy of `card`, if any. Collection
-   * cards are their own entry; remote cards are matched by their source page.
+   * Locate the collection entry matching `card`, if any.
    *
    * @param {CardItem} card
    * @returns {Promise<Object|null>}
@@ -1094,12 +1430,15 @@ export class DataControl {
 
     try {
       const collection = await getCollection();
-      if (this.activeSourceId === "collection") {
+      if (card.source === "collection") {
         return (
-          collection.find((it) => String(it.id) === String(card.id)) || null
+          collection.find((it) => it && String(it.id) === String(card.id)) ||
+          null
         );
       }
-      return findCollectionEntry(card, this.activeSource, collection);
+      const cardSource =
+        (card.source && this.sources.get(card.source)) || this.activeSource;
+      return findCollectionEntry(card, cardSource, collection);
     } catch (err) {
       console.error("[DataControl] Failed to read collection:", err);
       return null;
@@ -1114,18 +1453,13 @@ export class DataControl {
    */
   async isCardInCollection(card) {
     if (!card) return false;
-    if (this.activeSourceId === "collection") return true;
     return Boolean(await this.findCollectionEntryFor(card));
   }
 
   /**
    * Mirror a card's effect profile onto its saved collection copy.
-   *
-   * A wallpaper customized while browsing the source it came from must land on
-   * the collection record too, otherwise the collection shows the same image
-   * with default effects.
-   *
    * @param {CardItem} card
+   * @private
    */
   async _syncCollectionEffects(card) {
     if (!card?.effects) return;
@@ -1146,8 +1480,11 @@ export class DataControl {
   }
 
   /**
-   * Cập nhật bộ hiệu ứng riêng của thẻ đang hoạt động (active card).
+   * Merge partial effect changes into the active card, re-sort, persist,
+   * sync to collection, and emit `card:effects_changed`.
+   *
    * @param {Object} partialEffects
+   * @returns {Promise<void>}
    */
   async updateActiveCardEffects(partialEffects) {
     const card = this.activeCard;
@@ -1165,17 +1502,12 @@ export class DataControl {
       }
     }
 
-    // Bloom is image-only: a video profile never carries it, whichever surface
-    // pushed the filter values (settings subscription or the editor).
+    // Bloom is image-only: strip it whenever a video profile is updated.
     if (card.mediaType === "video" && card.effects.filter) {
       card.effects.filter.bloom = 0;
     }
 
-    // The profile was mutated in place, so its cached state is stale. Drop it
-    // before re-sorting, which reads every card's customization count.
     invalidateEffectStates(card.effects);
-
-    // Tự động sắp xếp lại toàn bộ danh sách: nhiều tùy chỉnh nhất lên đầu
     this.sortCurrentItems();
 
     if (this.activeSourceId) {
@@ -1192,12 +1524,11 @@ export class DataControl {
   }
 
   /**
-   * Đặt lại toàn bộ hiệu ứng của thẻ đang hoạt động về mặc định (cả 5 nhóm:
-   * vị trí, bộ lọc, hiệu ứng nền, hoạt ảnh mở trang, wavy/parallax).
-   * Đồng bộ giá trị mặc định vào settings toàn cục để các panel và renderer
-   * cùng đọc một nguồn, rồi áp dụng ngay lên hình nền.
+   * Reset all 5 effect groups on the active card to defaults, save into
+   * settings under `isApplyingCardEffects`, and emit `card:effects_changed`
+   * so Layer 4 (`WallpaperRenderer`) updates filters and position immediately.
    *
-   * @returns {Promise<boolean>} `true` nếu có thẻ để đặt lại.
+   * @returns {Promise<boolean>} `true` when an active card was reset.
    */
   async resetActiveCardEffects() {
     const card = this.activeCard;
@@ -1214,8 +1545,7 @@ export class DataControl {
 
     await this._syncCollectionEffects(card);
 
-    // Ghi giá trị mặc định vào settings. Guard để các subscriber của chính
-    // DataControl không ghi ngược lại thẻ (và sắp xếp lại) lần nữa.
+    // Guard against DataControl's own settings subscribers writing back into the card.
     this.isApplyingCardEffects = true;
     try {
       const conf = getSettings().wallpaperConfig || {};
@@ -1238,26 +1568,21 @@ export class DataControl {
       this.isApplyingCardEffects = false;
     }
 
-    // Bộ lọc và vị trí không có subscription áp lại; wavy và particles tự lo
-    // qua subscriber settings của chúng.
-    applyWallpaperFilters(defaults.filter);
-    applyWallpaperPosition(defaults.position);
-
+    // Layer 4 WallpaperRenderer listens for `card:effects_changed` to apply
+    // filter & position CSS without Layer 2 importing rendering modules.
     this.emit("card:effects_changed", {
       card,
       effects: card.effects,
       index: this.currentIndex,
+      reset: true,
     });
 
     return true;
   }
 
   /**
-   * Sắp xếp lại `this.items` theo thứ tự của nguồn hiện hành.
-   *
-   * Chỉ Collection mới áp dụng sắp xếp (theo sort mode trong cài đặt nguồn);
-   * các nguồn khác không áp dụng bất kỳ sort nào và giữ nguyên thứ tự gốc.
-   * Cập nhật `this.currentIndex` tương ứng với vị trí mới của thẻ đang active.
+   * Re-sort `this.items` using the active source's ordering (Collection only)
+   * and keep `currentIndex` / `softIndex` aligned with the active card.
    */
   sortCurrentItems() {
     if (!Array.isArray(this.items) || this.items.length <= 1) return;
@@ -1279,12 +1604,12 @@ export class DataControl {
         this.currentIndex = nextIndex;
         this.softIndex = nextIndex;
         if (this.activeSourceId) {
-          const sourceIndices =
-            getSettings().wallpaperSwitcher?.sourceIndices || {};
+          const currentSwitcher = getSettings().wallpaperSwitcher || {};
+          const sourceIndices = { ...(currentSwitcher.sourceIndices || {}) };
           sourceIndices[this.activeSourceId] = this.currentIndex;
           saveSettings({
             wallpaperSwitcher: {
-              ...getSettings().wallpaperSwitcher,
+              ...currentSwitcher,
               sourceIndices,
             },
           });
@@ -1294,8 +1619,7 @@ export class DataControl {
   }
 
   /**
-   * Re-apply the active source's ordering to the window (used after the
-   * Collection sort settings change) without re-reading the store.
+   * Re-apply the active source's ordering to the window without re-reading the store.
    * @returns {Promise<void>}
    */
   async sortActiveItems() {
@@ -1327,25 +1651,28 @@ export class DataControl {
     });
   }
 
+  /**
+   * Persist deduplicated, blob-free cards to `carousel:${sourceId}` for static sources.
+   * Skips dynamic sources (`collection`, `bing`) whose items live in their own DB stores.
+   *
+   * @param {string} sourceId
+   * @param {CardItem[]} cards
+   * @returns {Promise<void>}
+   * @private
+   */
   async _persistCards(sourceId, cards) {
-    // Chỉ lưu danh sách các object sạch vào appData
-    // Không lưu chuỗi `blob:` vào IndexedDB vì object URL sẽ bị hủy sau khi reload trang!
-    const cleanCards = uniqueCards(cards).map((c) => {
-      const item = { ...c };
-      if (
-        typeof item.thumbnailUrl === "string" &&
-        item.thumbnailUrl.startsWith("blob:")
-      ) {
-        item.thumbnailUrl = null;
-      }
-      return item;
-    });
+    const source = this.sources.get(sourceId);
+    if (source?.isDynamic) return;
+
+    const cleanCards = uniqueCards(cards).map(stripCardBlobs);
     await saveToStore(`carousel:${sourceId}`, cleanCards);
   }
 
+  /** @private */
   _notifyState() {
     this.emit("state:change", this.getState());
   }
 }
 
 export const dataControl = new DataControl();
+setMediaGCDataControl(dataControl);

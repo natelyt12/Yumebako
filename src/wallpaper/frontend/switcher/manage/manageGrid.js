@@ -4,20 +4,14 @@ import { renderIcons } from "/src/core/icon.js";
 import { showConfirm, showNotification } from "/src/core/ui.js";
 import { subscribe } from "/src/core/storageHandler.js";
 import {
-  formatFileSize,
-  formatResolution,
-  getResolutionBadge,
   escapeHtml,
-} from "../../../backend/sources/cardMeta.js";
-import { getCollection } from "../../../backend/sources/api/collectionDb.js";
-import {
-  isCardInCollection,
-  addCardsToCollection,
-} from "../../../backend/sources/sourceActions.js";
+  formatMetaDetailRows,
+} from "../metaFormatter.js";
 import {
   getCardCustomizations,
 } from "../../customize/state.js";
 import { EFFECT_SETTING_KEYS } from "../../customize/catalog.js";
+import { handleCardActionResult } from "../actionResultHandler.js";
 
 /**
  * manageGrid.js
@@ -47,26 +41,22 @@ import { EFFECT_SETTING_KEYS } from "../../customize/catalog.js";
  * @param {Object} options
  * @param {string}  options.containerClass - Class for the wrapper span.
  * @param {string}  options.itemClass      - Class for each icon item span.
- * @param {boolean} [options.containerTitle=false] - Put all labels in the wrapper title.
  * @returns {string} HTML, or "" when there is nothing to show.
  */
 function buildCustomizationIconsHtml(
   customs,
-  { containerClass, itemClass, containerTitle = false },
+  { containerClass, itemClass },
 ) {
   if (!customs || customs.length === 0) return "";
 
   const items = customs
     .map(
       (custom) =>
-        `<span class="${itemClass}" title="${escapeHtml(custom.label)}"><i data-icon="${custom.icon}"></i></span>`,
+        `<span class="${itemClass}"><i data-icon="${custom.icon}"></i></span>`,
     )
     .join("");
-  const titleAttr = containerTitle
-    ? ` title="${escapeHtml(customs.map((custom) => custom.label).join(", "))}"`
-    : "";
 
-  return `<span class="${containerClass}"${titleAttr}>${items}</span>`;
+  return `<span class="${containerClass}">${items}</span>`;
 }
 
 export function createManageGrid({
@@ -141,6 +131,8 @@ export function createManageGrid({
 
   /** id → `CardItem` for the cards currently drawn. */
   const cardsById = new Map();
+  /** id → card DOM element for in-place reuse across renders. */
+  const cardElsById = new Map();
   /** Card picked for the detail pane (not necessarily the applied one). */
   let selectedId = null;
   /** Select-many mode: card clicks toggle membership instead of previewing. */
@@ -337,6 +329,7 @@ export function createManageGrid({
       syncEmptyCopy();
       emptyEl.hidden = false;
       gridEl.hidden = true;
+      cardElsById.clear();
       gridEl.replaceChildren();
       gridHasPainted = true;
       renderDetail();
@@ -346,9 +339,22 @@ export function createManageGrid({
     emptyEl.hidden = true;
     gridEl.hidden = false;
 
-    const cardElements = displayItems.map((card) => buildCard(card, activeId));
-    gridEl.replaceChildren(...cardElements);
-    renderIcons(gridEl);
+    // Drop DOM references for cards that left the list.
+    for (const id of cardElsById.keys()) {
+      if (!cardsById.has(id)) cardElsById.delete(id);
+    }
+
+    const cardElements = displayItems.map((card) =>
+      upsertCard(card, activeId),
+    );
+    const currentChildren = gridEl.children;
+    const sameOrder =
+      currentChildren.length === cardElements.length &&
+      cardElements.every((cardEl, i) => currentChildren[i] === cardEl);
+    if (!sameOrder) {
+      gridEl.replaceChildren(...cardElements);
+    }
+
     if (useMotion) animateCards(cardElements, previousRects);
     gridHasPainted = true;
     if (isSelectMode) refreshMultiSelectionUI();
@@ -375,6 +381,65 @@ export function createManageGrid({
   /* ── Card ──────────────────────────────────────────────────────────────── */
 
   /**
+   * Reuse an existing card DOM node when `card.id` is already mounted, patching
+   * only changed classes, thumbnail, caption, or apply button state.
+   *
+   * @param {import("/src/wallpaper/backend/data/DataControl.js").CardItem} card
+   * @param {string|null} activeId
+   * @returns {HTMLElement}
+   */
+  function upsertCard(card, activeId) {
+    const key = String(card.id);
+    const existing = cardElsById.get(key);
+    if (!existing) {
+      const created = buildCard(card, activeId);
+      renderIcons(created);
+      cardElsById.set(key, created);
+      return created;
+    }
+
+    const isActive = activeId != null && key === String(activeId);
+    existing._card = card;
+    existing.classList.toggle("bg_coll_card_active", isActive);
+    existing.classList.toggle(
+      "is-selected",
+      !isSelectMode && key === selectedId,
+    );
+
+    const nextThumbUrl = card.thumbnailUrl || "";
+    if (existing._thumbUrl !== nextThumbUrl) {
+      existing._thumbUrl = nextThumbUrl;
+      const currentThumb = existing.querySelector(".bg_coll_thumb");
+      const nextThumb = buildThumb(card);
+      if (currentThumb) {
+        currentThumb.replaceWith(nextThumb);
+        renderIcons(nextThumb);
+      }
+    }
+
+    const info = existing.querySelector(".bg_coll_info");
+    if (info) {
+      const nextInfoHtml = buildInfoHtml(card, isActive);
+      if (existing._infoHtml !== nextInfoHtml) {
+        existing._infoHtml = nextInfoHtml;
+        info.innerHTML = nextInfoHtml;
+        renderIcons(info);
+      }
+    }
+
+    if (existing._wasActive !== isActive) {
+      existing._wasActive = isActive;
+      const btn = existing.querySelector(".bg_coll_set_btn");
+      if (btn) {
+        syncApplyButton(btn, isActive);
+        renderIcons(btn);
+      }
+    }
+
+    return existing;
+  }
+
+  /**
    * @param {import("/src/wallpaper/backend/data/DataControl.js").CardItem} card
    * @param {string|null} activeId
    * @returns {HTMLElement}
@@ -387,6 +452,9 @@ export function createManageGrid({
     cardEl.dataset.id = String(card.id);
     cardEl.setAttribute("role", "listitem");
     cardEl.tabIndex = 0;
+    cardEl._card = card;
+    cardEl._thumbUrl = card.thumbnailUrl || "";
+    cardEl._wasActive = isActive;
     if (isActive) cardEl.classList.add("bg_coll_card_active");
     if (!isSelectMode && String(card.id) === selectedId) {
       cardEl.classList.add("is-selected");
@@ -401,25 +469,29 @@ export function createManageGrid({
        detail pane on the right. */
     const actions = document.createElement("div");
     actions.className = "bg_coll_card_actions";
-    actions.append(buildApplyButton(card, isActive));
+    actions.append(buildApplyButton(cardEl, isActive));
     thumbWrapper.appendChild(actions);
 
     /* Caption: check (when applied) + badge + resolution, size on the right. */
     const info = document.createElement("div");
     info.className = "bg_coll_info";
-    info.innerHTML = buildInfoHtml(card, isActive);
+    const infoHtml = buildInfoHtml(card, isActive);
+    cardEl._infoHtml = infoHtml;
+    info.innerHTML = infoHtml;
 
     cardEl.append(thumbWrapper, info);
 
     cardEl.addEventListener("click", () => {
-      if (isSelectMode) toggleMultiSelect(card.id);
-      else selectCard(card.id);
+      const current = cardEl._card || card;
+      if (isSelectMode) toggleMultiSelect(current.id);
+      else selectCard(current.id);
     });
     cardEl.addEventListener("keydown", (e) => {
       if (e.key !== "Enter" && e.key !== " ") return;
       e.preventDefault();
-      if (isSelectMode) toggleMultiSelect(card.id);
-      else selectCard(card.id);
+      const current = cardEl._card || card;
+      if (isSelectMode) toggleMultiSelect(current.id);
+      else selectCard(current.id);
     });
 
     return cardEl;
@@ -430,12 +502,13 @@ export function createManageGrid({
 
   function buildInfoHtml(card, isActive) {
     const isVideo = isVideoCard(card);
-    const size = formatFileSize(card.size);
+    const meta = dataControl.activeSource?.getMetaData?.(card) || {};
+    const size = meta.size || "";
     // Video has no resolution: the word "Video" takes its place.
-    const badge = isVideo ? "" : getResolutionBadge(card.width, card.height);
+    const badge = isVideo ? "" : meta.badge || "";
     const mainLabel = isVideo
       ? t("sp.api.collection.typeVideo", "Video")
-      : formatResolution(card.width, card.height);
+      : meta.resolution || "";
     const isVideoLabel = isVideo ? " is-video" : "";
 
     const inCollection = inCollectionIds.has(String(card.id));
@@ -456,7 +529,6 @@ export function createManageGrid({
     const customsHtml = buildCustomizationIconsHtml(customs, {
       containerClass: "bg_coll_info_customs",
       itemClass: "bg_coll_info_custom_icon",
-      containerTitle: true,
     });
 
     return `<span class="bg_coll_info_meta">${left}</span><span class="bg_coll_info_right">${customsHtml}<span class="bg_coll_info_size">${escapeHtml(size)}</span></span>`;
@@ -491,7 +563,7 @@ export function createManageGrid({
 
   /* ── Apply ("Set as wallpaper") ───────────────────────────────────────── */
 
-  function buildApplyButton(card, isActive) {
+  function buildApplyButton(cardEl, isActive) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "btn bg_coll_set_btn";
@@ -501,7 +573,10 @@ export function createManageGrid({
     // must work again without a full grid rebuild.
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (String(dataControl.activeCard?.id) === String(card.id)) return;
+      const card = cardEl._card;
+      if (!card || String(dataControl.activeCard?.id) === String(card.id)) {
+        return;
+      }
 
       try {
         // Layer 2 owns the switch; the renderer listens for `card:hard`.
@@ -550,14 +625,29 @@ export function createManageGrid({
       const card = cardsById.get(cardEl.dataset.id);
       if (!card) return;
       const isActive = activeId != null && String(card.id) === String(activeId);
+      const wasActive = cardEl.classList.contains("bg_coll_card_active");
+      const infoHtml = buildInfoHtml(card, isActive);
+      const infoChanged = cardEl._infoHtml !== infoHtml;
+      if (wasActive === isActive && !infoChanged) return;
 
       cardEl.classList.toggle("bg_coll_card_active", isActive);
-      const info = cardEl.querySelector(".bg_coll_info");
-      if (info) info.innerHTML = buildInfoHtml(card, isActive);
-      const btn = cardEl.querySelector(".bg_coll_set_btn");
-      if (btn) syncApplyButton(btn, isActive);
+      cardEl._wasActive = isActive;
+      if (infoChanged) {
+        const info = cardEl.querySelector(".bg_coll_info");
+        if (info) {
+          cardEl._infoHtml = infoHtml;
+          info.innerHTML = infoHtml;
+          renderIcons(info);
+        }
+      }
+      if (wasActive !== isActive) {
+        const btn = cardEl.querySelector(".bg_coll_set_btn");
+        if (btn) {
+          syncApplyButton(btn, isActive);
+          renderIcons(btn);
+        }
+      }
     });
-    renderIcons(gridEl);
   }
 
   /* ── Select-many mode ─────────────────────────────────────────────────── */
@@ -668,10 +758,14 @@ export function createManageGrid({
 
   /** Number the selected cards 1..n (insertion order) and draw the badge. */
   function refreshMultiSelectionUI() {
-    const ids = [...selectedIds];
+    const orderById = new Map();
+    let order = 1;
+    for (const id of selectedIds) {
+      orderById.set(id, order++);
+    }
     gridEl.querySelectorAll(".bg_coll_card").forEach((cardEl) => {
-      const position = ids.indexOf(cardEl.dataset.id);
-      const isSelected = position !== -1;
+      const badgeNum = orderById.get(cardEl.dataset.id);
+      const isSelected = badgeNum !== undefined;
       cardEl.classList.toggle("is-multi-selected", isSelected);
 
       const thumb = cardEl.querySelector(".bg_coll_thumb_wrapper");
@@ -686,8 +780,9 @@ export function createManageGrid({
         badge.className = "bg_coll_select_index";
         thumb.appendChild(badge);
       }
-      if (badge && badge.textContent !== String(position + 1)) {
-        badge.textContent = String(position + 1);
+      const nextText = String(badgeNum);
+      if (badge && badge.textContent !== nextText) {
+        badge.textContent = nextText;
       }
     });
   }
@@ -699,7 +794,7 @@ export function createManageGrid({
 
   /**
    * Fetch the collection once, mark which rendered cards already live in it,
-   * then repaint the captions so a star sits next to the applied check.
+   * then diff-update only captions whose collection star changed.
    */
   async function refreshCollectionMarkers() {
     const token = ++collectionToken;
@@ -714,9 +809,9 @@ export function createManageGrid({
       return;
     }
 
-    let collection = [];
+    let idSet = null;
     try {
-      collection = await getCollection();
+      idSet = await dataControl.getCollectionIdSet();
     } catch (err) {
       console.error("[ManageGrid] Failed to read collection:", err);
       return;
@@ -724,9 +819,15 @@ export function createManageGrid({
 
     if (token !== collectionToken) return;
 
+    const prev = inCollectionIds;
     const next = new Set();
+    const changedIds = new Set();
     cardsById.forEach((card, id) => {
-      if (isCardInCollection(card, source, collection)) next.add(id);
+      const inColl = idSet.has(id) || idSet.has(String(card.id));
+      if (inColl) next.add(id);
+      if (inColl !== prev.has(id)) {
+        changedIds.add(id);
+      }
     });
 
     // Only stars that just appeared get the pop; the first pass has no
@@ -736,7 +837,10 @@ export function createManageGrid({
       : [];
     inCollectionIds = next;
     paintedMarkIds = next;
-    patchCardInfo();
+
+    if (changedIds.size > 0) {
+      patchCardInfo(changedIds);
+    }
     animateCollectionMarks(justMarked);
   }
 
@@ -758,17 +862,26 @@ export function createManageGrid({
     });
   }
 
-  /** Repaint every caption from the current active + stored state. */
-  function patchCardInfo() {
+  /** Repaint captions from the current active + stored state (optionally scoped to `onlyIds`). */
+  function patchCardInfo(onlyIds = null) {
     const activeId = dataControl.activeCard?.id ?? null;
-    gridEl.querySelectorAll(".bg_coll_card").forEach((cardEl) => {
+    const targets = onlyIds
+      ? [...onlyIds].map((id) => cardElsById.get(id)).filter(Boolean)
+      : gridEl.querySelectorAll(".bg_coll_card");
+
+    targets.forEach((cardEl) => {
       const card = cardsById.get(cardEl.dataset.id);
       if (!card) return;
       const isActive = activeId != null && String(card.id) === String(activeId);
       const info = cardEl.querySelector(".bg_coll_info");
-      if (info) info.innerHTML = buildInfoHtml(card, isActive);
+      if (!info) return;
+      const infoHtml = buildInfoHtml(card, isActive);
+      if (cardEl._infoHtml !== infoHtml) {
+        cardEl._infoHtml = infoHtml;
+        info.innerHTML = infoHtml;
+        renderIcons(info);
+      }
     });
-    renderIcons(gridEl);
   }
 
   /** Bulk "add to collection" for the current multi-selection. */
@@ -783,12 +896,17 @@ export function createManageGrid({
 
     btnAddSelected.disabled = true;
     try {
-      const added = await addCardsToCollection(cards, source);
-      if (added > 0) {
+      const { addedCount, failedCount } = await dataControl.addCardsToCollection(
+        cards,
+        source,
+      );
+      if (addedCount > 0) {
         showNotification(
-          t("sp.api.collection.add_selected_success", { count: added }),
+          t("sp.api.collection.add_selected_success", { count: addedCount }),
           "success",
         );
+      } else if (failedCount > 0) {
+        showNotification(t("sp.api.collection.add_error"), "error");
       }
       await refreshCollectionMarkers();
     } catch (err) {
@@ -999,9 +1117,10 @@ export function createManageGrid({
   function buildDetailList(card) {
     const source = dataControl.activeSource;
     const details =
-      typeof source?.getChipDetails === "function"
-        ? source.getChipDetails(card) || []
+      typeof source?.getMetaDetails === "function"
+        ? formatMetaDetailRows(source.getMetaDetails(card))
         : [];
+    const meta = source?.getMetaData?.(card) || {};
 
     const list = document.createElement("div");
     list.className = "manage_detail_list";
@@ -1011,18 +1130,22 @@ export function createManageGrid({
       details.length > 0
         ? details
         : [
-            ...(isVideoCard(card)
+            ...(isVideoCard(card) || !meta.resolution
               ? []
               : [
                   {
                     label: t("sp.meta.resolution", "Độ phân giải"),
-                    value: formatResolution(card.width, card.height),
+                    value: meta.resolution,
                   },
                 ]),
-            {
-              label: t("sp.meta.filesize", "Dung lượng"),
-              value: formatFileSize(card.size),
-            },
+            ...(meta.size
+              ? [
+                  {
+                    label: t("sp.meta.filesize", "Dung lượng"),
+                    value: meta.size,
+                  },
+                ]
+              : []),
             {
               label: t("sp.meta.source", "Nguồn ảnh"),
               value: source?.name || "",
@@ -1121,8 +1244,8 @@ export function createManageGrid({
       btn.querySelector("span").textContent = label;
 
       btn.addEventListener("click", async () => {
-        await runDetailAction(action, card, btn);
-        if (action.id === "add") {
+        const result = await runDetailAction(action, card, btn);
+        if (action.id === "add" && result?.ok !== false) {
           // Real-time: repaint the caption star, then flip the button
           // between add <-> remove from collection.
           await refreshCollectionMarkers();
@@ -1171,7 +1294,7 @@ export function createManageGrid({
 
     if (!isDelete) {
       try {
-        await action.run(card, {
+        const result = await action.run(card, {
           source: dataControl.activeSource,
           dataControl,
           // Un-saving destroys the collection copy and any customizations it
@@ -1179,10 +1302,26 @@ export function createManageGrid({
           confirmRemove: (target, entry) =>
             confirmCollectionRemoval(target, triggerBtn, entry?.effects),
         });
+        handleCardActionResult(action.id, result, card);
+        return result;
       } catch (err) {
         console.error(`[ManageGrid] Action [${action.id}] failed:`, err);
+        if (action.id === "add") {
+          showNotification(
+            t("sp.api.collection.add_error", "Lỗi khi thêm vào bộ sưu tập"),
+            "error",
+          );
+        } else if (action.id === "download") {
+          showNotification(
+            t(
+              "sp.api.collection.download_error",
+              "Không tìm thấy dữ liệu ảnh để tải",
+            ),
+            "error",
+          );
+        }
+        return { ok: false, error: err };
       }
-      return;
     }
 
     if (action.id === "remove") {
@@ -1261,6 +1400,7 @@ export function createManageGrid({
       dataControl.off("card:effects_changed", onEffectsChanged);
       dataControl.off("state:change", syncFetchState);
       cardsById.clear();
+      cardElsById.clear();
     },
   };
 }

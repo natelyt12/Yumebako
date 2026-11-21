@@ -1,5 +1,8 @@
 import { RemoteSource } from "./RemoteSource.js";
-import { fetchWallhavenQueue } from "/src/wallpaper/backend/sources/api/wallhavenAPI.js";
+import {
+  fetchWallhavenQueue,
+  clearWallhavenQueue,
+} from "/src/wallpaper/backend/sources/api/wallhavenAPI.js";
 import { getFromStore, saveToStore } from "/src/core/db.js";
 import { getSettings } from "/src/core/storageHandler.js";
 import { t } from "/src/core/i18n.js";
@@ -8,7 +11,6 @@ import {
   getResolutionBadge,
   formatFileSize,
   formatNumber,
-  escapeHtml,
 } from "./cardMeta.js";
 
 /**
@@ -17,12 +19,8 @@ import {
  * Switcher source that queries the Wallhaven API using the user's saved
  * filters (`wallhavenConfig`).
  *
- * A single API call returns a batch of wallpapers that is kept in the app's
- * `data:wallhaven` queue; the carousel then materializes them one at a time as
- * the user reaches the trailing "+" card, refilling the queue when it runs dry.
- *
- * An unreachable API raises instead of yielding an empty batch, so the item can
- * report a retryable error rather than retiring itself as "nothing left".
+ * A single API call returns a batch of wallpapers kept in `provider_state:wallhaven`;
+ * the carousel materializes them one at a time on `fetchMore()`, refilling when empty.
  */
 export class WallhavenSource extends RemoteSource {
   static id = "wallhaven";
@@ -30,15 +28,15 @@ export class WallhavenSource extends RemoteSource {
   static providerId = "wallhaven";
   static storageKey = "provider_state:wallhaven";
 
-  /** Categories, purity, sorting and query all live in Settings. */
+  /** Categories, purity, sorting and query all live in provider settings. */
   get hasProviderSettings() {
     return true;
   }
 
   /**
-   * A new feed window (app start, source switch, settings reload) starts a new
-   * Wallhaven browse session, so pagination restarts from page 1 when the
-   * persisted queue has no leftovers.
+   * Reset pagination back to page 1 when starting a new browse session with
+   * an empty persisted queue.
+   * @returns {Promise<Array<Object>>}
    */
   async fetchItems() {
     const key = this.constructor.storageKey;
@@ -52,7 +50,10 @@ export class WallhavenSource extends RemoteSource {
     return super.fetchItems();
   }
 
-  /** Take the next wallpaper off the persisted queue, refilling it if empty. */
+  /**
+   * Take the next wallpaper off the persisted queue, refilling it if empty.
+   * @returns {Promise<Object|null>}
+   */
   async fetchItem() {
     const key = this.constructor.storageKey;
     const storeData = (await getFromStore(key)) || { queue: [], applied: null };
@@ -63,25 +64,17 @@ export class WallhavenSource extends RemoteSource {
       const page = Math.max(1, Number(storeData.page) || 1);
       const lastPage = Number(storeData.last_page) || 0;
 
-      // The last batch already was the final page of the result set. This is
-      // what makes a Wallhaven query with fewer images than `per_page` (e.g.
-      // `total: 5, per_page: 24`) end instead of refetching page 1 forever.
       if (lastPage > 0 && page > lastPage) {
         storeData.queue_total = 0;
         await saveToStore(key, storeData);
         return null;
       }
 
-      // Strict on purpose: a network failure must surface as an error the
-      // user can retry, never as "this feed has nothing left".
       const batch = await fetchWallhavenQueue({ strict: true, page });
       const meta = batch?.meta || {};
       const items = Array.isArray(batch) ? [...batch] : [];
       const perPage = Number(meta.per_page) || items.length || 24;
       const reportedLastPage = Number(meta.last_page) || 0;
-
-      // A short or empty page is the end of the feed even if the API did not
-      // report `last_page` (both are treated as "no further pages").
       const isLastPage = items.length === 0 || items.length < perPage;
 
       storeData.page = page + 1;
@@ -125,10 +118,23 @@ export class WallhavenSource extends RemoteSource {
     });
   }
 
-  // ─── Chip Info (Collapsed & Hover Expand) ─────────────────────────────────
+  /**
+   * Clear the cached Wallhaven queue and reset pagination.
+   * @returns {Promise<void>}
+   */
+  async clearCache() {
+    await clearWallhavenQueue();
+  }
 
-  getChipSummary(card) {
-    if (!card) return "";
+  // ─── Pure Structured Metadata ─────────────────────────────────────────────
+
+  /**
+   * Return pure structured summary metadata for a Wallhaven card (zero HTML).
+   * @param {Object} card
+   * @returns {import("./BaseSource.js").MetaData|null}
+   */
+  getMetaData(card) {
+    if (!card) return null;
     const cardQuery = card.query !== undefined ? card.query : card.raw?.query;
     const query =
       typeof cardQuery === "string"
@@ -136,17 +142,23 @@ export class WallhavenSource extends RemoteSource {
         : (getSettings()?.wallhavenConfig?.query || "").trim();
     const queryLabel = query || t("sp.meta.random", "Ngẫu nhiên");
     const badge = getResolutionBadge(card.width, card.height);
+    const resolution = formatResolution(card.width, card.height);
+    const size = formatFileSize(card.size);
 
-    const parts = [`<span>${escapeHtml(queryLabel)}</span>`];
-
+    const segments = [{ type: "text", text: queryLabel }];
     if (badge) {
-      parts.push(`<span class="meta_badge">${escapeHtml(badge)}</span>`);
+      segments.push({ type: "badge", text: badge });
     }
 
-    return parts.join('<span class="card-meta-sep">•</span>');
+    return { segments, badge, resolution, size };
   }
 
-  getChipDetails(card) {
+  /**
+   * Return pure structured detail rows for a Wallhaven card (zero HTML).
+   * @param {Object} card
+   * @returns {import("./BaseSource.js").MetaDetailRow[]}
+   */
+  getMetaDetails(card) {
     if (!card) return [];
     const details = [];
 
@@ -156,6 +168,8 @@ export class WallhavenSource extends RemoteSource {
         ? cardQuery.trim()
         : (getSettings()?.wallhavenConfig?.query || "").trim();
     details.push({
+      kind: "text",
+      key: "query",
       label: t("sp.meta.query", "Từ khóa"),
       value: query || t("sp.meta.random", "Ngẫu nhiên"),
     });
@@ -164,6 +178,8 @@ export class WallhavenSource extends RemoteSource {
     if (category) {
       const catKey = `sp.api.wallhaven.cat_${category.toLowerCase()}`;
       details.push({
+        kind: "text",
+        key: "category",
         label: t("sp.meta.category", "Phân loại"),
         value: t(catKey, category),
       });
@@ -172,19 +188,20 @@ export class WallhavenSource extends RemoteSource {
     const badge = getResolutionBadge(card.width, card.height);
     const res = formatResolution(card.width, card.height);
     if (res) {
-      const badgeHtml = badge
-        ? ` <span class="meta_badge">${escapeHtml(badge)}</span>`
-        : "";
       details.push({
+        kind: "resolution",
+        key: "resolution",
         label: t("sp.meta.resolution", "Độ phân giải"),
-        value: `${escapeHtml(res)}${badgeHtml}`,
-        html: true,
+        value: res,
+        ...(badge ? { badge } : {}),
       });
     }
 
     const size = formatFileSize(card.size);
     if (size) {
       details.push({
+        kind: "text",
+        key: "filesize",
         label: t("sp.meta.filesize", "Dung lượng"),
         value: size,
       });
@@ -193,25 +210,34 @@ export class WallhavenSource extends RemoteSource {
     const favs = card.favorites ?? card.raw?.favorites;
     const views = card.views ?? card.raw?.views;
     if (favs !== undefined || views !== undefined) {
-      const stats = [];
+      const items = [];
       if (favs !== undefined) {
-        stats.push(
-          `<span class="meta_stat_item"><i data-icon="heart"></i> <span>${escapeHtml(formatNumber(favs))}</span></span>`,
-        );
+        items.push({
+          metric: "favorites",
+          icon: "heart",
+          value: formatNumber(favs),
+        });
       }
       if (views !== undefined) {
-        stats.push(
-          `<span class="meta_stat_item"><i data-icon="eye"></i> <span>${escapeHtml(formatNumber(views))}</span></span>`,
-        );
+        items.push({
+          metric: "views",
+          icon: "eye",
+          value: formatNumber(views),
+        });
       }
-      details.push({
-        label: t("sp.meta.favorites", "Yêu thích"),
-        value: stats.join(""),
-        html: true,
-      });
+      if (items.length > 0) {
+        details.push({
+          kind: "stats",
+          key: "stats",
+          label: t("sp.meta.favorites", "Yêu thích"),
+          items,
+        });
+      }
     }
 
     details.push({
+      kind: "text",
+      key: "source",
       label: t("sp.meta.source", "Nguồn ảnh"),
       value: "Wallhaven",
     });
@@ -219,7 +245,11 @@ export class WallhavenSource extends RemoteSource {
     return details;
   }
 
-  /** Title of the wallpaper restored from its persisted `current` record. */
+  /**
+   * Title of the wallpaper restored from its persisted `applied` record.
+   * @param {Object} applied
+   * @returns {string}
+   */
   getSeedTitle(applied) {
     return applied.category ? `wallhaven • ${applied.category}` : "wallhaven";
   }

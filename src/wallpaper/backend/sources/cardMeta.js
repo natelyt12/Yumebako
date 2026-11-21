@@ -1,8 +1,5 @@
-import { t } from "/src/core/i18n.js";
-import { getSettings } from "/src/core/storageHandler.js";
-
 /**
- * Mảng đối chiếu nguồn ảnh Picre (domain match -> Tên hiển thị).
+ * Domain match table mapping Picre source URLs to display labels.
  */
 export const PICRE_SOURCE_MAP = [
   { match: "pixiv.net", label: "Pixiv" },
@@ -18,10 +15,10 @@ export const PICRE_SOURCE_MAP = [
 ];
 
 /**
- * Định dạng độ phân giải (Resolution) từ width & height.
+ * Format pixel dimensions into a resolution string.
  * @param {number} width
  * @param {number} height
- * @returns {string} Ví dụ: "1920×1080", "2560×1440", "3840×2160"...
+ * @returns {string} Example: "1920×1080", "2560×1440", "3840×2160".
  */
 export function formatResolution(width, height) {
   if (!width || !height) return "";
@@ -29,11 +26,10 @@ export function formatResolution(width, height) {
 }
 
 /**
- * Suy ra chuẩn badge phân giải (8K, 4K, 2K, FHD, HD) dựa trên kích thước ngang/dọc.
- * Nhãn ngắn để không kéo dài chip/caption.
+ * Derive a short resolution tier badge ("8K", "4K", "2K", "FHD", "HD", or "").
  * @param {number} width
  * @param {number} height
- * @returns {string} Ví dụ: "8K", "4K", "2K", "FHD", "HD", hoặc ""
+ * @returns {string}
  */
 export function getResolutionBadge(width, height) {
   if (!width || !height) return "";
@@ -48,9 +44,9 @@ export function getResolutionBadge(width, height) {
 }
 
 /**
- * Định dạng dung lượng file (bytes -> KB/MB/GB).
+ * Format byte count into a human-readable size string (B, KB, MB, GB).
  * @param {number} bytes
- * @returns {string} Ví dụ: "2.4 MB", "850 KB"
+ * @returns {string}
  */
 export function formatFileSize(bytes) {
   if (!bytes || bytes <= 0) return "";
@@ -65,7 +61,7 @@ export function formatFileSize(bytes) {
 }
 
 /**
- * Định dạng ngày (YYYYMMDD hoặc timestamp) thành DD/MM/YYYY.
+ * Format a YYYYMMDD string, timestamp, or Date into DD/MM/YYYY.
  * @param {string|number|Date} val
  * @returns {string}
  */
@@ -86,7 +82,7 @@ export function formatDate(val) {
 }
 
 /**
- * Rút gọn số lượng lớn (ví dụ: 12500 -> 12.5k).
+ * Abbreviate large counts (e.g. 12500 -> "12.5k", 1200000 -> "1.2M").
  * @param {number} num
  * @returns {string}
  */
@@ -99,22 +95,7 @@ export function formatNumber(num) {
 }
 
 /**
- * Escape chuỗi HTML an toàn.
- * @param {any} str
- * @returns {string}
- */
-export function escapeHtml(str) {
-  if (str === null || str === undefined) return "";
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-/**
- * Tìm nhãn nguồn tương ứng của URL trong PICRE_SOURCE_MAP.
+ * Resolve the display label for a Picre origin URL.
  * @param {string} url
  * @returns {string}
  */
@@ -132,86 +113,4 @@ export function getPicreSourceLabel(url) {
     }
   }
   return url || "Picre";
-}
-
-/**
- * Xử lý và trả về HTML cho 2 vế của thẻ (hàm fallback tương thích ngược).
- * @param {string} sourceId
- * @param {Object} card
- * @returns {{ leftHtml: string, rightHtml: string }}
- */
-export function resolveCardMeta(sourceId, card) {
-  if (!card) return { leftHtml: "", rightHtml: "" };
-
-  const sizeStr = formatFileSize(card.size);
-  const resStr =
-    formatResolution(card.width, card.height) || card.resolution || "";
-
-  const codeBlocks = [];
-  if (sizeStr) codeBlocks.push(`<span>${escapeHtml(sizeStr)}</span>`);
-  if (resStr) codeBlocks.push(`<span>${escapeHtml(resStr)}</span>`);
-
-  const rightHtml = codeBlocks.join('<span class="card-meta-sep">•</span>');
-
-  let leftHtml = "";
-  if (sourceId === "collection") {
-    const isVideo = card.mediaType === "video" || card.type?.includes("video");
-    const typeText = t(
-      `sp.meta.${isVideo ? "type_video" : "type_image"}`,
-      isVideo ? "Video" : "Ảnh",
-    );
-
-    let srcText = "";
-    const rawSource = card.metadata?.source || card.sourceUrl || "";
-    const providerName = card.metadata?.providerName || "";
-    const providerKey = card.metadata?.provider || "";
-
-    if (providerName && providerKey !== "local") {
-      srcText = providerName;
-    } else if (
-      providerKey === "wallhaven" ||
-      rawSource.includes("wallhaven.cc")
-    ) {
-      srcText = "Wallhaven";
-    } else if (
-      providerKey === "unsplash" ||
-      rawSource.includes("unsplash.com")
-    ) {
-      srcText = "Unsplash";
-    } else if (providerKey === "picre" || rawSource.includes("pic.re")) {
-      srcText = "Picre";
-    } else if (providerKey === "bing" || rawSource.includes("bing.com")) {
-      srcText = "Bing";
-    } else if (rawSource && /^https?:\/\//i.test(rawSource)) {
-      try {
-        srcText = new URL(rawSource).hostname.replace(/^www\./, "");
-      } catch {
-        srcText = t("sp.meta.local_device", "Trên máy tính");
-      }
-    } else {
-      srcText = t("sp.meta.local_device", "Trên máy tính");
-    }
-
-    leftHtml = `<span>${escapeHtml(typeText)}</span><span class="card-meta-sep">•</span><span>${escapeHtml(srcText)}</span>`;
-  } else if (sourceId === "wallhaven") {
-    const cardQuery = card.query !== undefined ? card.query : card.raw?.query;
-    const wallhavenQuery =
-      (typeof cardQuery === "string" ? cardQuery.trim() : null) ||
-      getSettings()?.wallhavenConfig?.query?.trim() ||
-      card.category ||
-      t("sp.meta.random", "Ngẫu nhiên");
-    leftHtml = `<span>${escapeHtml(wallhavenQuery)}</span>`;
-  } else if (sourceId === "picre") {
-    const sourceUrl = card.sourceUrl || card.source || "";
-    const sourceName = getPicreSourceLabel(sourceUrl);
-    leftHtml = `<span>${escapeHtml(sourceName)}</span>`;
-  } else if (sourceId === "bing") {
-    const title = card.title || card.metadata?.copyright || "Bing";
-    leftHtml = `<span>${escapeHtml(title)}</span>`;
-  } else {
-    const title = card.title || card.category || sourceId;
-    leftHtml = `<span>${escapeHtml(title)}</span>`;
-  }
-
-  return { leftHtml, rightHtml };
 }

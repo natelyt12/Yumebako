@@ -160,7 +160,6 @@ export function createOnloadPanel() {
   saveBtn.textContent = t("onload_anim.btn_save", "Lưu");
 
   const saveState = createSaveState(saveBtn);
-  const snapshot = () => JSON.parse(JSON.stringify(working));
 
   actions.append(previewBtn, saveBtn);
 
@@ -250,7 +249,7 @@ export function createOnloadPanel() {
 
   const markDirty = () => {
     if (isInitializing.value) return;
-    syncDirty(saveState.sync(snapshot()));
+    syncDirty(saveState.sync(working));
   };
 
   /**
@@ -290,7 +289,7 @@ export function createOnloadPanel() {
       const bundle = resolvePresetConfig(PresetClass.ID, working);
       Object.assign(working, bundle);
       Object.entries(bundle).forEach(([key, value]) => {
-        if (sliders[key]) sliders[key].value = value;
+        if (sliders[key]) sliders[key].setValueNoAnim(value);
       });
     }
 
@@ -334,7 +333,7 @@ export function createOnloadPanel() {
         advanced: true,
       },
     });
-    saveState.markSaved(snapshot());
+    saveState.markSaved(working);
     showNotification(t("common.saved_changes"), "success");
     syncDirty(false);
   };
@@ -342,12 +341,19 @@ export function createOnloadPanel() {
   /** Discard the working copy and drop any running preview. */
   const revert = () => {
     stopPreview();
-    working = { ...(getSettings().onload || {}) };
+    working = { ...(getSettings().onload || {}), advanced: true };
     isInitializing.value = true;
-    renderSliders();
+    const params = resolvePresetConfig(
+      working.preset || DEFAULT_PRESET,
+      working,
+    );
+    Object.assign(working, params);
+    Object.entries(sliders).forEach(([key, slider]) => {
+      if (params[key] !== undefined) slider.setValueNoAnim(params[key]);
+    });
     syncControls();
     isInitializing.value = false;
-    saveState.sync(snapshot());
+    saveState.sync(working);
     syncDirty(false);
   };
 
@@ -374,14 +380,16 @@ export function createOnloadPanel() {
   // ── Initial paint ────────────────────────────────────────────────────────
 
   renderSliders();
-  syncControls();
+  presetSelect.value = working.preset || DEFAULT_PRESET;
+  easingSelect.value = normalizeEasingId(working.bg_easing, DEFAULT_BG_EASING);
+  widgetImmediate.input.checked = working.widget_immediate !== false;
+  working.advanced = true;
   // Upgrades the native selects to the shared dropdown and injects the toggle
-  // tracks. Must run after the markup exists.
+  // tracks. Must run after the initial select values are set.
   initButtons(el);
   renderIcons(el);
-  syncControls();
   isInitializing.value = false;
-  saveState.markSaved(snapshot());
+  saveState.markSaved(working);
   syncDirty(false);
 
   return { el, isDirty: () => isDirty, revert };

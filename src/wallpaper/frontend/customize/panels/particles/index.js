@@ -20,6 +20,7 @@ import {
   EffectsEngine,
   getEffectsEngine,
 } from "../../../../backend/effects/particles/index.js";
+import { deepEqual } from "../../state.js";
 
 function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -38,6 +39,7 @@ export class EffectsEditorUI {
     this.savedSnapshot = null;
     this.drawer = null;
     this.activeEffectId = null;
+    this._disposed = false;
 
     // Every `isDirty = true` assignment refreshes the Save button, so it stays
     // disabled while the working state still matches the last save.
@@ -52,7 +54,7 @@ export class EffectsEditorUI {
 
   _refreshSaveState() {
     if (!this.saveBtn || !this.workingState) return;
-    const equal = JSON.stringify(this.workingState) === this.savedSnapshot;
+    const equal = deepEqual(this.workingState, this.savedSnapshot);
     this.saveBtn.disabled = equal;
     this._dirty = !equal;
     setSubmenuDirty(!equal);
@@ -69,15 +71,14 @@ export class EffectsEditorUI {
       dynamic: [],
       static: [],
     };
-    this.workingState = JSON.parse(
-      JSON.stringify({
-        dynamic: saved.dynamic || [],
-        static: saved.static || [],
-        dynamicEnabled: saved.dynamicEnabled === true,
-        staticEnabled: saved.staticEnabled === true,
-      }),
-    );
-    this.savedSnapshot = JSON.stringify(this.workingState);
+    const initialState = {
+      dynamic: saved.dynamic || [],
+      static: saved.static || [],
+      dynamicEnabled: saved.dynamicEnabled === true,
+      staticEnabled: saved.staticEnabled === true,
+    };
+    this.workingState = JSON.parse(JSON.stringify(initialState));
+    this.savedSnapshot = JSON.parse(JSON.stringify(initialState));
     this.isDirty = false;
     this.columnLists = {};
     this.columns = {};
@@ -113,8 +114,10 @@ export class EffectsEditorUI {
 
     const panelEl = this.clone.firstElementChild;
 
+    this._disposed = false;
     // Pre-mount the drawer off-screen so the initial slide-in animation is never skipped
     requestAnimationFrame(() => {
+      if (this._disposed) return;
       const host =
         panelEl?.closest?.(".wallpaper_switcher_inner") ||
         document.querySelector(".wallpaper_switcher_inner");
@@ -147,6 +150,11 @@ export class EffectsEditorUI {
         );
         this.isDirty = false;
         setSubmenuDirty(false);
+      },
+      dispose: () => {
+        this._disposed = true;
+        this.drawer?.destroy();
+        this.drawer = null;
       },
     };
   }
@@ -495,7 +503,11 @@ export class EffectsEditorUI {
 
       for (const [key, val] of Object.entries(defaults)) {
         if (sliders[key]) {
-          sliders[key].value = val;
+          if (typeof sliders[key].setValueNoAnim === "function") {
+            sliders[key].setValueNoAnim(val);
+          } else {
+            sliders[key].value = val;
+          }
         }
         effectData.config[key] = val;
       }
@@ -569,17 +581,14 @@ export class EffectsEditorUI {
       setSubmenuDirty(true);
     });
     btnDelete.className = "effect_btn_delete";
-    btnDelete.title = t("common.delete") || "Xóa";
 
     const btnEdit = makeBtn(Icons.particleEdit, () => {
       this._openEffectDrawer(effectData, layer, btnEdit);
     });
     btnEdit.className = "effect_btn_edit";
-    btnEdit.title = t("common.edit") || "Chỉnh sửa";
 
     const toggleLabel = document.createElement("label");
     toggleLabel.className = "effect_toggle";
-    toggleLabel.title = t("common.toggle") || "Bật/Tắt";
 
     const toggleInput = document.createElement("input");
     toggleInput.type = "checkbox";
@@ -690,15 +699,18 @@ export class EffectsEditorUI {
 
   _handleSave() {
     this.drawer?.close();
+    const cloned = JSON.parse(JSON.stringify(this.workingState));
     const current = getSettings().particles || { enabled: true };
-    current.dynamic = this.workingState.dynamic;
-    current.static = this.workingState.static;
-    current.dynamicEnabled = this.workingState.dynamicEnabled;
-    current.staticEnabled = this.workingState.staticEnabled;
-    current.enabled = true;
-    saveSettings({ particles: current });
-    this.engine.loadState(current);
-    this.savedSnapshot = JSON.stringify(this.workingState);
+    const nextParticles = {
+      ...current,
+      dynamic: cloned.dynamic,
+      static: cloned.static,
+      dynamicEnabled: cloned.dynamicEnabled,
+      staticEnabled: cloned.staticEnabled,
+      enabled: true,
+    };
+    saveSettings({ particles: nextParticles });
+    this.savedSnapshot = cloned;
 
     showNotification(t("common.saved_changes"), "success");
     this.isDirty = false;

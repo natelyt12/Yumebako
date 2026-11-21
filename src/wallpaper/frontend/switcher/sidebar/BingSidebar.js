@@ -4,7 +4,6 @@ import { getSettings, saveSettings } from "/src/core/storageHandler.js";
 import { showNotification, confirmReset } from "/src/core/ui.js";
 import { initButtons } from "/src/core/ui/button.js";
 import { setDropdownValue } from "/src/core/ui/dropdown.js";
-import { clearBingCache } from "/src/wallpaper/backend/sources/api/bingAPI.js";
 
 /**
  * BingSidebar.js
@@ -100,7 +99,7 @@ export function createBingSidebar({ dataControl, sidebar }) {
 
     try {
       const prevIndex = dataControl.currentIndex;
-      await clearBingCache();
+      await dataControl.clearSourceCache("bing");
       if (dataControl.activeSourceId === "bing") {
         await sidebar.reload("bing");
 
