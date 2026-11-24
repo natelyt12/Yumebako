@@ -2,6 +2,7 @@ import { getSettings, saveSettings, subscribe } from "/src/core/storageHandler.j
 import { startClockUpdates, stopClockUpdates, initClockSettings } from "/src/widgets/clock/clock.js";
 import { startWeatherUpdates, stopWeatherUpdates } from "/src/widgets/weather/weather.js";
 import { startSearchWidget, stopSearchWidget } from "/src/widgets/search/search.js";
+import { initSearchSettings } from "/src/widgets/search/setting.js";
 import { makeWidgetsDraggable, syncWidgetEditMode } from "./editmode.js";
 
 /** @typedef {import("/src/core/storageHandler.js").WidgetPositionConfig} WidgetPositionConfig */
@@ -257,6 +258,7 @@ export async function initSettings() {
     // Initialize specific widget settings
 
     initClockSettings();
+    initSearchSettings();
 }
 
 /**
@@ -285,20 +287,21 @@ function syncWidgetToggle() {
         widgetCheckbox.checked = enabled;
 
         const widgetSidebarElements = document.querySelectorAll(".widget_sidebar_element");
-        widgetSidebarElements.forEach((el) => {
-            el.style.display = enabled ? "" : "none";
-        });
-
-        if (enabled) {
+        if (!enabled) {
+            widgetSidebarElements.forEach((el) => {
+                el.classList.add("is_collapsed");
+            });
+        } else {
             updateSidebarTabVisibility("time", widgets?.clock?.enabled !== false);
             updateSidebarTabVisibility("weather", widgets?.weather?.enabled !== false);
+            updateSidebarTabVisibility("search", widgets?.search?.enabled !== false);
         }
 
         if (!enabled) {
             const activeTab = document.querySelector(".nav_item.active");
             if (activeTab) {
                 const activeTabId = activeTab.getAttribute("data-tab");
-                if (activeTabId === "time" || activeTabId === "weather") {
+                if (activeTabId === "time" || activeTabId === "weather" || activeTabId === "search") {
                     const widgetsTab = document.querySelector('.nav_item[data-tab="widgets"]');
                     if (widgetsTab) {
                         widgetsTab.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -315,14 +318,26 @@ function syncWidgetToggle() {
 
 function updateSidebarTabVisibility(tabId, isVisible) {
     const tab = document.querySelector(`.nav_item[data-tab="${tabId}"]`);
+    const settings = getSettings();
+    const globalEnabled = settings.widgets?.enabled !== false;
+
     if (tab) {
-        const globalEnabled = getSettings().widgets?.enabled !== false;
-        tab.style.display = globalEnabled && isVisible ? "" : "none";
+        const shouldShow = globalEnabled && isVisible;
+        tab.classList.toggle("is_collapsed", !shouldShow);
 
         if (!isVisible && tab.classList.contains("active")) {
             const widgetsTab = document.querySelector('.nav_item[data-tab="widgets"]');
             if (widgetsTab) widgetsTab.dispatchEvent(new MouseEvent("click", { bubbles: true }));
         }
+    }
+
+    const divider = document.getElementById("widget_subtabs_divider");
+    if (divider) {
+        const hasAnySubTab =
+            settings.widgets?.clock?.enabled !== false ||
+            settings.widgets?.weather?.enabled !== false ||
+            settings.widgets?.search?.enabled !== false;
+        divider.classList.toggle("is_collapsed", !(globalEnabled && hasAnySubTab));
     }
 }
 
@@ -382,6 +397,7 @@ function syncIndividualWidgetToggles() {
         subscribe("widgets", (widgets) => {
             const enabled = widgets?.search?.enabled !== false;
             searchToggle.checked = enabled;
+            updateSidebarTabVisibility("search", enabled);
         });
         searchToggle.onchange = async (e) => {
             saveSettings({ widgets: { ...getSettings().widgets, search: { ...getSettings().widgets?.search, enabled: e.target.checked } } });

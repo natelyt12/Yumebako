@@ -1,0 +1,97 @@
+<p class="setting_title" data-i18n="sp.search.section_engine">
+  Công cụ tìm kiếm
+</p>
+
+<p data-i18n="sp.search.provider">Công cụ tìm kiếm mặc định</p>
+<select id="search_provider" class="native_select">
+  <option value="google">Google</option>
+  <option value="duckduckgo">DuckDuckGo</option>
+  <option value="bing">Bing</option>
+  <option value="brave">Brave</option>
+</select>
+<span class="tooltip" data-i18n="sp.search.provider_tooltip">
+  Chọn công cụ tìm kiếm mặc định khi mở tab mới
+</span>
+
+<label class="btn" data-action="toggle">
+  <div class="btn_body">
+    <span class="btn_title" data-i18n="sp.search.open_new_tab">
+      Mở kết quả trong tab mới
+    </span>
+    <span class="btn_desc" data-i18n="sp.search.open_new_tab_tooltip">
+      Giữ nguyên trang tab mới khi tìm kiếm
+    </span>
+  </div>
+  <input type="checkbox" id="search_open_new_tab" />
+</label>
+
+<p class="setting_title" data-i18n="sp.search.section_autocomplete">
+  Tự động hoàn thành
+</p>
+
+<label class="btn" data-action="toggle">
+  <div class="btn_body">
+    <span class="btn_title" data-i18n="sp.search.autocomplete_bookmarks">
+      Gợi ý từ Bookmarks
+    </span>
+    <span class="btn_desc" data-i18n="sp.search.autocomplete_bookmarks_tooltip">
+      Hiển thị dấu trang phù hợp khi gõ (cần quyền truy cập Bookmarks)
+    </span>
+  </div>
+  <input type="checkbox" id="search_autocomplete_bookmarks" />
+</label>
+
+<label class="btn" data-action="toggle">
+  <div class="btn_body">
+    <span class="btn_title" data-i18n="sp.search.autocomplete_history">
+      Gợi ý từ Lịch sử
+    </span>
+    <span class="btn_desc" data-i18n="sp.search.autocomplete_history_tooltip">
+      Hiển thị trang đã truy cập phù hợp khi gõ (cần quyền truy cập History)
+    </span>
+  </div>
+  <input type="checkbox" id="search_autocomplete_history" />
+</label>
+
+<p class="setting_title" data-i18n="sp.search.section_placeholder">
+  Văn bản gợi ý
+</p>
+
+<p data-i18n="sp.search.custom_placeholder">Văn bản gợi ý tùy chỉnh</p>
+<input
+  type="text"
+  id="search_custom_placeholder"
+  data-i18n-placeholder="sp.search.custom_placeholder_placeholder"
+  placeholder="Để trống để dùng gợi ý mặc định"
+/>
+<span class="tooltip" data-i18n="sp.search.custom_placeholder_tooltip">
+  Nhập nội dung cố định hiển thị trong thanh tìm kiếm; để trống để luân phiên các gợi ý có sẵn
+</span>
+
+<label class="btn" data-action="toggle">
+  <div class="btn_body">
+    <span class="btn_title" data-i18n="sp.search.disable_placeholder_roll">
+      Không rolling text
+    </span>
+    <span class="btn_desc" data-i18n="sp.search.disable_placeholder_roll_tooltip">
+      Giữ nguyên câu gợi ý đầu tiên khi không nhập văn bản tùy chỉnh
+    </span>
+  </div>
+  <input type="checkbox" id="search_disable_placeholder_roll" />
+</label>
+
+<p class="setting_title" data-i18n="sp.search.section_motion">
+  Hiệu ứng & Chuyển động
+</p>
+
+<label class="btn" data-action="toggle">
+  <div class="btn_body">
+    <span class="btn_title" data-i18n="sp.search.reduce_animation">
+      Giảm hiệu ứng chuyển động
+    </span>
+    <span class="btn_desc" data-i18n="sp.search.reduce_animation_tooltip">
+      Tắt hiệu ứng gõ/xóa chữ và cuộn mượt để giống input thông thường, vẫn giữ nháy con trỏ, icon và fade placeholder
+    </span>
+  </div>
+  <input type="checkbox" id="search_reduce_animation" />
+</label>

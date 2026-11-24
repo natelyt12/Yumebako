@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fake Div Input + Overflow Canvas</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #f8fafc;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+    }
+
+    .fake-input {
+      position: relative;
+      width: min(420px, 86vw);
+      height: 44px;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 10px;
+      background: #ffffff;
+      cursor: text;
+      overflow: visible;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .fake-input.is-focused {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+    }
+
+    .fake-input__canvas {
+      position: absolute;
+      pointer-events: none;
+      display: block;
+    }
+
+    .fake-input__proxy {
+      position: absolute;
+      inset: 0;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+      border: 0;
+      padding: 0;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="fakeInput" class="fake-input" role="textbox" aria-label="Fake input" tabindex="0">
+    <canvas id="textCanvas" class="fake-input__canvas"></canvas>
+    <input id="proxyInput" class="fake-input__proxy" type="text" autocomplete="off" spellcheck="false" />
+  </div>
+
+  <script>
+    const box = document.getElementById('fakeInput');
+    const canvas = document.getElementById('textCanvas');
+    const proxy = document.getElementById('proxyInput');
+    const ctx = canvas.getContext('2d');
+
+    // Canvas chỉ tràn viền lên/xuống
+    const OVERFLOW_X = 0;
+    const OVERFLOW_Y = 32;
+    const INNER_PAD_X = 16;
+    const FONT = '16px Inter, system-ui, -apple-system, "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+    const segmenter = typeof Intl !== 'undefined' && Intl.Segmenter
+      ? new Intl.Segmenter('vi', { granularity: 'grapheme' })
+      : null;
+    const FADE_IN_DURATION = 220;
+    const FALL_OUT_DURATION = 240;
+    const FALL_OFFSET = 28;
+    const IME_GUARD_MS = 35;
+    const CARET_WIDTH = 1.5;
+    const CARET_RADIUS = 0.75;
+    const CARET_GAP = 2.2;
+    const PLACEHOLDER_INTERVAL = 3200;
+    const PLACEHOLDER_MORPH_MS = 520;
+    const PLACEHOLDERS = [
+      'Search something...',
+      "What's on the agenda?",
+      'Ask anything or paste a URL...',
+      'What are we building today?',
+      'Jump back into a tab or idea...',
+    ];
+
+    let isFocused = false;
+    let isComposing = false;
+    let scrollTargetX = 0;
+    let scrollVisualX = 0;
+    let caretVisualX = 0;
+    let caretRawTargetX = 0;
+    let selVisualStartX = 0;
+    let selVisualEndX = 0;
+    let selVisualAlpha = 0;
+    let isDragging = false;
+    let dragAnchorIdx = 0;
+    let lastBlinkReset = performance.now();
+    let rafId = null;
+    let prevText = '';
+    let prevGraphemes = [];
+    let charAnims = [];
+    let charOffsetX = [];
+    let pendingDeletes = [];
+    let fallingChars = [];
+    let placeholderAlpha = 1;
+    let placeholderIdx = 0;
+    let lastPlaceholderSwitch = performance.now();
+    let placeholderMorph = null;
+
+    function layoutCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      const cssW = box.clientWidth + OVERFLOW_X * 2;
+      const cssH = box.clientHeight + OVERFLOW_Y * 2;
+
+      canvas.style.left = `-${OVERFLOW_X}px`;
+      canvas.style.top = `-${OVERFLOW_Y}px`;
+      canvas.style.width = `${cssW}px`;
+      canvas.style.height = `${cssH}px`;
+
+      canvas.width = Math.round(cssW * dpr);
+      canvas.height = Math.round(cssH * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function measureTextWidth(str) {
+      ctx.font = FONT;
+      return ctx.measureText(str).width;
+    }
+
+    function getGraphemes(str) {
+      if (!str) return [];
+      if (segmenter) {
+        return Array.from(segmenter.segment(str), (seg) => ({
+          ch: seg.segment,
+          index: seg.index,
+          end: seg.index + seg.segment.length,
+        }));
+      }
+      const res = [];
+      let idx = 0;
+      for (const ch of str) {
+        res.push({ ch, index: idx, end: idx + ch.length });
+        idx += ch.length;
+      }
+      return res;
+    }
+
+    function getGraphemeLayout(graphemes) {
+      const positions = [0];
+      let acc = 0;
+      for (let i = 0; i < graphemes.length; i++) {
+        acc += measureTextWidth(graphemes[i].ch);
+        positions.push(acc);
+      }
+      return positions;
+    }
+
+    function getXForUtf16Index(graphemes, positions, utf16Index) {
+      for (let i = 0; i < graphemes.length; i++) {
+        if (utf16Index <= graphemes[i].index) return positions[i];
+      }
+      return positions[graphemes.length];
+    }
+
+    function getCaretIndexFromClick(clientX) {
+      const rect = box.getBoundingClientRect();
+      const localX = clientX - rect.left - INNER_PAD_X + scrollVisualX;
+      const text = proxy.value;
+      const graphemes = getGraphemes(text);
+      const positions = getGraphemeLayout(graphemes);
+
+      if (localX <= 0) return 0;
+      for (let i = 0; i < graphemes.length; i++) {
+        const mid = (positions[i] + positions[i + 1]) / 2;
+        if (localX < mid) return graphemes[i].index;
+      }
+      return text.length;
+    }
+
+    function updateScrollAndCaretTarget() {
+      const text = proxy.value;
+      const graphemes = getGraphemes(text);
+      const positions = getGraphemeLayout(graphemes);
+      const selStart = proxy.selectionStart ?? text.length;
+      const selEnd = proxy.selectionEnd ?? text.length;
+      const caretPos = proxy.selectionDirection === 'backward' ? selStart : selEnd;
+      const caretGap = text.length > 0 && caretPos === text.length && selStart === selEnd ? CARET_GAP : 0;
+      const caretRawX = getXForUtf16Index(graphemes, positions, caretPos) + caretGap;
+      const totalW = positions[graphemes.length] + (text.length > 0 ? CARET_GAP : 0);
+      const boxInnerW = box.clientWidth - INNER_PAD_X * 2;
+      const maxScroll = Math.max(0, totalW - boxInnerW);
+
+      if (caretRawX - scrollTargetX > boxInnerW) {
+        scrollTargetX = caretRawX - boxInnerW;
+      } else if (caretRawX - scrollTargetX < 0) {
+        scrollTargetX = caretRawX;
+      }
+      scrollTargetX = Math.max(0, Math.min(scrollTargetX, maxScroll));
+
+      caretRawTargetX = caretRawX;
+    }
+
+    function resetBlink() {
+      lastBlinkReset = performance.now();
+    }
+
+    function draw(now) {
+      const cssW = box.clientWidth + OVERFLOW_X * 2;
+      const cssH = box.clientHeight + OVERFLOW_Y * 2;
+
+      scrollVisualX += (scrollTargetX - scrollVisualX) * 0.24;
+      if (Math.abs(scrollTargetX - scrollVisualX) < 0.25) {
+        scrollVisualX = scrollTargetX;
+      }
+
+      caretVisualX += (caretRawTargetX - caretVisualX) * 0.36;
+      if (Math.abs(caretRawTargetX - caretVisualX) < 0.2) {
+        caretVisualX = caretRawTargetX;
+      }
+
+      const dpr = window.devicePixelRatio || 1;
+      const textOriginX = OVERFLOW_X + INNER_PAD_X - scrollVisualX;
+      const centerY = cssH / 2;
+
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.font = FONT;
+      ctx.textBaseline = 'alphabetic';
+
+      const capAscent = ctx.measureText('H').actualBoundingBoxAscent || 11.5;
+      const textY = centerY + capAscent / 2;
+
+      const text = proxy.value;
+      const graphemes = getGraphemes(text);
+      const positions = getGraphemeLayout(graphemes);
+      const selStart = proxy.selectionStart ?? 0;
+      const selEnd = proxy.selectionEnd ?? 0;
+
+      // Vùng bôi đen có animation mượt
+      const hasSelection = isFocused && selStart !== selEnd;
+      let selTargetStartX = caretRawTargetX;
+      let selTargetEndX = caretRawTargetX;
+      let selTargetAlpha = 0;
+
+      if (hasSelection) {
+        const start = Math.min(selStart, selEnd);
+        const end = Math.max(selStart, selEnd);
+        selTargetStartX = getXForUtf16Index(graphemes, positions, start);
+        selTargetEndX = getXForUtf16Index(graphemes, positions, end);
+        selTargetAlpha = 1;
+
+        if (selVisualAlpha < 0.04) {
+          const anchorX = proxy.selectionDirection === 'backward' ? selTargetEndX : selTargetStartX;
+          selVisualStartX = anchorX;
+          selVisualEndX = anchorX;
+        }
+      }
+
+      selVisualAlpha += (selTargetAlpha - selVisualAlpha) * 0.28;
+      selVisualStartX += (selTargetStartX - selVisualStartX) * 0.34;
+      selVisualEndX += (selTargetEndX - selVisualEndX) * 0.34;
+      if (Math.abs(selTargetAlpha - selVisualAlpha) < 0.01) selVisualAlpha = selTargetAlpha;
+      if (Math.abs(selTargetStartX - selVisualStartX) < 0.2) selVisualStartX = selTargetStartX;
+      if (Math.abs(selTargetEndX - selVisualEndX) < 0.2) selVisualEndX = selTargetEndX;
+
+      if (selVisualAlpha > 0 && selVisualEndX - selVisualStartX > 0.5) {
+        ctx.save();
+        ctx.fillStyle = `rgba(37, 99, 235, ${0.18 * selVisualAlpha})`;
+        ctx.beginPath();
+        ctx.roundRect(
+          textOriginX + selVisualStartX,
+          centerY - 12,
+          selVisualEndX - selVisualStartX,
+          24,
+          5
+        );
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Placeholder morph chữ theo các câu gợi ý tab mới
+      const placeholderTarget = text.length === 0 ? 1 : 0;
+      placeholderAlpha += (placeholderTarget - placeholderAlpha) * 0.16;
+      if (Math.abs(placeholderTarget - placeholderAlpha) < 0.01) {
+        placeholderAlpha = placeholderTarget;
+      }
+
+      if (text.length === 0 && now - lastPlaceholderSwitch >= PLACEHOLDER_INTERVAL) {
+        const fromStr = PLACEHOLDERS[placeholderIdx];
+        placeholderIdx = (placeholderIdx + 1) % PLACEHOLDERS.length;
+        const toStr = PLACEHOLDERS[placeholderIdx];
+        placeholderMorph = buildPlaceholderMorph(fromStr, toStr, now);
+        lastPlaceholderSwitch = now;
+      }
+
+      if (placeholderAlpha > 0) {
+        ctx.save();
+        ctx.fillStyle = '#94a3b8';
+        const baseX = OVERFLOW_X + INNER_PAD_X;
+
+        if (placeholderMorph) {
+          const t = Math.min(1, (now - placeholderMorph.start) / PLACEHOLDER_MORPH_MS);
+          const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+          for (const item of placeholderMorph.outgoing) {
+            ctx.globalAlpha = placeholderAlpha * (1 - ease);
+            ctx.fillText(item.ch, baseX + item.x, textY - 6 * ease);
+          }
+          for (const item of placeholderMorph.moving) {
+            ctx.globalAlpha = placeholderAlpha;
+            const mx = item.fromX + (item.toX - item.fromX) * ease;
+            ctx.fillText(item.ch, baseX + mx, textY);
+          }
+          for (const item of placeholderMorph.incoming) {
+            ctx.globalAlpha = placeholderAlpha * ease;
+            ctx.fillText(item.ch, baseX + item.x, textY + 6 * (1 - ease));
+          }
+
+          if (t >= 1) placeholderMorph = null;
+        } else {
+          ctx.globalAlpha = placeholderAlpha;
+          ctx.fillText(PLACEHOLDERS[placeholderIdx], baseX, textY);
+        }
+
+        ctx.restore();
+      }
+
+      if (text.length > 0) {
+        for (let i = 0; i < graphemes.length; i++) {
+          const g = graphemes[i];
+          let ox = charOffsetX[i] || 0;
+          if (ox !== 0) {
+            ox += (0 - ox) * 0.26;
+            if (Math.abs(ox) < 0.2) ox = 0;
+            charOffsetX[i] = ox;
+          }
+
+          const charX = textOriginX + positions[i] + ox;
+          const anim = charAnims[i];
+          let alpha = 1;
+
+          if (anim) {
+            const t = Math.min(1, (now - anim.start) / FADE_IN_DURATION);
+            alpha = 1 - Math.pow(1 - t, 3);
+            if (t >= 1) charAnims[i] = null;
+          }
+
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = '#0f172a';
+          ctx.fillText(g.ch, charX, textY);
+          ctx.restore();
+        }
+      }
+
+      // Đẩy các ký tự xóa quá ngưỡng IME_GUARD_MS sang danh sách rơi,
+      // trong lúc chờ vẫn vẽ nguyên vị trí để không bị nháy biến mất
+      if (pendingDeletes.length > 0) {
+        const stillPending = [];
+        for (const item of pendingDeletes) {
+          if (now - item.deleteAt >= IME_GUARD_MS) {
+            fallingChars.push({
+              ch: item.ch,
+              x: item.x,
+              w: item.w,
+              rot: item.rot,
+              start: now,
+            });
+          } else {
+            stillPending.push(item);
+            ctx.fillStyle = '#0f172a';
+            ctx.fillText(item.ch, item.x, textY);
+          }
+        }
+        pendingDeletes = stillPending;
+      }
+
+      // Chữ bị xóa: trượt xuống dưới, xoay (-45..45 độ), thu nhỏ về 0.9 và fade out
+      if (fallingChars.length > 0) {
+        fallingChars = fallingChars.filter((item) => {
+          const t = Math.min(1, (now - item.start) / FALL_OUT_DURATION);
+          const ease = t * t;
+          const alpha = 1 - ease;
+          const offsetY = FALL_OFFSET * ease;
+          const scale = 1 - 0.1 * ease;
+          const angle = item.rot * ease;
+          const pivotX = item.x + item.w / 2;
+          const pivotY = centerY + offsetY;
+
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          ctx.translate(pivotX, pivotY);
+          ctx.rotate(angle);
+          ctx.scale(scale, scale);
+          ctx.fillStyle = '#0f172a';
+          ctx.fillText(item.ch, -item.w / 2, textY - centerY);
+          ctx.restore();
+
+          return t < 1;
+        });
+      }
+
+      // Con trỏ tự chế độ rộng cố định + nhấp nháy fade
+      if (isFocused) {
+        const phase = ((now - lastBlinkReset) % 1100) / 1100;
+        const caretAlpha = 0.5 + 0.5 * Math.cos(phase * Math.PI * 2);
+        const cx = textOriginX + caretVisualX;
+
+        ctx.save();
+        ctx.globalAlpha = caretAlpha;
+        ctx.fillStyle = '#2563eb';
+        ctx.beginPath();
+        ctx.roundRect(cx - CARET_WIDTH / 2, centerY - 11, CARET_WIDTH, 22, CARET_RADIUS);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Fade trắng hai bên sát mép trong của border (clip theo bo góc bên trong)
+      const fadeW = 18;
+      const fadeTop = OVERFLOW_Y;
+      const fadeH = box.clientHeight;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(0, fadeTop, cssW, fadeH, 8.5);
+      ctx.clip();
+
+      const leftGrad = ctx.createLinearGradient(0, 0, fadeW, 0);
+      leftGrad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+      leftGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = leftGrad;
+      ctx.fillRect(0, fadeTop, fadeW, fadeH);
+
+      const rightGrad = ctx.createLinearGradient(cssW - fadeW, 0, cssW, 0);
+      rightGrad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+      rightGrad.addColorStop(1, 'rgba(255, 255, 255, 1)');
+      ctx.fillStyle = rightGrad;
+      ctx.fillRect(cssW - fadeW, fadeTop, fadeW, fadeH);
+      ctx.restore();
+
+      rafId = requestAnimationFrame(draw);
+    }
+
+    function updateCharAnimations(now) {
+      const nextText = proxy.value;
+      if (nextText === prevText) return;
+
+      const nextGraphemes = getGraphemes(nextText);
+
+      let prefix = 0;
+      while (
+        prefix < prevGraphemes.length &&
+        prefix < nextGraphemes.length &&
+        prevGraphemes[prefix].ch === nextGraphemes[prefix].ch
+      ) {
+        prefix++;
+      }
+
+      let prevSuffix = prevGraphemes.length;
+      let nextSuffix = nextGraphemes.length;
+      while (
+        prevSuffix > prefix &&
+        nextSuffix > prefix &&
+        prevGraphemes[prevSuffix - 1].ch === nextGraphemes[nextSuffix - 1].ch
+      ) {
+        prevSuffix--;
+        nextSuffix--;
+      }
+
+      // Đếm số ký tự vừa bị xóa trong < 35ms để nhận diện thay thế dấu (Unikey/EVKey)
+      let imeReplacedCount = 0;
+      if (nextSuffix > prefix && pendingDeletes.length > 0) {
+        const stillPending = [];
+        for (const item of pendingDeletes) {
+          if (now - item.deleteAt <= IME_GUARD_MS) {
+            imeReplacedCount++;
+          } else {
+            stillPending.push(item);
+          }
+        }
+        pendingDeletes = stillPending;
+      }
+
+      const prevPositions = getGraphemeLayout(prevGraphemes);
+      const nextPositions = getGraphemeLayout(nextGraphemes);
+
+      // Đưa ký tự/emoji bị xóa vào hàng đợi ngắn để phân biệt xóa thật với gõ dấu tiếng Việt
+      if (prevSuffix > prefix && nextSuffix === prefix && !isComposing) {
+        const currentOriginX = OVERFLOW_X + INNER_PAD_X - scrollVisualX;
+        for (let i = prefix; i < prevSuffix; i++) {
+          const g = prevGraphemes[i];
+          pendingDeletes.push({
+            ch: g.ch,
+            x: currentOriginX + prevPositions[i],
+            w: measureTextWidth(g.ch),
+            rot: ((Math.random() * 90 - 45) * Math.PI) / 180,
+            deleteAt: now,
+          });
+        }
+      }
+
+      const nextAnims = new Array(nextGraphemes.length).fill(null);
+      const nextOffsets = new Array(nextGraphemes.length).fill(0);
+      for (let i = 0; i < prefix; i++) {
+        nextAnims[i] = charAnims[i] || null;
+        nextOffsets[i] = charOffsetX[i] || 0;
+      }
+      // Bỏ qua fade-in cho các ký tự thay thế từ bộ gõ tiếng Việt (hoặc đang compose)
+      const skipFadeCount = isComposing ? (nextSuffix - prefix) : imeReplacedCount;
+      for (let i = prefix; i < nextSuffix; i++) {
+        if (i - prefix < skipFadeCount) {
+          nextAnims[i] = null;
+        } else {
+          nextAnims[i] = { start: now };
+        }
+      }
+      for (let i = nextSuffix; i < nextGraphemes.length; i++) {
+        const oldIdx = prevSuffix + (i - nextSuffix);
+        nextAnims[i] = charAnims[oldIdx] || null;
+        const oldX = prevPositions[oldIdx];
+        const newX = nextPositions[i];
+        nextOffsets[i] = (charOffsetX[oldIdx] || 0) + (oldX - newX);
+      }
+
+      charAnims = nextAnims;
+      charOffsetX = nextOffsets;
+      prevText = nextText;
+      prevGraphemes = nextGraphemes;
+    }
+
+    function buildPlaceholderMorph(fromStr, toStr, now) {
+      const fromG = getGraphemes(fromStr);
+      const toG = getGraphemes(toStr);
+      const usedTo = new Array(toG.length).fill(false);
+      const moving = [];
+      const outgoing = [];
+      const incoming = [];
+
+      for (const fg of fromG) {
+        const fromX = measureTextWidth(fromStr.slice(0, fg.index));
+        let matchIdx = -1;
+        for (let j = 0; j < toG.length; j++) {
+          if (!usedTo[j] && toG[j].ch === fg.ch) {
+            matchIdx = j;
+            break;
+          }
+        }
+        if (matchIdx !== -1) {
+          usedTo[matchIdx] = true;
+          const toX = measureTextWidth(toStr.slice(0, toG[matchIdx].index));
+          moving.push({ ch: fg.ch, fromX, toX });
+        } else {
+          outgoing.push({ ch: fg.ch, x: fromX });
+        }
+      }
+
+      for (let j = 0; j < toG.length; j++) {
+        if (!usedTo[j]) {
+          incoming.push({
+            ch: toG[j].ch,
+            x: measureTextWidth(toStr.slice(0, toG[j].index)),
+          });
+        }
+      }
+
+      return { start: now, moving, outgoing, incoming };
+    }
+
+    function sync() {
+      updateCharAnimations(performance.now());
+      updateScrollAndCaretTarget();
+      resetBlink();
+    }
+
+    box.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      proxy.focus();
+      const idx = getCaretIndexFromClick(e.clientX);
+      isDragging = true;
+      dragAnchorIdx = idx;
+      proxy.setSelectionRange(idx, idx);
+      sync();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      const curIdx = getCaretIndexFromClick(e.clientX);
+      const start = Math.min(dragAnchorIdx, curIdx);
+      const end = Math.max(dragAnchorIdx, curIdx);
+      const dir = curIdx < dragAnchorIdx ? 'backward' : 'forward';
+      proxy.setSelectionRange(start, end, dir);
+      sync();
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+
+    box.addEventListener('focus', () => {
+      proxy.focus();
+    });
+
+    proxy.addEventListener('focus', () => {
+      isFocused = true;
+      box.classList.add('is-focused');
+      sync();
+    });
+
+    proxy.addEventListener('blur', () => {
+      isFocused = false;
+      box.classList.remove('is-focused');
+    });
+
+    proxy.addEventListener('input', sync);
+    proxy.addEventListener('keyup', sync);
+    proxy.addEventListener('keydown', resetBlink);
+    proxy.addEventListener('compositionstart', () => {
+      isComposing = true;
+    });
+    proxy.addEventListener('compositionend', () => {
+      isComposing = false;
+      sync();
+    });
+    proxy.addEventListener('compositionupdate', sync);
+    document.addEventListener('selectionchange', () => {
+      if (document.activeElement === proxy) sync();
+    });
+
+    window.addEventListener('resize', () => {
+      layoutCanvas();
+      updateScrollAndCaretTarget();
+    });
+
+    window.addEventListener('load', () => {
+      layoutCanvas();
+      updateScrollAndCaretTarget();
+      caretVisualX = caretRawTargetX;
+      scrollVisualX = scrollTargetX;
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(draw);
+    });
+  </script>
+</body>
+</html>

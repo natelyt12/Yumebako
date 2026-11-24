@@ -16,6 +16,7 @@ import { initSettings as initWidgetSettings } from "/src/widgets/handler.js";
 import settingsHtml from "./settings.html?raw";
 import clockSettingHtml from "/src/widgets/clock/setting.html?raw";
 import weatherSettingHtml from "/src/widgets/weather/setting.html?raw";
+import searchSettingHtml from "/src/widgets/search/setting.html?raw";
 import "./settings.css";
 
 export async function initSettingsLauncher() {
@@ -30,6 +31,9 @@ export async function initSettingsLauncher() {
 
     const tabWeather = document.getElementById("tab-weather");
     if (tabWeather) tabWeather.innerHTML = weatherSettingHtml;
+
+    const tabSearch = document.getElementById("tab-search");
+    if (tabSearch) tabSearch.innerHTML = searchSettingHtml;
 
     // RENDER SETTINGS UI
     translateDOM(document.getElementById("setting_wrapper"));

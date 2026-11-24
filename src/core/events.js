@@ -14,6 +14,11 @@ export const EVENTS = {
     LANGUAGE_CHANGED: "language-changed",
     DROPDOWN_CHANGE: "dropdownChange", // Legacy camelCase kept for compatibility, fired on UI settings
 
+    // Permissions
+    PERMISSION_REQUIRED: "permission-required",
+    PERMISSION_ERROR: "permission-error",
+    PERMISSION_CHANGED: "permission-changed",
+
     // Lifecycle
     ONLOAD_ANIMATION_COMPLETE: "onload-animation-complete",
     POPUP_BEFORE_CLOSE: "popupBeforeClose"

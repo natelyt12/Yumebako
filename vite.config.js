@@ -80,8 +80,24 @@ function cascadeLayerOrder() {
   };
 }
 
+function crxFaviconPassthrough() {
+  return {
+    name: "yumebako:crx-favicon-passthrough",
+    apply: "serve",
+    // CRXJS dev service worker proxies all same-origin extension requests to Vite;
+    // bypass `/_favicon/` so Chrome's MV3 Favicon API handles it instead of 404/HTML.
+    transform(code, id) {
+      if (id !== "/@crx/client-worker") return null;
+      return code.replace(
+        "if (url.origin === ownOrigin) {",
+        'if (url.origin === ownOrigin && !url.pathname.startsWith("/_favicon/")) {',
+      );
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [crx({ manifest }), cascadeLayerOrder()],
+  plugins: [crx({ manifest }), cascadeLayerOrder(), crxFaviconPassthrough()],
   server: {
     port: 3546,
     strictPort: true,

@@ -1,50 +1,76 @@
 <div class="settings_nav">
-  <!-- Main nav group: Holds the sidebar tabs (fades out in submenus) -->
-  <div class="nav_group" id="setting_nav_main">
-    <div class="settings_nav_inner">
-      <div
-        class="nav_item active"
-        data-tab="appearance"
-        data-tooltip-i18n="sp.sb.appearance"
-      >
-        <i data-icon="sidebar_appearance"></i>
+  <!-- Main nav stack: Holds Group 1 (App) & Group 2 (Widgets), slides out in submenus -->
+  <div class="nav_group_stack" id="setting_nav_main">
+    <div class="nav_group">
+      <div class="settings_nav_inner">
+        <div
+          class="nav_item active"
+          data-tab="appearance"
+          data-tooltip-i18n="sp.sb.appearance"
+        >
+          <i data-icon="sidebar_appearance"></i>
+        </div>
+        <div class="nav_item" data-tab="info" data-tooltip-i18n="sp.sb.info">
+          <i data-icon="sidebar_info"></i>
+        </div>
+        <div
+          class="nav_item hidden"
+          data-tab="debug"
+          data-tooltip-i18n="sp.sb.debug"
+        >
+          <i data-icon="sidebar_debug"></i>
+        </div>
       </div>
+    </div>
 
-      <div class="nav_divider widget_sidebar_element"></div>
-      <div
-        class="nav_item"
-        data-tab="widgets"
-        data-tooltip-i18n="sp.sb.widgets"
-      >
-        <i data-icon="sidebar_widgets"></i>
-      </div>
-      <div
-        class="nav_item widget_sidebar_element"
-        data-tab="time"
-        data-tooltip-i18n="sp.sb.time"
-      >
-        <i data-icon="sidebar_time"></i>
-      </div>
-      <div
-        class="nav_item widget_sidebar_element"
-        data-tab="weather"
-        data-tooltip-i18n="sp.sb.weather"
-      >
-        <i data-icon="sidebar_weather"></i>
-      </div>
-
-      <div class="nav_divider widget_sidebar_element"></div>
-      <div class="nav_item" data-tab="info" data-tooltip-i18n="sp.sb.info">
-        <i data-icon="sidebar_info"></i>
-      </div>
-      <div class="nav_item hidden" data-tab="debug" data-tooltip-i18n="sp.sb.debug">
-        <i data-icon="sidebar_debug"></i>
+    <div class="nav_group">
+      <div class="settings_nav_inner">
+        <div
+          class="nav_item"
+          data-tab="widgets"
+          data-tooltip-i18n="sp.sb.widgets"
+        >
+          <i data-icon="sidebar_widgets"></i>
+        </div>
+        <div
+          class="nav_divider widget_sidebar_element"
+          id="widget_subtabs_divider"
+        ></div>
+        <div
+          class="nav_item widget_sidebar_element"
+          data-tab="time"
+          data-tooltip-i18n="sp.sb.time"
+        >
+          <i data-icon="sidebar_time"></i>
+        </div>
+        <div
+          class="nav_item widget_sidebar_element"
+          data-tab="weather"
+          data-tooltip-i18n="sp.sb.weather"
+        >
+          <i data-icon="sidebar_weather"></i>
+        </div>
+        <div
+          class="nav_item widget_sidebar_element"
+          data-tab="search"
+          data-tooltip-i18n="sp.sb.search"
+        >
+          <i data-icon="sidebar_search"></i>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Bottom action card: Morphing Close/Back button on top + Wallpaper Switcher on bottom -->
+  <!-- Bottom action card: Wallpaper Switcher on top + Morphing Close/Back button on bottom -->
   <div class="nav_group nav_group_close">
+    <button
+      type="button"
+      class="nav_item settings_wallpaper_btn"
+      id="settings_wallpaper_btn"
+      data-tooltip-i18n="sp.sb.wallpaper"
+    >
+      <i data-icon="sidebar_wallpaper"></i>
+    </button>
     <div class="nav_slot_morph">
       <div
         class="nav_item nav_item_close"
@@ -62,14 +88,6 @@
         <span class="submenu_dirty_dot" id="submenu_dirty_dot"></span>
       </div>
     </div>
-    <button
-      type="button"
-      class="nav_item settings_wallpaper_btn"
-      id="settings_wallpaper_btn"
-      data-tooltip-i18n="sp.sb.wallpaper"
-    >
-      <i data-icon="sidebar_wallpaper"></i>
-    </button>
   </div>
 
   <!-- Singleton floating tooltip gliding across navigation items -->
@@ -205,6 +223,7 @@
 
     <div class="tab_content" id="tab-time"></div>
     <div class="tab_content" id="tab-weather"></div>
+    <div class="tab_content" id="tab-search"></div>
 
     <div class="tab_content" id="tab-info">
       <!-- Language -->

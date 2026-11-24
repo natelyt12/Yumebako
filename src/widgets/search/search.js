@@ -1,5 +1,17 @@
 import { Icons, renderIcons } from "/src/core/icon.js";
-import { getSettings, saveSettings } from "/src/core/storageHandler.js";
+import { t } from "/src/core/i18n.js";
+import { getSettings, subscribe } from "/src/core/storageHandler.js";
+import {
+  SEARCH_ENGINES,
+  buildOrderedProviders,
+  getPrefixSuggestions,
+  parseDirectUrl,
+  resolvePrefixCommand,
+} from "./providers.js";
+import {
+  fetchAutocompleteSuggestions,
+  getFaviconUrl,
+} from "./autocomplete.js";
 
 const OVERFLOW_X = 0;
 const OVERFLOW_Y = 32;
@@ -9,6 +21,8 @@ const INNER_PAD_RIGHT = 20;
 const REEL_ITEM_H = 36;
 const FONT =
   '500 15px "Quicksand", "Mulish", sans-serif, "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji"';
+const FONT_PREFIX =
+  '600 15px "Quicksand", "Mulish", sans-serif, "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji"';
 
 const FADE_IN_DURATION = 220;
 const FALL_OUT_DURATION = 240;
@@ -17,77 +31,24 @@ const IME_GUARD_MS = 35;
 const CARET_WIDTH = 1.5;
 const CARET_RADIUS = 0.75;
 const CARET_GAP = 2.2;
+const PREFIX_TAIL_GAP = 6;
 const PLACEHOLDER_INTERVAL = 5000;
 const PLACEHOLDER_MORPH_MS = 520;
 
-const PLACEHOLDERS = [
-  "Search something...",
-  "Dive into your next idea...",
-  "Explore the web...",
-  "Ask anything or paste a URL...",
-  "What are we discovering today?",
-  "Curiosity starts here...",
-  "Where to next?",
-  "Let your mind wander...",
-  "Follow your curiosity...",
-  "What's hiding out there?",
-  "Every thought leads somewhere...",
-  "Ready to explore something new?",
-  "Find your next rabbit hole...",
-  "Somewhere, something awaits...",
-  "What's on your mind?",
+const PLACEHOLDER_KEYS = [
+  "sp.search.placeholder_0",
+  "sp.search.placeholder_1",
+  "sp.search.placeholder_2",
+  "sp.search.placeholder_3",
+  "sp.search.placeholder_4",
+  "sp.search.placeholder_5",
+  "sp.search.placeholder_6",
+  "sp.search.placeholder_7",
 ];
 
-const SEARCH_PROVIDERS = [
-  {
-    id: "google",
-    label: "Google",
-    icon: "providerGoogle",
-    url: "https://www.google.com/search?q=",
-  },
-  {
-    id: "duckduckgo",
-    label: "DuckDuckGo",
-    icon: "providerDuckDuckGo",
-    url: "https://duckduckgo.com/?q=",
-  },
-  {
-    id: "bing",
-    label: "Bing",
-    icon: "providerBing",
-    url: "https://www.bing.com/search?q=",
-  },
-  {
-    id: "youtube",
-    label: "YouTube",
-    icon: "providerYouTube",
-    url: "https://www.youtube.com/results?search_query=",
-  },
-  {
-    id: "github",
-    label: "GitHub",
-    icon: "providerGitHub",
-    url: "https://github.com/search?q=",
-  },
-  {
-    id: "reddit",
-    label: "Reddit",
-    icon: "providerReddit",
-    url: "https://www.reddit.com/search/?q=",
-  },
-  {
-    id: "pinterest",
-    label: "Pinterest",
-    icon: "providerPinterest",
-    url: "https://www.pinterest.com/search/pins/?q=",
-  },
-  {
-    id: "spotify",
-    label: "Spotify",
-    icon: "providerSpotify",
-    url: "https://open.spotify.com/search/",
-  },
-];
+function getPlaceholders() {
+  return PLACEHOLDER_KEYS.map((key) => t(key));
+}
 
 const segmenter =
   typeof Intl !== "undefined" && Intl.Segmenter
@@ -111,6 +72,7 @@ export function startSearchWidget() {
   const arrowDownEl = document.getElementById("search-arrow-down");
   const reelEl = document.getElementById("search-provider-reel");
   const trackEl = document.getElementById("search-provider-track");
+  const autocompleteEl = document.getElementById("search-autocomplete");
   if (!box || !canvas || !proxy) return;
 
   const ctx = canvas.getContext("2d");
@@ -144,95 +106,523 @@ export function startSearchWidget() {
   let currentPadX = REST_PAD_X;
 
   // Provider reel state (carousel-like continuous scroll + snap)
-  const savedProviderId = getSettings().widgets?.search?.config?.provider;
-  let activeProviderIdx = Math.max(
-    0,
-    SEARCH_PROVIDERS.findIndex((p) => p.id === savedProviderId),
-  );
+  let lastDefaultProviderId =
+    getSettings().widgets?.search?.config?.provider || SEARCH_ENGINES[0].id;
+  let { providers: orderedProviders, defaultIndex: activeProviderIdx } =
+    buildOrderedProviders(lastDefaultProviderId);
   let targetScrollPos = activeProviderIdx;
   let isPickerOpen = false;
-  let pickerCloseTimer = null;
+  let isTempPrefixProvider = false;
+  let activePrefixLength = 0;
+  let directUrl = null;
   let arrowAutoCloseTimer = null;
   let wheelSnapTimer = null;
   let reelItems = [];
+  let autocompleteItems = [];
+  let selectedSuggestionIdx = -1;
+  let selectionSource = null;
+  let autocompleteReqSeq = 0;
+  let autocompleteDebounceTimer = null;
+  let autocompleteHeightTimer = null;
+  let autocompleteFlipRaf = null;
+  const autocompleteRows = new Map();
+  let autocompleteHighlightEl = null;
 
-  function syncProviderIconAndPersist(persist = false) {
-    const active = SEARCH_PROVIDERS[activeProviderIdx] || SEARCH_PROVIDERS[0];
+  function syncProviderIcon() {
+    const active = orderedProviders[activeProviderIdx] || orderedProviders[0];
     if (providerIconEl) {
-      providerIconEl.innerHTML = Icons[active.icon] || Icons.search || "";
+      providerIconEl.innerHTML = directUrl
+        ? Icons.directUrl || Icons.search || ""
+        : Icons[active.icon] || Icons.search || "";
     }
     reelItems.forEach((el, idx) => {
       el.classList.toggle("is-active", idx === activeProviderIdx);
     });
-    if (persist) {
-      const currentWidgets = getSettings().widgets;
-      saveSettings({
-        widgets: {
-          ...currentWidgets,
-          search: {
-            ...currentWidgets?.search,
-            config: {
-              ...currentWidgets?.search?.config,
-              provider: active.id,
-            },
-          },
-        },
-      });
-    }
   }
 
   function updateReelVisual(pos) {
     if (!trackEl) return;
-    const offsetY = -(pos * REEL_ITEM_H + REEL_ITEM_H / 2);
-    trackEl.style.transform = `translateY(${offsetY.toFixed(2)}px)`;
+    if (reelItems.length === 0) {
+      const offsetY = -(pos * REEL_ITEM_H + REEL_ITEM_H / 2);
+      trackEl.style.transform = `translateY(${offsetY.toFixed(2)}px)`;
+      return;
+    }
+    const clamped = Math.max(0, Math.min(reelItems.length - 1, pos));
+    const lo = Math.floor(clamped);
+    const hi = Math.min(reelItems.length - 1, lo + 1);
+    const frac = clamped - lo;
+    const loCenter = reelItems[lo].offsetTop + reelItems[lo].offsetHeight / 2;
+    const hiCenter = reelItems[hi].offsetTop + reelItems[hi].offsetHeight / 2;
+    const centerY = loCenter + (hiCenter - loCenter) * frac;
+    trackEl.style.transform = `translateY(${(-centerY).toFixed(2)}px)`;
+
+    reelItems.forEach((el, idx) => {
+      const dist = Math.abs(idx - clamped);
+      const opacity = Math.max(0.45, 1 - dist * 0.11);
+      el.style.opacity = opacity.toFixed(2);
+    });
+  }
+
+  function renderReelDivider(labelKey) {
+    return `<div class="search-provider-divider"><span class="search-provider-divider-label" data-i18n="${labelKey}">${t(labelKey)}</span></div>`;
   }
 
   function buildProviderReel() {
     if (!trackEl) return;
-    trackEl.innerHTML = SEARCH_PROVIDERS.map(
-      (p, idx) => `
+    trackEl.innerHTML =
+      renderReelDivider("sp.search.reel_engines") +
+      orderedProviders
+        .map(
+          (p, idx) => `
       <div class="search-provider-item${idx === activeProviderIdx ? " is-active" : ""}" data-provider-idx="${idx}">
         ${Icons[p.icon] || ""}
         <span class="search-provider-label">${p.label}</span>
-      </div>
+      </div>${p.isDefaultSlot ? renderReelDivider("sp.search.reel_social") : ""}
     `,
-    ).join("");
+        )
+        .join("");
 
     reelItems = Array.from(trackEl.querySelectorAll(".search-provider-item"));
-    reelItems.forEach((item) => {
-      item.addEventListener("mousedown", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const idx = Number(item.dataset.providerIdx);
-        if (!Number.isNaN(idx)) {
-          targetScrollPos = idx;
-          activeProviderIdx = idx;
-          syncProviderIconAndPersist(true);
-        }
-        closePicker();
-        proxy.focus();
-      });
-    });
 
-    syncProviderIconAndPersist(false);
+    syncProviderIcon();
     updateReelVisual(targetScrollPos);
   }
 
-  function applyReelPosition(persist = true) {
+  function applyReelPosition() {
     updateReelVisual(targetScrollPos);
     const nearestIdx = Math.max(
       0,
-      Math.min(SEARCH_PROVIDERS.length - 1, Math.round(targetScrollPos)),
+      Math.min(orderedProviders.length - 1, Math.round(targetScrollPos)),
     );
     if (nearestIdx !== activeProviderIdx) {
       activeProviderIdx = nearestIdx;
-      syncProviderIconAndPersist(persist);
+      syncProviderIcon();
     }
   }
 
+  function openTargetUrl(targetUrl) {
+    if (!targetUrl) return;
+    if (getSettings().widgets?.search?.config?.open_in_new_tab) {
+      window.open(targetUrl, "_blank", "noopener,noreferrer");
+    } else {
+      window.location.href = targetUrl;
+    }
+  }
+
+  function closeAutocomplete() {
+    clearTimeout(autocompleteDebounceTimer);
+    clearTimeout(autocompleteHeightTimer);
+    if (autocompleteFlipRaf) {
+      cancelAnimationFrame(autocompleteFlipRaf);
+      autocompleteFlipRaf = null;
+    }
+    autocompleteReqSeq += 1;
+    autocompleteItems = [];
+    selectedSuggestionIdx = -1;
+    selectionSource = null;
+    for (const entry of autocompleteRows.values()) {
+      clearTimeout(entry.exitTimer);
+    }
+    autocompleteRows.clear();
+    if (autocompleteEl) {
+      autocompleteEl.classList.remove("is-open");
+      autocompleteEl.style.height = "";
+      autocompleteEl.style.transition = "";
+      autocompleteEl.innerHTML = "";
+    }
+    autocompleteHighlightEl = null;
+  }
+
+  function getAutocompleteKey(item) {
+    return item.type === "prefix" ? item.id : item.url;
+  }
+
+  function applyPrefixProvider(providerId, nextValue = null) {
+    const nextIdx = orderedProviders.findIndex((p) => p.id === providerId);
+    if (nextIdx === -1) return;
+    if (typeof nextValue === "string") {
+      proxy.value = nextValue;
+      proxy.setSelectionRange(nextValue.length, nextValue.length);
+      closeAutocomplete();
+      sync();
+      scheduleAutocomplete();
+      return;
+    }
+    if (activeProviderIdx !== nextIdx || !isTempPrefixProvider) {
+      activeProviderIdx = nextIdx;
+      targetScrollPos = nextIdx;
+      isTempPrefixProvider = true;
+      syncProviderIcon();
+      updateReelVisual(targetScrollPos);
+    }
+  }
+
+  function resetTempPrefixProvider() {
+    activePrefixLength = 0;
+    if (!isTempPrefixProvider) return;
+    const defaultIdx = orderedProviders.findIndex(
+      (p) => p.id === lastDefaultProviderId,
+    );
+    const nextIdx = defaultIdx >= 0 ? defaultIdx : 0;
+    isTempPrefixProvider = false;
+    activeProviderIdx = nextIdx;
+    targetScrollPos = nextIdx;
+    syncProviderIcon();
+    updateReelVisual(targetScrollPos);
+  }
+
+  function syncPrefixState() {
+    const matched = resolvePrefixCommand(proxy.value);
+    if (matched) {
+      activePrefixLength = matched.prefixLength;
+      applyPrefixProvider(matched.provider.id);
+    } else {
+      resetTempPrefixProvider();
+    }
+  }
+
+  function updateAutocompleteSelection() {
+    if (!autocompleteEl) return;
+    let activeRow = null;
+    autocompleteItems.forEach((item, idx) => {
+      const entry = autocompleteRows.get(getAutocompleteKey(item));
+      if (!entry) return;
+      const isSelected = idx === selectedSuggestionIdx;
+      entry.el.classList.toggle("is-selected", isSelected);
+      if (isSelected) activeRow = entry.el;
+    });
+    if (autocompleteHighlightEl) {
+      if (activeRow) {
+        const wasHidden =
+          autocompleteHighlightEl.style.opacity !== "1";
+        if (wasHidden) {
+          autocompleteHighlightEl.style.transition = "none";
+          autocompleteHighlightEl.style.height = `${activeRow.offsetHeight}px`;
+          autocompleteHighlightEl.style.transform = `translateY(${activeRow.offsetTop}px)`;
+          void autocompleteHighlightEl.offsetHeight;
+          autocompleteHighlightEl.style.transition = "";
+        } else {
+          autocompleteHighlightEl.style.height = `${activeRow.offsetHeight}px`;
+          autocompleteHighlightEl.style.transform = `translateY(${activeRow.offsetTop}px)`;
+        }
+        autocompleteHighlightEl.style.opacity = "1";
+      } else {
+        autocompleteHighlightEl.style.opacity = "0";
+      }
+    }
+  }
+
+  function createAutocompleteRow(item, idx) {
+    const isPrefix = item.type === "prefix";
+    const key = getAutocompleteKey(item);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "search-autocomplete-item";
+    btn.dataset.index = String(idx);
+    btn.dataset.key = key;
+    btn.setAttribute("role", "option");
+
+    const faviconWrap = document.createElement("span");
+    faviconWrap.className = "search-autocomplete-favicon";
+
+    const fallbackIcon = document.createElement("span");
+    fallbackIcon.className = "search-autocomplete-favicon-fallback";
+    fallbackIcon.innerHTML = isPrefix
+      ? Icons[item.icon] || Icons.search || ""
+      : Icons.directUrl || "";
+    faviconWrap.appendChild(fallbackIcon);
+
+    if (!isPrefix) {
+      const faviconUrl = getFaviconUrl(item.url);
+      if (faviconUrl) {
+        const img = document.createElement("img");
+        img.className = "search-autocomplete-favicon-img";
+        img.alt = "";
+        img.loading = "lazy";
+        img.addEventListener("load", () => {
+          fallbackIcon.hidden = true;
+        });
+        img.addEventListener("error", () => {
+          img.remove();
+          fallbackIcon.hidden = false;
+        });
+        img.src = faviconUrl;
+        faviconWrap.appendChild(img);
+      }
+    }
+
+    const textWrap = document.createElement("span");
+    textWrap.className = "search-autocomplete-text";
+
+    const titleEl = document.createElement("span");
+    titleEl.className = "search-autocomplete-title";
+    titleEl.textContent = isPrefix ? item.prefix : item.title;
+
+    const urlEl = document.createElement("span");
+    urlEl.className = "search-autocomplete-url";
+    urlEl.textContent = isPrefix ? item.title : item.displayUrl;
+
+    textWrap.append(titleEl, urlEl);
+
+    const badgeWrap = document.createElement("span");
+    badgeWrap.className = "search-autocomplete-badge";
+    if (!isPrefix) {
+      badgeWrap.innerHTML =
+        item.source === "bookmark"
+          ? Icons.autocompleteBookmark || ""
+          : Icons.autocompleteHistory || "";
+    }
+
+    btn.append(faviconWrap, textWrap, badgeWrap);
+    btn.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+    });
+    btn.addEventListener("mouseenter", () => {
+      selectedSuggestionIdx = Number(btn.dataset.index);
+      selectionSource = "mouse";
+      updateAutocompleteSelection();
+    });
+    btn.addEventListener("click", () => {
+      if (isPrefix) {
+        applyPrefixProvider(item.providerId, `${item.prefix} `);
+      } else {
+        openTargetUrl(item.url);
+      }
+    });
+    return btn;
+  }
+
+  function renderAutocomplete(items) {
+    if (!autocompleteEl) return;
+    if (!items.length || !isFocused || isPickerOpen) {
+      closeAutocomplete();
+      return;
+    }
+
+    const wasOpen = autocompleteEl.classList.contains("is-open");
+    const prevHeight = wasOpen ? autocompleteEl.offsetHeight : 0;
+
+    // FLIP First: snapshot current visual positions of visible non-exiting rows
+    const firstRects = new Map();
+    if (wasOpen) {
+      for (const [key, entry] of autocompleteRows.entries()) {
+        if (!entry.el.classList.contains("is-exiting")) {
+          firstRects.set(key, entry.el.getBoundingClientRect());
+        }
+      }
+    }
+
+    if (!autocompleteHighlightEl || !autocompleteHighlightEl.isConnected) {
+      autocompleteHighlightEl = document.createElement("div");
+      autocompleteHighlightEl.className = "search-autocomplete-highlight";
+      autocompleteHighlightEl.setAttribute("aria-hidden", "true");
+      autocompleteEl.prepend(autocompleteHighlightEl);
+    }
+
+    const nextKeys = new Set(items.map(getAutocompleteKey));
+
+    // Read all exiting geometries BEFORE mutating position:absolute so later items don't collapse upward
+    const toExit = [];
+    for (const [key, entry] of autocompleteRows.entries()) {
+      if (nextKeys.has(key)) continue;
+      if (entry.el.classList.contains("is-exiting")) continue;
+      const el = entry.el;
+      toExit.push({
+        key,
+        entry,
+        el,
+        top: el.offsetTop,
+        left: el.offsetLeft,
+        width: el.offsetWidth,
+      });
+    }
+
+    for (const { key, entry, el, top, left, width } of toExit) {
+      el.style.position = "absolute";
+      el.style.top = `${top}px`;
+      el.style.left = `${left}px`;
+      el.style.width = `${width}px`;
+      el.style.transition = "";
+      el.style.transform = "";
+      el.style.opacity = "";
+      void el.offsetWidth;
+      el.classList.remove("is-selected");
+      el.classList.add("is-exiting");
+      entry.exitTimer = setTimeout(() => {
+        el.remove();
+        autocompleteRows.delete(key);
+      }, 190);
+    }
+
+    autocompleteItems = items;
+    selectedSuggestionIdx = -1;
+    selectionSource = null;
+
+    const newEntries = [];
+    const survivingEntries = [];
+
+    items.forEach((item, idx) => {
+      const key = getAutocompleteKey(item);
+      let entry = autocompleteRows.get(key);
+      if (entry) {
+        clearTimeout(entry.exitTimer);
+        entry.exitTimer = null;
+        entry.el.classList.remove("is-exiting");
+        entry.el.style.position = "";
+        entry.el.style.top = "";
+        entry.el.style.left = "";
+        entry.el.style.width = "";
+        // Clear any in-flight transform/opacity before measuring Last position
+        entry.el.style.transition = "none";
+        entry.el.style.transform = "";
+        entry.el.style.opacity = "";
+        entry.el.dataset.index = String(idx);
+        // Sync source badge in case bookmark/history status changed
+        const badgeWrap = entry.el.querySelector(".search-autocomplete-badge");
+        if (badgeWrap && item.type !== "prefix") {
+          badgeWrap.innerHTML =
+            item.source === "bookmark"
+              ? Icons.autocompleteBookmark || ""
+              : Icons.autocompleteHistory || "";
+        }
+        survivingEntries.push({ key, el: entry.el });
+      } else {
+        const el = createAutocompleteRow(item, idx);
+        entry = { el, exitTimer: null };
+        autocompleteRows.set(key, entry);
+        newEntries.push({ key, el });
+      }
+      autocompleteEl.appendChild(entry.el);
+    });
+
+    // Measure natural target height and Last rects without transitions
+    clearTimeout(autocompleteHeightTimer);
+    autocompleteEl.style.transition = "none";
+    autocompleteEl.style.height = "auto";
+    autocompleteEl.classList.add("is-open");
+    const targetHeight = autocompleteEl.offsetHeight;
+
+    const lastRects = new Map();
+    if (wasOpen) {
+      for (const { key, el } of survivingEntries) {
+        lastRects.set(key, el.getBoundingClientRect());
+      }
+    }
+
+    // Invert: apply initial transforms/opacity before painting
+    if (wasOpen) {
+      for (const { key, el } of survivingEntries) {
+        const first = firstRects.get(key);
+        const last = lastRects.get(key);
+        if (!first || !last) continue;
+        const dy = first.top - last.top;
+        if (Math.abs(dy) > 0.5) {
+          el.style.transition = "none";
+          el.style.transform = `translateY(${dy}px)`;
+        }
+      }
+    }
+    for (const { el } of newEntries) {
+      el.style.transition = "none";
+      el.style.opacity = "0";
+      el.style.transform = "scale(0.95)";
+    }
+
+    if (wasOpen && prevHeight > 0 && Math.abs(prevHeight - targetHeight) > 0.5) {
+      autocompleteEl.style.height = `${prevHeight}px`;
+    } else {
+      autocompleteEl.style.height = "";
+    }
+
+    // Commit inverted state in a single synchronous reflow before Play
+    void autocompleteEl.offsetHeight;
+
+    if (autocompleteFlipRaf) cancelAnimationFrame(autocompleteFlipRaf);
+    autocompleteFlipRaf = requestAnimationFrame(() => {
+      autocompleteFlipRaf = null;
+      autocompleteEl.style.transition = "";
+      if (wasOpen && prevHeight > 0 && Math.abs(prevHeight - targetHeight) > 0.5) {
+        autocompleteEl.style.height = `${targetHeight}px`;
+        autocompleteHeightTimer = setTimeout(() => {
+          autocompleteEl.style.height = "";
+        }, 290);
+      }
+
+      for (const { el } of survivingEntries) {
+        el.style.transition =
+          "transform 0.24s var(--expo_out), opacity 0.18s var(--ease_out)";
+        el.style.transform = "";
+      }
+      for (const { el } of newEntries) {
+        el.style.transition =
+          "transform 0.22s var(--expo_out), opacity 0.18s var(--ease_out)";
+        el.style.opacity = "";
+        el.style.transform = "";
+      }
+    });
+
+    updateAutocompleteSelection();
+  }
+
+  function scheduleAutocomplete() {
+    if (!autocompleteEl) return;
+    const config = getSettings().widgets?.search?.config || {};
+    const useBookmarks = Boolean(config.autocomplete_bookmarks);
+    const useHistory = Boolean(config.autocomplete_history);
+    const query = proxy.value.trim();
+
+    if (!isFocused || isPickerOpen || !query) {
+      closeAutocomplete();
+      return;
+    }
+
+    const matchedPrefix = resolvePrefixCommand(proxy.value);
+    if (matchedPrefix?.hasSpace) {
+      const subQuery = matchedPrefix.restQuery.trim();
+      if (!subQuery || (!useBookmarks && !useHistory)) {
+        closeAutocomplete();
+        return;
+      }
+      clearTimeout(autocompleteDebounceTimer);
+      const reqId = ++autocompleteReqSeq;
+      autocompleteDebounceTimer = setTimeout(async () => {
+        const results = await fetchAutocompleteSuggestions(subQuery, {
+          bookmarks: useBookmarks,
+          history: useHistory,
+        });
+        if (reqId !== autocompleteReqSeq) return;
+        renderAutocomplete(results);
+      }, 70);
+      return;
+    }
+
+    if (query.startsWith("/") && !/\s/.test(query)) {
+      clearTimeout(autocompleteDebounceTimer);
+      autocompleteReqSeq += 1;
+      renderAutocomplete(getPrefixSuggestions(query));
+      return;
+    }
+
+    if (!useBookmarks && !useHistory) {
+      closeAutocomplete();
+      return;
+    }
+
+    clearTimeout(autocompleteDebounceTimer);
+    const reqId = ++autocompleteReqSeq;
+    autocompleteDebounceTimer = setTimeout(async () => {
+      const results = await fetchAutocompleteSuggestions(query, {
+        bookmarks: useBookmarks,
+        history: useHistory,
+      });
+      if (reqId !== autocompleteReqSeq) return;
+      renderAutocomplete(results);
+    }, 70);
+  }
+
   function openPicker() {
-    clearTimeout(pickerCloseTimer);
     if (isPickerOpen) return;
+    closeAutocomplete();
     isPickerOpen = true;
     targetScrollPos = activeProviderIdx;
     updateReelVisual(targetScrollPos);
@@ -240,7 +630,6 @@ export function startSearchWidget() {
   }
 
   function closePicker() {
-    clearTimeout(pickerCloseTimer);
     clearTimeout(arrowAutoCloseTimer);
     clearTimeout(wheelSnapTimer);
     if (!isPickerOpen) return;
@@ -250,16 +639,11 @@ export function startSearchWidget() {
     box.classList.remove("is-picker-open");
   }
 
-  function scheduleClosePicker(delay = 160) {
-    clearTimeout(pickerCloseTimer);
-    pickerCloseTimer = setTimeout(() => closePicker(), delay);
-  }
-
   function stepProvider(delta) {
     const base = Math.round(targetScrollPos);
     const next = Math.max(
       0,
-      Math.min(SEARCH_PROVIDERS.length - 1, base + delta),
+      Math.min(orderedProviders.length - 1, base + delta),
     );
     targetScrollPos = next;
     applyReelPosition(true);
@@ -294,8 +678,8 @@ export function startSearchWidget() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  function measureTextWidth(str) {
-    ctx.font = FONT;
+  function measureTextWidth(str, font = FONT) {
+    ctx.font = font;
     return ctx.measureText(str).width;
   }
 
@@ -317,11 +701,16 @@ export function startSearchWidget() {
     return res;
   }
 
-  function getGraphemeLayout(graphemes) {
+  function getGraphemeLayout(graphemes, boldUntil = activePrefixLength) {
     const positions = [0];
     let acc = 0;
     for (let i = 0; i < graphemes.length; i++) {
-      acc += measureTextWidth(graphemes[i].ch);
+      const g = graphemes[i];
+      const font = g.index < boldUntil ? FONT_PREFIX : FONT;
+      acc += measureTextWidth(g.ch, font);
+      if (boldUntil > 0 && g.index === boldUntil) {
+        acc += PREFIX_TAIL_GAP;
+      }
       positions.push(acc);
     }
     return positions;
@@ -429,6 +818,16 @@ export function startSearchWidget() {
 
     const nextGraphemes = getGraphemes(nextText);
 
+    if (getSettings().widgets?.search?.config?.reduce_animation) {
+      charAnims = new Array(nextGraphemes.length).fill(null);
+      charOffsetX = new Array(nextGraphemes.length).fill(0);
+      pendingDeletes = [];
+      fallingChars = [];
+      prevText = nextText;
+      prevGraphemes = nextGraphemes;
+      return;
+    }
+
     let prefix = 0;
     while (
       prefix < prevGraphemes.length &&
@@ -510,15 +909,24 @@ export function startSearchWidget() {
   function draw(now) {
     const cssW = box.clientWidth + OVERFLOW_X * 2;
     const cssH = box.clientHeight + OVERFLOW_Y * 2;
+    const searchConfig = getSettings().widgets?.search?.config || {};
+    const reduceAnim = Boolean(searchConfig.reduce_animation);
 
-    scrollVisualX += (scrollTargetX - scrollVisualX) * 0.24;
-    if (Math.abs(scrollTargetX - scrollVisualX) < 0.25) {
+    if (reduceAnim) {
       scrollVisualX = scrollTargetX;
-    }
-
-    caretVisualX += (caretRawTargetX - caretVisualX) * 0.36;
-    if (Math.abs(caretRawTargetX - caretVisualX) < 0.2) {
       caretVisualX = caretRawTargetX;
+      pendingDeletes = [];
+      fallingChars = [];
+    } else {
+      scrollVisualX += (scrollTargetX - scrollVisualX) * 0.24;
+      if (Math.abs(scrollTargetX - scrollVisualX) < 0.25) {
+        scrollVisualX = scrollTargetX;
+      }
+
+      caretVisualX += (caretRawTargetX - caretVisualX) * 0.36;
+      if (Math.abs(caretRawTargetX - caretVisualX) < 0.2) {
+        caretVisualX = caretRawTargetX;
+      }
     }
 
     const targetPadX = isFocused || isPickerOpen ? FOCUS_PAD_X : REST_PAD_X;
@@ -569,17 +977,23 @@ export function startSearchWidget() {
       }
     }
 
-    selVisualAlpha += (selTargetAlpha - selVisualAlpha) * 0.28;
-    selVisualStartX += (selTargetStartX - selVisualStartX) * 0.34;
-    selVisualEndX += (selTargetEndX - selVisualEndX) * 0.34;
-    if (Math.abs(selTargetAlpha - selVisualAlpha) < 0.01) {
+    if (reduceAnim) {
       selVisualAlpha = selTargetAlpha;
-    }
-    if (Math.abs(selTargetStartX - selVisualStartX) < 0.2) {
       selVisualStartX = selTargetStartX;
-    }
-    if (Math.abs(selTargetEndX - selVisualEndX) < 0.2) {
       selVisualEndX = selTargetEndX;
+    } else {
+      selVisualAlpha += (selTargetAlpha - selVisualAlpha) * 0.28;
+      selVisualStartX += (selTargetStartX - selVisualStartX) * 0.34;
+      selVisualEndX += (selTargetEndX - selVisualEndX) * 0.34;
+      if (Math.abs(selTargetAlpha - selVisualAlpha) < 0.01) {
+        selVisualAlpha = selTargetAlpha;
+      }
+      if (Math.abs(selTargetStartX - selVisualStartX) < 0.2) {
+        selVisualStartX = selTargetStartX;
+      }
+      if (Math.abs(selTargetEndX - selVisualEndX) < 0.2) {
+        selVisualEndX = selTargetEndX;
+      }
     }
 
     if (selVisualAlpha > 0 && selVisualEndX - selVisualStartX > 0.5) {
@@ -597,21 +1011,33 @@ export function startSearchWidget() {
       ctx.restore();
     }
 
-    // Placeholder character-level morph (hidden while scrolling provider reel)
+    // Placeholder character-level morph (or fade-out/in when reduce_animation is enabled)
     const placeholderTarget = text.length === 0 && !isPickerOpen ? 1 : 0;
-    placeholderAlpha += (placeholderTarget - placeholderAlpha) * 0.16;
-    if (Math.abs(placeholderTarget - placeholderAlpha) < 0.01) {
+    if (reduceAnim) {
       placeholderAlpha = placeholderTarget;
+    } else {
+      placeholderAlpha += (placeholderTarget - placeholderAlpha) * 0.16;
+      if (Math.abs(placeholderTarget - placeholderAlpha) < 0.01) {
+        placeholderAlpha = placeholderTarget;
+      }
     }
 
+    const placeholders = getPlaceholders();
+    const customPlaceholder = (searchConfig.custom_placeholder || "").trim();
+    const disableRoll = Boolean(searchConfig.disable_placeholder_roll);
+
     if (
+      !customPlaceholder &&
+      !disableRoll &&
       text.length === 0 &&
       now - lastPlaceholderSwitch >= PLACEHOLDER_INTERVAL
     ) {
-      const fromStr = PLACEHOLDERS[placeholderIdx];
-      placeholderIdx = (placeholderIdx + 1) % PLACEHOLDERS.length;
-      const toStr = PLACEHOLDERS[placeholderIdx];
-      placeholderMorph = buildPlaceholderMorph(fromStr, toStr, now);
+      const fromStr = placeholders[placeholderIdx % placeholders.length];
+      placeholderIdx = (placeholderIdx + 1) % placeholders.length;
+      const toStr = placeholders[placeholderIdx];
+      placeholderMorph = reduceAnim
+        ? { mode: "fade", start: now, fromStr, toStr }
+        : buildPlaceholderMorph(fromStr, toStr, now);
       lastPlaceholderSwitch = now;
     }
 
@@ -620,7 +1046,29 @@ export function startSearchWidget() {
       ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
       const baseX = OVERFLOW_X + currentPadX;
 
-      if (placeholderMorph) {
+      if (customPlaceholder) {
+        placeholderMorph = null;
+        ctx.globalAlpha = placeholderAlpha;
+        ctx.fillText(customPlaceholder, baseX, textY);
+      } else if (disableRoll) {
+        placeholderIdx = 0;
+        placeholderMorph = null;
+        ctx.globalAlpha = placeholderAlpha;
+        ctx.fillText(placeholders[0], baseX, textY);
+      } else if (placeholderMorph?.mode === "fade") {
+        const t = Math.min(
+          1,
+          (now - placeholderMorph.start) / PLACEHOLDER_MORPH_MS,
+        );
+        if (t < 0.5) {
+          ctx.globalAlpha = placeholderAlpha * (1 - t * 2);
+          ctx.fillText(placeholderMorph.fromStr, baseX, textY);
+        } else {
+          ctx.globalAlpha = placeholderAlpha * ((t - 0.5) * 2);
+          ctx.fillText(placeholderMorph.toStr, baseX, textY);
+        }
+        if (t >= 1) placeholderMorph = null;
+      } else if (placeholderMorph) {
         const t = Math.min(
           1,
           (now - placeholderMorph.start) / PLACEHOLDER_MORPH_MS,
@@ -644,33 +1092,62 @@ export function startSearchWidget() {
         if (t >= 1) placeholderMorph = null;
       } else {
         ctx.globalAlpha = placeholderAlpha;
-        ctx.fillText(PLACEHOLDERS[placeholderIdx], baseX, textY);
+        ctx.fillText(placeholders[placeholderIdx % placeholders.length], baseX, textY);
       }
 
       ctx.restore();
     }
 
     if (text.length > 0) {
+      if (activePrefixLength > 0) {
+        const prefixEndX = getXForUtf16Index(
+          graphemes,
+          positions,
+          activePrefixLength,
+        );
+        if (prefixEndX > 0) {
+          const padX = 5;
+          const pillH = 24;
+          ctx.save();
+          ctx.fillStyle = "rgba(255, 255, 255, 0.14)";
+          ctx.beginPath();
+          ctx.roundRect(
+            textOriginX - padX,
+            centerY - pillH / 2,
+            prefixEndX + padX * 2,
+            pillH,
+            7,
+          );
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
       for (let i = 0; i < graphemes.length; i++) {
         const g = graphemes[i];
-        let ox = charOffsetX[i] || 0;
+        let ox = reduceAnim ? 0 : charOffsetX[i] || 0;
         if (ox !== 0) {
           ox += (0 - ox) * 0.26;
           if (Math.abs(ox) < 0.2) ox = 0;
           charOffsetX[i] = ox;
+        } else if (reduceAnim) {
+          charOffsetX[i] = 0;
         }
 
         const charX = textOriginX + positions[i] + ox;
-        const anim = charAnims[i];
+        const anim = reduceAnim ? null : charAnims[i];
         let alpha = 1;
 
         if (anim) {
           const t = Math.min(1, (now - anim.start) / FADE_IN_DURATION);
           alpha = 1 - Math.pow(1 - t, 3);
           if (t >= 1) charAnims[i] = null;
+        } else if (reduceAnim) {
+          charAnims[i] = null;
         }
 
         ctx.save();
+        ctx.font = g.index < activePrefixLength ? FONT_PREFIX : FONT;
         ctx.globalAlpha = alpha;
         ctx.fillStyle = "#ffffff";
         ctx.fillText(g.ch, charX, textY);
@@ -770,16 +1247,38 @@ export function startSearchWidget() {
   }
 
   function sync() {
+    syncPrefixState();
+    const nextDirectUrl = parseDirectUrl(proxy.value);
+    if (nextDirectUrl !== directUrl) {
+      directUrl = nextDirectUrl;
+      box.classList.toggle("is-direct-url", Boolean(directUrl));
+      if (directUrl && isPickerOpen) {
+        closePicker();
+      }
+      syncProviderIcon();
+    }
     updateCharAnimations(performance.now());
     updateScrollAndCaretTarget();
     resetBlink();
   }
 
   function submitSearch() {
-    const query = proxy.value.trim();
-    if (!query) return;
-    const provider = SEARCH_PROVIDERS[activeProviderIdx] || SEARCH_PROVIDERS[0];
-    window.location.href = `${provider.url}${encodeURIComponent(query)}`;
+    const raw = proxy.value.trim();
+    if (!raw) return;
+    const matchedPrefix = resolvePrefixCommand(proxy.value);
+    if (matchedPrefix) {
+      const subQuery = matchedPrefix.restQuery.trim();
+      if (!subQuery) return;
+      const targetUrl =
+        parseDirectUrl(subQuery) ||
+        `${matchedPrefix.provider.url}${encodeURIComponent(subQuery)}`;
+      openTargetUrl(targetUrl);
+      return;
+    }
+    const provider = orderedProviders[activeProviderIdx] || orderedProviders[0];
+    const targetUrl =
+      parseDirectUrl(raw) || `${provider.url}${encodeURIComponent(raw)}`;
+    openTargetUrl(targetUrl);
   }
 
   const onBoxMousedown = (e) => {
@@ -797,25 +1296,12 @@ export function startSearchWidget() {
     sync();
   };
 
-  const onSlotEnter = () => {
-    if (!isFocused) return;
-    openPicker();
-  };
-  const onSlotLeave = () => scheduleClosePicker(160);
-  const onReelEnter = () => clearTimeout(pickerCloseTimer);
-  const onReelLeave = () => scheduleClosePicker(160);
   const onSlotClick = (e) => {
     e.stopPropagation();
-    const wasFocused = isFocused;
     proxy.focus();
-    if (!wasFocused) return;
-    if (isPickerOpen) {
-      closePicker();
-    } else {
-      openPicker();
-    }
   };
   const onWheelStep = (e) => {
+    if (directUrl) return;
     if (!isFocused && !isPickerOpen) return;
     e.preventDefault();
     openPicker();
@@ -828,22 +1314,26 @@ export function startSearchWidget() {
       targetScrollPos = Math.max(
         0,
         Math.min(
-          SEARCH_PROVIDERS.length - 1,
+          orderedProviders.length - 1,
           Math.round(targetScrollPos) + Math.sign(e.deltaY),
         ),
       );
-      applyReelPosition(true);
+      applyReelPosition();
+      clearTimeout(arrowAutoCloseTimer);
+      arrowAutoCloseTimer = setTimeout(() => closePicker(), 1200);
     } else {
       // Fine trackpad gesture: accumulate smoothly and snap after idle
       targetScrollPos = Math.max(
         0,
-        Math.min(SEARCH_PROVIDERS.length - 1, targetScrollPos + e.deltaY / 72),
+        Math.min(orderedProviders.length - 1, targetScrollPos + e.deltaY / 72),
       );
-      applyReelPosition(true);
+      applyReelPosition();
       clearTimeout(wheelSnapTimer);
+      clearTimeout(arrowAutoCloseTimer);
       wheelSnapTimer = setTimeout(() => {
         targetScrollPos = Math.round(targetScrollPos);
-        applyReelPosition(true);
+        applyReelPosition();
+        arrowAutoCloseTimer = setTimeout(() => closePicker(), 1200);
       }, 110);
     }
   };
@@ -867,15 +1357,59 @@ export function startSearchWidget() {
     isFocused = true;
     box.classList.add("is-focused");
     sync();
+    scheduleAutocomplete();
   };
   const onProxyBlur = () => {
     isFocused = false;
     box.classList.remove("is-focused");
     closePicker();
+    closeAutocomplete();
+  };
+  const onProxyInput = () => {
+    sync();
+    scheduleAutocomplete();
   };
   const onProxyKeydown = (e) => {
     resetBlink();
+    const isAutocompleteOpen =
+      autocompleteItems.length > 0 &&
+      autocompleteEl?.classList.contains("is-open");
+
+    if (e.key === "Tab" && isAutocompleteOpen && !isComposing) {
+      e.preventDefault();
+      const target =
+        selectedSuggestionIdx >= 0
+          ? autocompleteItems[selectedSuggestionIdx]
+          : autocompleteItems[0];
+      if (!target) return;
+      if (target.type === "prefix") {
+        applyPrefixProvider(target.providerId, `${target.prefix} `);
+      } else {
+        const filled = target.displayUrl || target.url || "";
+        proxy.value = filled;
+        proxy.setSelectionRange(filled.length, filled.length);
+        sync();
+        scheduleAutocomplete();
+      }
+      return;
+    }
+
     if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      if (isAutocompleteOpen) {
+        e.preventDefault();
+        const delta = e.key === "ArrowDown" ? 1 : -1;
+        const count = autocompleteItems.length;
+        selectedSuggestionIdx =
+          selectedSuggestionIdx < 0
+            ? delta > 0
+              ? 0
+              : count - 1
+            : (selectedSuggestionIdx + delta + count) % count;
+        selectionSource = "keyboard";
+        updateAutocompleteSelection();
+        return;
+      }
+      if (directUrl) return;
       e.preventDefault();
       openPicker();
       const dir = e.key === "ArrowDown" ? 1 : -1;
@@ -885,19 +1419,37 @@ export function startSearchWidget() {
       arrowAutoCloseTimer = setTimeout(() => closePicker(), 1800);
       return;
     }
-    if (e.key === "Escape" && isPickerOpen) {
-      e.preventDefault();
-      closePicker();
-      return;
+    if (e.key === "Escape") {
+      if (isAutocompleteOpen) {
+        e.preventDefault();
+        closeAutocomplete();
+        return;
+      }
+      if (isPickerOpen) {
+        e.preventDefault();
+        closePicker();
+        return;
+      }
     }
     if (e.key === "Enter" && !isComposing) {
       e.preventDefault();
+      if (isAutocompleteOpen && selectedSuggestionIdx >= 0) {
+        const chosen = autocompleteItems[selectedSuggestionIdx];
+        if (chosen?.type === "prefix") {
+          applyPrefixProvider(chosen.providerId, `${chosen.prefix} `);
+          return;
+        }
+        if (chosen?.url) {
+          openTargetUrl(chosen.url);
+          return;
+        }
+      }
       if (isPickerOpen) {
         activeProviderIdx = Math.max(
           0,
-          Math.min(SEARCH_PROVIDERS.length - 1, Math.round(targetScrollPos)),
+          Math.min(orderedProviders.length - 1, Math.round(targetScrollPos)),
         );
-        syncProviderIconAndPersist(true);
+        syncProviderIcon();
         closePicker();
       } else {
         submitSearch();
@@ -923,18 +1475,21 @@ export function startSearchWidget() {
     updateScrollAndCaretTarget();
   };
 
+  const onAutocompleteMouseleave = () => {
+    if (selectionSource !== "mouse") return;
+    selectedSuggestionIdx = -1;
+    selectionSource = null;
+    updateAutocompleteSelection();
+  };
+
   box.addEventListener("mousedown", onBoxMousedown);
   box.addEventListener("focus", onBoxFocus);
-  providerSlot?.addEventListener("mouseenter", onSlotEnter);
-  providerSlot?.addEventListener("mouseleave", onSlotLeave);
+  box.addEventListener("wheel", onWheelStep, { passive: false });
   providerSlot?.addEventListener("click", onSlotClick);
-  providerSlot?.addEventListener("wheel", onWheelStep, { passive: false });
-  reelEl?.addEventListener("mouseenter", onReelEnter);
-  reelEl?.addEventListener("mouseleave", onReelLeave);
-  reelEl?.addEventListener("wheel", onWheelStep, { passive: false });
+  autocompleteEl?.addEventListener("mouseleave", onAutocompleteMouseleave);
   proxy.addEventListener("focus", onProxyFocus);
   proxy.addEventListener("blur", onProxyBlur);
-  proxy.addEventListener("input", sync);
+  proxy.addEventListener("input", onProxyInput);
   proxy.addEventListener("keyup", sync);
   proxy.addEventListener("keydown", onProxyKeydown);
   proxy.addEventListener("compositionstart", onCompStart);
@@ -954,24 +1509,38 @@ export function startSearchWidget() {
   scrollVisualX = scrollTargetX;
   rafId = requestAnimationFrame(draw);
 
+  const unsubWidgets = subscribe("widgets", (widgets) => {
+    const nextId = widgets?.search?.config?.provider;
+    if (!nextId || nextId === lastDefaultProviderId) return;
+    lastDefaultProviderId = nextId;
+    const nextOrder = buildOrderedProviders(nextId);
+    orderedProviders = nextOrder.providers;
+    activeProviderIdx = nextOrder.defaultIndex;
+    targetScrollPos = nextOrder.defaultIndex;
+    buildProviderReel();
+  });
+
   cleanupSearchFn = () => {
+    unsubWidgets();
     if (rafId) cancelAnimationFrame(rafId);
-    clearTimeout(pickerCloseTimer);
     clearTimeout(arrowAutoCloseTimer);
     clearTimeout(wheelSnapTimer);
+    clearTimeout(autocompleteDebounceTimer);
+    clearTimeout(autocompleteHeightTimer);
+    if (autocompleteFlipRaf) cancelAnimationFrame(autocompleteFlipRaf);
+    for (const entry of autocompleteRows.values()) {
+      clearTimeout(entry.exitTimer);
+    }
+    autocompleteRows.clear();
     ro.disconnect();
     box.removeEventListener("mousedown", onBoxMousedown);
     box.removeEventListener("focus", onBoxFocus);
-    providerSlot?.removeEventListener("mouseenter", onSlotEnter);
-    providerSlot?.removeEventListener("mouseleave", onSlotLeave);
+    box.removeEventListener("wheel", onWheelStep);
     providerSlot?.removeEventListener("click", onSlotClick);
-    providerSlot?.removeEventListener("wheel", onWheelStep);
-    reelEl?.removeEventListener("mouseenter", onReelEnter);
-    reelEl?.removeEventListener("mouseleave", onReelLeave);
-    reelEl?.removeEventListener("wheel", onWheelStep);
+    autocompleteEl?.removeEventListener("mouseleave", onAutocompleteMouseleave);
     proxy.removeEventListener("focus", onProxyFocus);
     proxy.removeEventListener("blur", onProxyBlur);
-    proxy.removeEventListener("input", sync);
+    proxy.removeEventListener("input", onProxyInput);
     proxy.removeEventListener("keyup", sync);
     proxy.removeEventListener("keydown", onProxyKeydown);
     proxy.removeEventListener("compositionstart", onCompStart);

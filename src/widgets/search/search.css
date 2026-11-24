@@ -78,10 +78,6 @@
     color: var(--text-primary);
   }
 
-  .search-provider-glyph {
-    transition: opacity 0.16s var(--ease_out);
-  }
-
   .search-box.is-picker-open .search-provider-glyph {
     opacity: 0;
   }
@@ -116,6 +112,11 @@
     align-items: center;
     justify-content: center;
     line-height: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  .search-box.is-direct-url .search-provider-arrows {
+    opacity: 0;
   }
 
   .search-arrow {
@@ -188,7 +189,7 @@
 
   .search-box.is-picker-open .search-provider-reel {
     opacity: 1;
-    pointer-events: auto;
+    pointer-events: none;
   }
 
   .search-provider-track {
@@ -207,13 +208,15 @@
     height: 36px;
     padding-left: 16px;
     box-sizing: border-box;
-    color: var(--text-secondary);
+    color: rgba(255, 255, 255, 0.92);
     font-size: 15px;
     font-weight: 500;
     white-space: nowrap;
-    cursor: pointer;
+    pointer-events: none;
     user-select: none;
-    transition: color 0.16s var(--ease_out);
+    transition:
+      color 0.16s var(--ease_out),
+      opacity 0.24s var(--ease_out);
   }
 
   .search-provider-item svg {
@@ -236,8 +239,42 @@
   }
 
   .search-provider-item.is-active {
-    color: var(--text-primary);
+    color: #ffffff;
     font-weight: 500;
+  }
+
+  .search-provider-divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-left: 16px;
+    margin: 10px 0 8px;
+    width: 148px;
+    box-sizing: border-box;
+    flex-shrink: 0;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .search-provider-divider-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.58);
+    white-space: nowrap;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  }
+
+  .search-provider-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.28) 0%,
+      rgba(255, 255, 255, 0.04) 100%
+    );
   }
 
   .search-box__canvas {
@@ -261,5 +298,178 @@
     border: 0;
     padding: 0;
     margin: 0;
+  }
+
+  .search-autocomplete {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px;
+    overflow: hidden;
+    box-sizing: border-box;
+    border-radius: 18px;
+    border: 1px solid var(--glass-border);
+    box-shadow:
+      0 14px 36px rgba(0, 0, 0, 0.34),
+      inset 0 1px 0 var(--glass-inset);
+    opacity: 0;
+    transform: translateY(-6px) scale(0.985);
+    pointer-events: none;
+    z-index: 25;
+    transition:
+      height 0.28s var(--expo_out),
+      opacity 0.16s var(--ease_out),
+      transform 0.2s var(--expo_out);
+  }
+
+  .search-autocomplete::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--bg-panel);
+    -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+    backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  .search-autocomplete.is-open {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+
+  .search-autocomplete-highlight {
+    position: absolute;
+    top: 0;
+    left: 6px;
+    right: 6px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 0;
+    transition:
+      transform 0.22s var(--expo_out),
+      height 0.22s var(--expo_out),
+      opacity 0.18s var(--ease_out);
+  }
+
+  .search-autocomplete-item {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 12px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--text-primary);
+    font-family: "Quicksand", "Mulish", sans-serif;
+    text-align: left;
+    cursor: pointer;
+    box-sizing: border-box;
+    transform-origin: center center;
+  }
+
+  .search-autocomplete-item.is-exiting {
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0;
+    transform: scale(0.95);
+    transition:
+      opacity 0.16s var(--ease_out),
+      transform 0.18s var(--expo_out);
+  }
+
+  .search-autocomplete-favicon {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+
+  .search-autocomplete-favicon-img {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    object-fit: contain;
+    display: block;
+  }
+
+  .search-autocomplete-favicon-fallback {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+  }
+
+  .search-autocomplete-favicon-fallback[hidden] {
+    display: none;
+  }
+
+  .search-autocomplete-favicon-fallback svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+  }
+
+  .search-autocomplete-text {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .search-autocomplete-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .search-autocomplete-url {
+    font-size: 11.5px;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--text-secondary);
+    opacity: 0.78;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .search-autocomplete-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-left: auto;
+    color: var(--text-secondary);
+    opacity: 0.72;
+    transition:
+      color 0.18s var(--ease_out),
+      opacity 0.18s var(--ease_out);
+  }
+
+  .search-autocomplete-item:hover .search-autocomplete-badge,
+  .search-autocomplete-item.is-selected .search-autocomplete-badge {
+    color: var(--text-primary);
+    opacity: 1;
   }
 }

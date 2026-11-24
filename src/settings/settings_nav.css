@@ -59,7 +59,13 @@
       box-shadow var(--settings-motion) var(--expo_out);
   }
 
-  /* Main nav card transitions out by sliding fully up off-screen when entering a submenu */
+  /* Main nav stack (Group 1 + Group 2) transitions out by sliding fully up off-screen when entering a submenu */
+  .nav_group_stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--settings-gap);
+  }
+
   #setting_nav_main {
     transition: transform var(--settings-motion) var(--expo_out);
     will-change: transform;
@@ -96,10 +102,24 @@
     align-items: center;
     justify-content: center;
     border-radius: var(--nav_item_radius);
-    transition: color 0.2s var(--smooth);
+    transition:
+      color 0.2s var(--smooth),
+      height 0.28s var(--expo_out),
+      margin-top 0.28s var(--expo_out),
+      opacity 0.2s var(--smooth),
+      transform 0.28s var(--expo_out);
     color: var(--text-secondary);
     position: relative;
     cursor: pointer;
+  }
+
+  .nav_item.is_collapsed {
+    height: 0;
+    margin-top: calc(-1 * var(--nav_gap));
+    opacity: 0;
+    transform: scale(0.55);
+    pointer-events: none;
+    overflow: hidden;
   }
 
   .nav_item::before {
@@ -156,6 +176,19 @@
     opacity: 0.45;
     margin: 4px 0;
     flex-shrink: 0;
+    transition:
+      height 0.28s var(--expo_out),
+      margin 0.28s var(--expo_out),
+      opacity 0.2s var(--smooth),
+      transform 0.28s var(--expo_out);
+  }
+
+  .nav_divider.is_collapsed {
+    height: 0;
+    margin: calc(-1 * var(--nav_gap)) 0 0 0;
+    opacity: 0;
+    transform: scaleX(0.3);
+    pointer-events: none;
   }
 
   .nav_item svg {

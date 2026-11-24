@@ -337,6 +337,12 @@ const defaultSettings = {
       position: { ax: 50, ay: 50, x: 0, y: 0, w: 440, h: 44 },
       config: {
         provider: "google",
+        open_in_new_tab: false,
+        custom_placeholder: "",
+        disable_placeholder_roll: false,
+        reduce_animation: false,
+        autocomplete_bookmarks: false,
+        autocomplete_history: false,
       },
     },
   },

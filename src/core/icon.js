@@ -47,8 +47,10 @@ import redditLogoIcon from "@phosphor-icons/core/assets/regular/reddit-logo.svg?
 import compassIcon from "@phosphor-icons/core/assets/regular/compass.svg?raw";
 import birdIcon from "@phosphor-icons/core/assets/regular/bird.svg?raw";
 import caretUpIcon from "@phosphor-icons/core/assets/regular/caret-up.svg?raw";
+import shieldCheckIcon from "@phosphor-icons/core/assets/regular/shield-check.svg?raw";
 import pinterestLogoIcon from "@phosphor-icons/core/assets/regular/pinterest-logo.svg?raw";
 import spotifyLogoIcon from "@phosphor-icons/core/assets/regular/spotify-logo.svg?raw";
+import bookmarkSimpleIcon from "@phosphor-icons/core/assets/regular/bookmark-simple.svg?raw";
 
 function withSize(svg, size = 24, style = "") {
   return svg.replace(
@@ -86,6 +88,7 @@ dragHandle: withSize(dragHandleIcon, 16),
   sidebar_widgets: withSize(squaresFourIcon),
   sidebar_time: withSize(clockIcon),
   sidebar_weather: withSize(cloudIcon),
+  sidebar_search: withSize(magnifyingGlassIcon),
   sidebar_info: withSize(infoIcon),
   sidebar_debug: withSize(bugIcon),
   upload: withSize(uploadSimpleIcon, 20),
@@ -125,11 +128,16 @@ dragHandle: withSize(dragHandleIcon, 16),
   providerGoogle: withSize(googleLogoIcon, 18),
   providerDuckDuckGo: withSize(birdIcon, 18),
   providerBing: withSize(compassIcon, 18),
+  providerBrave: withSize(shieldCheckIcon, 18),
+  providerGoogleAI: withSize(sparkleIcon, 18),
   providerYouTube: withSize(youtubeLogoIcon, 18),
   providerGitHub: withSize(githubLogoIcon, 18),
   providerReddit: withSize(redditLogoIcon, 18),
   providerPinterest: withSize(pinterestLogoIcon, 18),
   providerSpotify: withSize(spotifyLogoIcon, 18),
+  directUrl: withSize(globeIcon, 18),
+  autocompleteBookmark: withSize(bookmarkSimpleIcon, 15),
+  autocompleteHistory: withSize(clockIcon, 15),
   caretUpSmall: withSize(caretUpIcon, 9),
   caretDownSmall: withSize(caretDownIcon, 9),
 };
