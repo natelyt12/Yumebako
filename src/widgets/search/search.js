@@ -455,8 +455,8 @@ export function startSearchWidget() {
     }
 
     autocompleteItems = items;
-    selectedSuggestionIdx = -1;
-    selectionSource = null;
+    selectedSuggestionIdx = 0;
+    selectionSource = "auto";
 
     const newEntries = [];
     const survivingEntries = [];
@@ -1477,8 +1477,8 @@ export function startSearchWidget() {
 
   const onAutocompleteMouseleave = () => {
     if (selectionSource !== "mouse") return;
-    selectedSuggestionIdx = -1;
-    selectionSource = null;
+    selectedSuggestionIdx = autocompleteItems.length > 0 ? 0 : -1;
+    selectionSource = autocompleteItems.length > 0 ? "auto" : null;
     updateAutocompleteSelection();
   };
 
