@@ -342,7 +342,7 @@ export function createCollectionSidebar({ dataControl }) {
         value: 100,
         defaultValue: 100,
         unit: "%",
-        onCommit: (val) => {
+        onChange: (val) => {
             saveConfig({ videoVolume: val / 100 });
         },
     });
