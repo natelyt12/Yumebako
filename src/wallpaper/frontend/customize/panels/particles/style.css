@@ -24,7 +24,7 @@
 
   .effects_column_title {
     font-size: 0.82em;
-    font-weight: 600;
+    font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--text-muted);
@@ -88,7 +88,7 @@
     white-space: nowrap;
     color: var(--text-primary);
     font-size: 0.96rem;
-    font-weight: 500;
+    font-weight: 400;
   }
 
   .effect_card_controls {

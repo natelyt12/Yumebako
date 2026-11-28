@@ -11,8 +11,8 @@
        reserves the collapsed width) and the visible header must render the text
        at the same weight, otherwise the sizer measures narrower than the header
        and the text overflows past the chip's right padding. Meta info stays on
-       the Base tier (500) per the font-weight hierarchy. */
-    --meta-summary-fw: 500;
+       the Base tier (400) per the font-weight hierarchy. */
+    --meta-summary-fw: 400;
     --meta-radius: calc(
       var(--meta-chip-h) / 2
     ); /* 14px: Bán kính cung tròn bán nguyệt tuyệt đối */
@@ -118,7 +118,7 @@
     align-items: center;
     padding: 1px 5px;
     font-size: 9.5px;
-    font-weight: 600;
+    font-weight: 500;
     border-radius: 4px;
     background: rgba(255, 255, 255, 0.12);
     color: var(--text-primary);
@@ -218,7 +218,7 @@
 
   .wallpaper_switcher_meta_body .meta_label {
     color: var(--text-secondary);
-    font-weight: 500;
+    font-weight: 400;
     font-size: 13px;
     flex-shrink: 0;
     min-width: 85px;
@@ -227,7 +227,7 @@
 
   .wallpaper_switcher_meta_body .meta_value {
     color: var(--text-primary);
-    font-weight: 500;
+    font-weight: 400;
     text-align: right;
   }
 

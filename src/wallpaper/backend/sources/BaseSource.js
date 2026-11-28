@@ -379,4 +379,15 @@ export class BaseSource {
 
     return details;
   }
+
+  /**
+   * Persist updated `effects` onto cached items owned by a dynamic source.
+   * Dynamic sources with their own cache store override this method.
+   * @param {(item: CardItem) => boolean} _matchFn
+   * @param {Object} _effects
+   * @returns {Promise<boolean>}
+   */
+  async updateCachedEffects(_matchFn, _effects) {
+    return false;
+  }
 }

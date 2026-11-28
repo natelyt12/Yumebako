@@ -294,8 +294,14 @@ export class SwitcherBar {
     this.closeSidebar();
     clearTimeout(this._customizeCloseTimer);
     this._customizeCloseTimer = null;
-    host.classList.remove("customization_active", "customization_closing");
-    delete host.dataset.submenuType;
+    clearTimeout(this._manageCloseTimer);
+    this._manageCloseTimer = null;
+    host.classList.remove(
+      "customization_active",
+      "customization_closing",
+      "manage_closing",
+    );
+    host.dataset.submenuType = "manage";
     host.style.removeProperty("--switcher-submenu-height");
     this.customizeBtn?.classList.remove("active");
 
@@ -319,6 +325,16 @@ export class SwitcherBar {
       onClose: () => {
         this.manageGrid?.destroy();
         this.manageGrid = null;
+
+        host.classList.add("manage_closing");
+        clearTimeout(this._manageCloseTimer);
+        this._manageCloseTimer = setTimeout(() => {
+          this._manageCloseTimer = null;
+          host.classList.remove("manage_closing");
+          if (host.dataset.submenuType === "manage") {
+            delete host.dataset.submenuType;
+          }
+        }, 800);
       },
     });
 
@@ -382,7 +398,9 @@ export class SwitcherBar {
 
     clearTimeout(this._customizeCloseTimer);
     this._customizeCloseTimer = null;
-    host.classList.remove("customization_closing");
+    clearTimeout(this._manageCloseTimer);
+    this._manageCloseTimer = null;
+    host.classList.remove("customization_closing", "manage_closing");
     host.classList.add("customization_active");
     host.dataset.submenuType = "customize";
     host.style.setProperty(

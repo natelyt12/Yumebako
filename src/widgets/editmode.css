@@ -508,7 +508,7 @@
     padding: 0 16px;
     border-radius: 50px;
     font-size: 0.9em;
-    font-weight: 500;
+    font-weight: 400;
     font-family: inherit;
     display: inline-flex;
     align-items: center;
@@ -540,7 +540,7 @@
     background-color: rgba(255, 255, 255, 0.16);
     border-color: rgba(255, 255, 255, 0.14);
     color: var(--text-primary);
-    font-weight: 600;
+    font-weight: 500;
   }
 
   .edit_floating_bar button.edit_save_btn:hover {

@@ -206,6 +206,34 @@ export class BingSource extends RemoteSource {
     }
 
     /**
+     * Update `effects` on matching items in Bing's persisted daily snapshot.
+     * @param {(item: Object) => boolean} matchFn
+     * @param {Object} effects
+     * @returns {Promise<boolean>}
+     */
+    async updateCachedEffects(matchFn, effects) {
+        if (typeof matchFn !== "function" || !effects) return false;
+        const key = this.constructor.storageKey;
+        const storeData = await getFromStore(key);
+        if (!Array.isArray(storeData?.items) || storeData.items.length === 0) {
+            return false;
+        }
+
+        let changed = false;
+        for (const item of storeData.items) {
+            if (item && matchFn(item)) {
+                item.effects = JSON.parse(JSON.stringify(effects));
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            await saveToStore(key, storeData);
+        }
+        return changed;
+    }
+
+    /**
      * Title of the wallpaper restored from its persisted `applied` record.
      * @param {Object} applied
      * @returns {string}

@@ -34,7 +34,7 @@
     align-items: center;
     justify-content: center;
     gap: 10px;
-    font-weight: 500;
+    font-weight: 400;
   }
 
   /* Bar buttons (leading icon / body / trailing action) hug the left edge; plain
@@ -78,7 +78,7 @@
   }
 
   .btn_title {
-    font-weight: 500;
+    font-weight: 400;
     line-height: 20px;
     color: var(--text-primary);
   }

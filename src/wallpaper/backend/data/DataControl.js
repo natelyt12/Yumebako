@@ -734,9 +734,29 @@ export class DataControl {
 
     if (this._switchToken !== switchToken) return;
 
+    let collectionSnapshot = null;
+    if (sourceId !== "collection" && storedItems.length > 0) {
+      try {
+        collectionSnapshot = await getCollection();
+      } catch (err) {
+        console.error(
+          "[DataControl] Failed to read collection for effect sync:",
+          err,
+        );
+      }
+      if (this._switchToken !== switchToken) return;
+    }
+
     storedItems = storedItems.map((item) => {
       if (item) {
-        item.effects = normalizeWallpaperEffects(item.effects);
+        const entry =
+          collectionSnapshot && this.activeSource
+            ? findCollectionEntry(item, this.activeSource, collectionSnapshot)
+            : null;
+        const sourceEffects = entry?.effects
+          ? JSON.parse(JSON.stringify(entry.effects))
+          : item.effects;
+        item.effects = normalizeWallpaperEffects(sourceEffects);
       }
       return item;
     });
@@ -1457,25 +1477,91 @@ export class DataControl {
   }
 
   /**
-   * Mirror a card's effect profile onto its saved collection copy.
+   * Mirror a card's effect profile two-way between the personal collection and
+   * any matching item in the other sources' persisted stores.
    * @param {CardItem} card
    * @private
    */
   async _syncCollectionEffects(card) {
     if (!card?.effects) return;
 
+    const effectsCopy = JSON.parse(JSON.stringify(card.effects));
+
     try {
       if (this.activeSourceId === "collection") {
-        await updateCollectionItemEffects(card.id, card.effects);
+        await updateCollectionItemEffects(card.id, effectsCopy);
+
+        const collection = await getCollection();
+        const entry =
+          collection.find((it) => String(it.id) === String(card.id)) || card;
+
+        await Promise.all(
+          Array.from(this.sources.entries()).map(async ([sourceId, source]) => {
+            if (sourceId === "collection") return;
+            await this._syncEffectsToSourceStore(
+              sourceId,
+              source,
+              [entry],
+              effectsCopy,
+            );
+          }),
+        );
         return;
       }
+
+      // Dynamic sources (e.g. Bing) own their own store, so delegate effect persistence.
+      if (this.activeSource?.isDynamic) {
+        await this.activeSource.updateCachedEffects(
+          (item) => String(item.id) === String(card.id),
+          effectsCopy,
+        );
+      }
+
       const entry = await this.findCollectionEntryFor(card);
-      if (entry) await updateCollectionItemEffects(entry.id, card.effects);
+      if (entry) await updateCollectionItemEffects(entry.id, effectsCopy);
     } catch (err) {
       console.error(
         "[DataControl] Error syncing collection item effects:",
         err,
       );
+    }
+  }
+
+  /**
+   * Update `effects` on matching items inside a non-collection source's store.
+   * @param {string} sourceId
+   * @param {import("../sources/BaseSource.js").BaseSource} source
+   * @param {Array<Object>} collectionEntries
+   * @param {Object} effectsCopy
+   * @private
+   */
+  async _syncEffectsToSourceStore(
+    sourceId,
+    source,
+    collectionEntries,
+    effectsCopy,
+  ) {
+    if (source?.isDynamic) {
+      await source.updateCachedEffects(
+        (item) => Boolean(findCollectionEntry(item, source, collectionEntries)),
+        effectsCopy,
+      );
+      return;
+    }
+
+    const list = await getFromStore(`carousel:${sourceId}`);
+    if (!Array.isArray(list) || list.length === 0) return;
+
+    let changed = false;
+    for (const item of list) {
+      if (item && findCollectionEntry(item, source, collectionEntries)) {
+        item.effects = JSON.parse(JSON.stringify(effectsCopy));
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      await this._persistCards(sourceId, list);
     }
   }
 

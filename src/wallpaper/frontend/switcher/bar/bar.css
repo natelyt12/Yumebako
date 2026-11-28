@@ -172,7 +172,7 @@
     overflow: hidden;
     white-space: nowrap;
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 400;
     line-height: 28px;
     color: #ffffff;
     opacity: 0;
@@ -275,7 +275,7 @@
       0 0 1px rgba(0, 0, 0, 0.5);
     color: var(--text-primary);
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 400;
     padding: 0 14px;
     border-radius: 50px;
     white-space: nowrap;
@@ -352,7 +352,7 @@
      meta chip. Hidden on narrow viewports where the top bar runs out of room. */
   .wallpaper_preview_hint {
     font-size: 0.8em;
-    font-weight: 500;
+    font-weight: 400;
     color: var(--text-muted);
     white-space: nowrap;
     user-select: none;
@@ -409,7 +409,7 @@
     border: 1px solid var(--glass-border-sm);
     box-sizing: border-box;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--text-secondary);
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.5px;
@@ -607,7 +607,7 @@
     box-shadow: none;
     color: var(--text-secondary);
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 400;
     white-space: nowrap;
     display: flex;
     align-items: center;
@@ -626,7 +626,7 @@
   /* Giữ nguyên thứ tự tự nhiên của các nguồn (không switch lên đầu) */
   .wallpaper_source_tab.active {
     color: var(--ts-thumb-on-color, #454545);
-    font-weight: 600;
+    font-weight: 500;
   }
 
   /* Khoảng cách giữa các tab cạnh nhau khi mở rộng */
@@ -700,7 +700,7 @@
 
   .wallpaper_source_tab.active {
     color: var(--ts-thumb-on-color, #454545);
-    font-weight: 600;
+    font-weight: 500;
     background-color: transparent;
   }
 
@@ -723,7 +723,7 @@
     gap: 8px;
     border-radius: 9px;
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 400;
     white-space: nowrap;
     justify-content: center;
   }

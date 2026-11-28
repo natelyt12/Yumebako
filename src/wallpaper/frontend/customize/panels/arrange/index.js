@@ -70,7 +70,6 @@ export function openPositionEditorPopup(options = {}) {
         <button type="button" class="btn flex_1" id="hud_btn_reset">${t("bg_editor.btn_reset")}</button>
         <button type="button" class="btn btn_primary flex_1" id="hud_btn_apply">${t("bg_editor.btn_apply")}</button>
       </div>
-      <button type="button" class="btn hud_cancel_btn" id="hud_btn_cancel">${t("common.cancel")}</button>
     </div>
   `;
 
@@ -246,14 +245,6 @@ export function openPositionEditorPopup(options = {}) {
   // 7. Fit Mode toggle
   fitModeCheckbox.addEventListener("change", () => {
     currentState.mode = fitModeCheckbox.checked ? "contain" : "cover";
-    if (currentState.mode === "contain") {
-      currentState.zoom = 1;
-      currentState.x = 50;
-      currentState.y = 50;
-      sliderZoom.value = 1;
-      sliderX.value = 50;
-      sliderY.value = 50;
-    }
     syncSlidersDisabled();
     applyWallpaperPosition(currentState);
   });
@@ -332,10 +323,5 @@ export function openPositionEditorPopup(options = {}) {
     showNotification(t("common.saved_changes"), "success");
     applyWallpaperPosition(finalState);
     close(true);
-  });
-
-  // 11. Cancel & Close actions
-  hud.querySelector("#hud_btn_cancel")?.addEventListener("click", () => {
-    close(false);
   });
 }

@@ -218,7 +218,7 @@ function createTrackerDOM() {
         }
         .idb_title {
             font-size: 9.5px;
-            font-weight: 600;
+            font-weight: 500;
             letter-spacing: 0.08em;
             text-transform: uppercase;
             color: rgba(255, 255, 255, 0.6);
@@ -269,7 +269,7 @@ function createTrackerDOM() {
             background: transparent;
             color: #777;
             font-size: 10px;
-            font-weight: 500;
+            font-weight: 400;
             width: auto;
             height: 18px;
             transition: all 0.12s ease;
@@ -332,7 +332,7 @@ function createTrackerDOM() {
         }
         .idb_item_key {
             font-size: 10.5px;
-            font-weight: 500;
+            font-weight: 400;
             color: #f0f0f0;
             white-space: nowrap;
             overflow: hidden;
@@ -405,7 +405,7 @@ function createTrackerDOM() {
         }
         .idb_tooltip_title {
             font-size: 10px;
-            font-weight: 600;
+            font-weight: 500;
             color: #ffffff;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -509,7 +509,7 @@ function createTrackerDOM() {
         }
         .idb_pinned_title {
             font-size: 10px;
-            font-weight: 600;
+            font-weight: 500;
             color: #ffffff;
             overflow: hidden;
             text-overflow: ellipsis;

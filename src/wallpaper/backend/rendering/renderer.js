@@ -5,6 +5,7 @@ import {
   getDefaultWallpaperEffects,
 } from "/src/core/storageHandler.js";
 import { t } from "/src/core/i18n.js";
+import { extractM3ThemeFromImage } from "/src/core/materialColor.js";
 import { applyWallpaperFilters } from "./filter.js";
 import {
   applyWallpaperPosition,
@@ -138,6 +139,7 @@ class WallpaperRenderer {
     const newBlobUrl = URL.createObjectURL(data.blob);
     let naturalWidth = Number(data.width) || 0;
     let naturalHeight = Number(data.height) || 0;
+    let decodedImage = null;
 
     // Decode off the main thread to avoid frame hitches when swapping large images.
     if (data.type !== "video" && newBlobUrl) {
@@ -150,6 +152,7 @@ class WallpaperRenderer {
         if (decoder.naturalWidth > 0 && decoder.naturalHeight > 0) {
           naturalWidth = decoder.naturalWidth;
           naturalHeight = decoder.naturalHeight;
+          decodedImage = decoder;
         }
       } catch {
         // Fall back to regular browser decoding if Image.decode() fails.
@@ -236,7 +239,54 @@ class WallpaperRenderer {
       ui.overlay.style.opacity = 0;
     }
 
+    if (!isVideo) {
+      void this._applyM3GlassTheme(decodedImage || data.blob, token);
+    } else {
+      this._clearM3GlassTheme();
+    }
+
     return true;
+  }
+
+  /**
+   * Extract Material 3 tokens from the active wallpaper and apply them to root UI glass variables.
+   * @param {Blob|HTMLImageElement} source
+   * @param {number} token
+   * @private
+   */
+  async _applyM3GlassTheme(source, token) {
+    if (!source || typeof document === "undefined") return;
+    try {
+      const theme = await extractM3ThemeFromImage(source, { isDark: true });
+      if (token !== this._renderToken) return;
+
+      const rootStyle = document.documentElement.style;
+      rootStyle.setProperty("--background", theme.glass.panelBg);
+      rootStyle.setProperty("--bg-panel", theme.glass.panelBg);
+      rootStyle.setProperty("--bg-surface", theme.glass.surfaceBg);
+      rootStyle.setProperty("--bg-surface-act", theme.glass.surfaceActBg);
+      rootStyle.setProperty("--button", theme.glass.buttonBg);
+      rootStyle.setProperty("--button-hov", theme.glass.buttonHoverBg);
+      rootStyle.setProperty("--button-act", theme.glass.buttonActBg);
+    } catch (err) {
+      console.warn("[WallpaperRenderer] Failed to apply M3 glass theme:", err);
+    }
+  }
+
+  /**
+   * Clear M3 inline overrides so root CSS variables fall back to defaults.
+   * @private
+   */
+  _clearM3GlassTheme() {
+    if (typeof document === "undefined") return;
+    const rootStyle = document.documentElement.style;
+    rootStyle.removeProperty("--background");
+    rootStyle.removeProperty("--bg-panel");
+    rootStyle.removeProperty("--bg-surface");
+    rootStyle.removeProperty("--bg-surface-act");
+    rootStyle.removeProperty("--button");
+    rootStyle.removeProperty("--button-hov");
+    rootStyle.removeProperty("--button-act");
   }
 
   /**

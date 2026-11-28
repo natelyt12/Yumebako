@@ -46,7 +46,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: flex-start;
     overflow: visible;
     box-sizing: border-box;
     padding: 12px 0 20px 0;
@@ -81,7 +81,7 @@
     inset: 0;
     background-color: var(--bg-panel, rgba(8, 8, 14, 0.45));
     -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
-    backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+    backdrop-filter: blur(18px) saturate(180%) brightness(1.05);
     border-top: 1px solid rgba(255, 255, 255, 0.14);
     box-shadow:
       0 -8px 32px rgba(0, 0, 0, 0.25),
@@ -126,18 +126,20 @@
     box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.25);
   }
 
-  /* 1. Main View: giữ layout; hiệu ứng fade + lùi (recede) do component submenu
-     dùng chung đảm nhiệm (`core/ui/submenu.css` → `.submenu_main_view`), nên
-     view này tự chạy đúng theo `direction` mà không cần translate cứng.
+  /* Keep Manage clipped while the host shrinks back to its resting height */
+  .wallpaper_switcher_inner.manage_closing {
+    overflow: hidden !important;
+  }
 
-     `height: 100%` là bắt buộc: `translateY(-50%)` tính theo chiều cao của
-     chính nó. Nếu để auto (chỉ cao bằng nội dung ~510px) thì khi khung cha
-     morph lên 100vh, view này chỉ lùi ~255px trong khi panel con trượt 50%
-     của 100vh — hai bên lệch nhau. Cho nó cao bằng host thì mỗi frame cả hai
-     đi đúng cùng một quãng, đối xứng qua tâm. */
+  /* 1. Main View: giữ chiều cao cố định theo `--switcher-inner-height` và neo đáy
+     khung cha (`.wallpaper_switcher_inner` có `justify-content: flex-end` và
+     padding dọc 12px + 20px = 32px). Nhờ không dãn `height` theo khung cha khi
+     mở submenu, `translateY(-50%)` của `.submenu_main_view` chạy đúng một đường
+     cong `var(--expo_out)` thuần giống các section khác. */
   .wallpaper_switcher_main_view {
     width: 100%;
-    height: 100%;
+    height: calc(var(--switcher-inner-height, 546px) - 32px);
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -158,6 +160,23 @@
   .wallpaper_switcher_inner[data-submenu-type="customize"] .submenu_main_view {
     --submenu-recede-x: 0%;
     --submenu-recede-y: -40%;
+  }
+
+  /* Manage Submenu: host itself rises from 546px to 100vh, so the panel
+     stays pinned at top: 0 (--submenu-enter-y: 0%) to hug the top edge
+     throughout open/close, while the main view recedes -50% like Settings. */
+  .wallpaper_switcher_inner[data-submenu-type="manage"],
+  .wallpaper_switcher_inner[data-submenu-type="manage"] .submenu_view,
+  .wallpaper_switcher_inner[data-submenu-type="manage"] .settings_submenu_view {
+    --submenu-enter-x: 0%;
+    --submenu-enter-y: 0%;
+    --submenu-recede-x: 0%;
+    --submenu-recede-y: -50%;
+  }
+
+  .wallpaper_switcher_inner[data-submenu-type="manage"] .submenu_main_view {
+    --submenu-recede-x: 0%;
+    --submenu-recede-y: -50%;
   }
 
   /* 2. Submenu View: khung/kích thước/transition do `.submenu_view` dùng chung
@@ -194,7 +213,7 @@
   /* Keyboard affordance for the hold-to-preview shortcut. */
   .wallpaper_customize_preview_hint {
     font-size: 0.8em;
-    font-weight: 500;
+    font-weight: 400;
     color: var(--text-muted);
     white-space: nowrap;
     user-select: none;
@@ -233,7 +252,7 @@
   .wallpaper_manage_submenu_title,
   .wallpaper_customize_submenu_title {
     font-size: 15px;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--text-primary);
   }
 
